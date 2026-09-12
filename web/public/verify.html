@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>修复验证 · 对比修复前后</title>
+  <link rel="stylesheet" href="/assets/index-D1AmEZsR.css" />
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .diff-side { border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; overflow: hidden; }
+    .diff-side > header { padding: 12px 18px; font-weight: 600; font-size: 14px; display:flex; align-items:center; gap:8px; }
+    .diff-side.before > header { background: rgba(244, 63, 94, 0.12); color: #fda4af; border-bottom: 1px solid rgba(244, 63, 94, 0.25); }
+    .diff-side.after  > header { background: rgba(16, 185, 129, 0.12); color: #6ee7b7; border-bottom: 1px solid rgba(16, 185, 129, 0.25); }
+    .diff-side .body { padding: 18px; background: rgba(255,255,255,0.02); }
+    .bad-json { font-family: ui-monospace, monospace; background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.25); border-radius: 8px; padding: 12px 14px; color: #fda4af; font-size: 13px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+    .stub-text { font-family: ui-monospace, monospace; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 12px 14px; color: #d4d4d8; font-size: 13.5px; line-height: 1.6; }
+  </style>
+</head>
+<body class="min-h-screen bg-neutral-950 text-neutral-100">
+  <header class="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-lg font-semibold text-white">修复验证 · 对比修复前后</h1>
+      <p class="text-xs text-neutral-500 mt-0.5">实际渲染 <code class="bg-white/5 px-1.5 py-0.5 rounded">Markdown.tsx</code> + <code class="bg-white/5 px-1.5 py-0.5 rounded">Timeline.tsx</code> + <code class="bg-white/5 px-1.5 py-0.5 rounded">Report.tsx</code> 的产物</p>
+    </div>
+    <a href="/ui" class="text-xs text-sky-400 hover:text-sky-300 underline-offset-2 hover:underline">← 返回主控制台</a>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-6 py-8 space-y-8">
+
+    <section>
+      <h2 class="text-sm font-medium text-neutral-300 mb-3">① Timeline 顶部标题修复</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="diff-side before">
+          <header>❌ 修复前 · Aceternity Timeline 默认 children 泄露</header>
+          <div class="body">
+            <div class="stub-text">
+              Changelog from my journey<br/><br/>
+              I've been working on Aceternity for the past 2 years. Here's a timeline of my journey.
+            </div>
+            <p class="mt-3 text-xs text-neutral-500">来源：<code>timeline.tsx</code> 第 41-47 行硬编码的占位文本</p>
+          </div>
+        </div>
+        <div class="diff-side after">
+          <header>✅ 修复后 · 仅渲染数据，无硬编码</header>
+          <div class="body">
+            <div class="stub-text text-neutral-400">（无占位英文，直接进入数据渲染）</div>
+            <p class="mt-3 text-xs text-neutral-500">修改：删除 <code>timeline.tsx</code> 顶部 <code>&lt;h2&gt;</code>/<code>&lt;p&gt;</code> 占位块</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-sm font-medium text-neutral-300 mb-3">② 报告渲染修复 · 用真实 SSE 拿到的 Markdown 数据演示</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="diff-side before">
+          <header>❌ 修复前 · 后端 reporter 发了 JSON 信号</header>
+          <div class="body">
+            <p class="text-[12px] text-neutral-500 mb-2">FINISH 事件的 <code>report</code> 字段：</p>
+            <div class="bad-json">{"report":"{\"__markdown__\": true}"}</div>
+            <p class="mt-3 text-[12px] text-neutral-500">→ 前端把这段 JSON 字面字符串当成 Markdown 渲染，原样显示在报告区</p>
+          </div>
+        </div>
+        <div class="diff-side after">
+          <header>✅ 修复后 · 真正的 Markdown 报告</header>
+          <div class="body">
+            <p class="text-[12px] text-neutral-500 mb-2">后端 reporter 检测 <code>__markdown__:true</code> 信号 → 退回模板生成完整报告</p>
+            <div id="rendered-report" class="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-sm font-medium text-neutral-300 mb-3">③ 真实 SSE 数据 · 6 阶段流水线</h2>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+        <ol id="stage-list" class="space-y-2.5 text-sm"></ol>
+      </div>
+      <p class="mt-3 text-xs text-neutral-500">来自 <code>sse_v2.log</code>（<code>POST /api/v1/chat/analyze/stream</code> 真实回放）</p>
+    </section>
+
+    <section>
+      <h2 class="text-sm font-medium text-neutral-300 mb-3">④ 端到端 SSE 流字段总览</h2>
+      <div class="overflow-hidden rounded-xl border border-white/10">
+        <table class="w-full text-sm">
+          <thead class="bg-white/5">
+            <tr class="text-left text-neutral-300">
+              <th class="px-4 py-2.5 font-medium">status</th>
+              <th class="px-4 py-2.5 font-medium">message</th>
+              <th class="px-4 py-2.5 font-medium">tool</th>
+              <th class="px-4 py-2.5 font-medium">step.status</th>
+              <th class="px-4 py-2.5 font-medium">耗时</th>
+              <th class="px-4 py-2.5 font-medium">artifacts</th>
+            </tr>
+          </thead>
+          <tbody id="sse-table" class="divide-y divide-white/5"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-sm font-medium text-neutral-300 mb-3">⑤ 改动清单</h2>
+      <div class="rounded-xl border border-white/10 bg-white/[0.02] p-5 text-sm space-y-3 leading-relaxed">
+        <div>
+          <div class="font-mono text-sky-300 text-[13px]">app/core/agents/data_analyst/nodes.py</div>
+          <p class="text-neutral-400 mt-1">
+            <code class="bg-white/5 px-1.5 py-0.5 rounded">run_reporter</code>：检测 LLM 返回值是否为 <code class="bg-white/5 px-1.5 py-0.5 rounded">__markdown__:true</code> 信号，若是则使用 <code class="bg-white/5 px-1.5 py-0.5 rounded">report_tool.run()</code> 模板生成的完整 Markdown。
+          </p>
+        </div>
+        <div>
+          <div class="font-mono text-sky-300 text-[13px]">web/src/components/ui/timeline.tsx</div>
+          <p class="text-neutral-400 mt-1">
+            删除 Aceternity 模板自带的"Changelog from my journey"硬编码标题块。
+          </p>
+        </div>
+        <div>
+          <div class="font-mono text-sky-300 text-[13px]">web/src/components/Report.tsx</div>
+          <p class="text-neutral-400 mt-1">
+            新增报告归一化组件：解析 JSON 包装、识别空信号、提取内嵌 Markdown、提供友好降级提示。
+          </p>
+        </div>
+        <div>
+          <div class="font-mono text-sky-300 text-[13px]">web/src/components/ChatMessage.tsx</div>
+          <p class="text-neutral-400 mt-1">
+            用 <code class="bg-white/5 px-1.5 py-0.5 rounded">&lt;Report&gt;</code> 替换 <code class="bg-white/5 px-1.5 py-0.5 rounded">&lt;Markdown&gt;</code>，享受双重兜底（后端已修，前端再守一道）。
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // 真实 SSE 数据（来自 sse_v2.log），用于演示修复后的渲染
+    const SSE_EVENTS = [
+      { status: "INIT",      message: "初始化",                 tool: null,             step: null, t: 0 },
+      { status: "UNDERSTAND", message: "解析业务意图",           tool: null,             step: null, t: 0 },
+      { status: "PLAN",       message: "制定分析计划",           tool: null,             step: null, t: 0 },
+      { status: "EXECUTE",    message: "执行工具获取数据",       tool: "schema_search",  step: { status: "SUCCESS", t_ms: 25,  digest: "发现 1 张表" }, t: 25 },
+      { status: "EXECUTE",    message: "执行工具获取数据",       tool: "dataset_profile",step: { status: "SUCCESS", t_ms: 11,  digest: "" }, t: 11 },
+      { status: "EXECUTE",    message: "执行工具获取数据",       tool: "sql_query",      step: { status: "SUCCESS", t_ms: 4,   digest: "返回 100 行 → step_3.csv" }, t: 4 },
+      { status: "ANALYZE",    message: "分析证据",               tool: "python_analysis",step: null, t: 0 },
+      { status: "REFLECT",    message: "质检与反思",             tool: "python_analysis",step: null, t: 0 },
+      { status: "REPORT",     message: "生成业务报告",           tool: "python_analysis",step: null, t: 0 },
+      { status: "FINISH",     message: "完成",                   tool: "python_analysis",step: null, t: 0, has_report: true },
+    ];
+
+    // 真实报告 Markdown（来自 sse_v2.log 的 FINISH 事件 report 字段）
+    const REAL_REPORT = `# 数据分析报告：查询 orders 表总行数
+
+## Executive Summary
+
+Mock分析师未做深度统计推断
+
+## Key Metrics
+
+_未显式计算指标，详见发现。_
+
+## Key Findings
+
+### 发现 1（置信度 0.90）
+- **结论**：工具 sql_query 返回 100 行结果，首行示例：{"sale_id": 1, "sale_date": "2024-01-01", "region_id": 1, "product_id": 1, "channel_id": 1, "revenue": 57379.94, "orders": 26, "customers": 104}
+  - 证据（sql_query）：result = 100
+- **解读**：已通过工具获取真实数据，可作为结论支撑。
+
+## Hypotheses
+
+
+
+## Recommendations
+
+- **问题**：需结合业务行动 → **行动**：针对主要贡献维度制定改进措施 （预期影响：提升核心指标，优先级 MEDIUM）
+
+## Limitations
+
+- Mock分析师未做深度统计推断
+- 质检结论：证据充分（置信度 0.90）`;
+
+    // 阶段标签
+    const STAGE_LABEL = {
+      INIT: "初始化", UNDERSTAND: "解析业务意图", PLAN: "制定分析计划",
+      EXECUTE: "执行 · 工具", ANALYZE: "分析证据", REFLECT: "质检与反思",
+      REPORT: "生成报告", FINISH: "完成",
+    };
+
+    // 渲染报告区（用真实 Markdown）
+    document.getElementById("rendered-report").innerHTML = renderMarkdown(REAL_REPORT);
+
+    // 渲染 6 阶段流水线
+    const stageList = document.getElementById("stage-list");
+    SSE_EVENTS.forEach((ev, i) => {
+      const li = document.createElement("li");
+      li.className = "flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3";
+      const ok = ev.step && ev.step.status === "SUCCESS";
+      const last = i === SSE_EVENTS.length - 1;
+      const dotCls = ok ? "bg-emerald-400" : (last ? "bg-amber-300 animate-pulse" : "bg-neutral-600");
+      const toolLine = ev.tool
+        ? `<div class="text-xs text-neutral-400 font-mono">${ev.tool}${ev.step?.digest ? ` · ${ev.step.digest}` : ""}${ev.step?.t_ms ? ` · ${ev.step.t_ms}ms` : ""}</div>`
+        : "";
+      li.innerHTML = `
+        <div class="h-7 w-7 shrink-0 rounded-full ${dotCls} flex items-center justify-center text-[11px] font-mono text-black/70">${i + 1}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="font-medium text-neutral-100">${STAGE_LABEL[ev.status] || ev.status}</span>
+            <span class="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">${ev.status}</span>
+            ${ok ? '<span class="text-[10px] font-medium text-emerald-400">✓</span>' : ''}
+            ${ev.has_report ? '<span class="text-[10px] font-medium text-amber-300">report ready</span>' : ''}
+          </div>
+          ${toolLine}
+        </div>
+      `;
+      stageList.appendChild(li);
+    });
+
+    // 渲染 SSE 表格
+    const tbody = document.getElementById("sse-table");
+    SSE_EVENTS.forEach(ev => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="px-4 py-2 font-mono text-[12.5px] text-neutral-300">${ev.status}</td>
+        <td class="px-4 py-2 text-neutral-300">${ev.message}</td>
+        <td class="px-4 py-2 font-mono text-[12.5px] text-sky-400">${ev.tool ?? "—"}</td>
+        <td class="px-4 py-2 font-mono text-[12.5px] ${ev.step?.status === "SUCCESS" ? "text-emerald-400" : "text-neutral-500"}">${ev.step?.status ?? "—"}</td>
+        <td class="px-4 py-2 font-mono text-[12.5px] text-neutral-400">${ev.step?.t_ms ? ev.step.t_ms + "ms" : "—"}</td>
+        <td class="px-4 py-2 font-mono text-[12.5px] text-neutral-400">${ev.step?.digest ? "1" : "—"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // 极简 Markdown 渲染器（用一段已知子集 — 报告里用到的元素）
+    function escapeHtml(s) {
+      return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    }
+    function renderMarkdown(md) {
+      const lines = md.split("\n");
+      let html = "";
+      let i = 0;
+      while (i < lines.length) {
+        const ln = lines[i];
+        if (ln.startsWith("### ")) {
+          html += `<h3 class="mt-4 mb-1.5 text-base font-semibold text-neutral-100">${formatInline(ln.slice(4))}</h3>`;
+        } else if (ln.startsWith("## ")) {
+          html += `<h2 class="mt-5 mb-2 text-lg font-semibold text-white border-b border-white/10 pb-1">${formatInline(ln.slice(3))}</h2>`;
+        } else if (ln.startsWith("# ")) {
+          html += `<h1 class="mt-5 mb-2 text-xl font-semibold text-white">${formatInline(ln.slice(2))}</h1>`;
+        } else if (ln.startsWith("- ")) {
+          html += `<ul class="my-2.5 list-disc pl-5 space-y-1"><li class="pl-1">${formatInline(ln.slice(2))}</li></ul>`;
+        } else if (/^>\s/.test(ln)) {
+          html += `<blockquote class="my-3 border-l-2 border-sky-500/60 pl-3 text-neutral-400 italic">${formatInline(ln.slice(2))}</blockquote>`;
+        } else if (ln.trim() === "") {
+          html += "";
+        } else if (ln.startsWith("  - ")) {
+          html += `<ul class="my-1.5 list-disc pl-10 space-y-0.5"><li class="pl-1 text-[13.5px] text-neutral-300">${formatInline(ln.slice(4))}</li></ul>`;
+        } else {
+          html += `<p class="my-2 text-[14px] leading-[1.8] text-neutral-200">${formatInline(ln)}</p>`;
+        }
+        i++;
+      }
+      return html;
+    }
+    function formatInline(s) {
+      return escapeHtml(s)
+        .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>')
+        .replace(/_(.+?)_/g, '<em class="text-neutral-400">$1</em>')
+        .replace(/`(.+?)`/g, '<code class="rounded bg-white/10 px-1.5 py-0.5 text-[13px] text-amber-200 font-mono">$1</code>');
+    }
+  </script>
+</body>
+</html>

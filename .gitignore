@@ -1,0 +1,72 @@
+# ============================================================
+# 仓库只收「源码 / 文档 / 配置模板」，其余一律排除。
+# 口径与 .dockerignore 对齐（见该文件顶部说明），差异见下方注释。
+# 排除原则：可再生成（依赖、构建产物）、运行时数据、本地实验残留、含密钥的文件。
+# ============================================================
+
+# ---------- 密钥（最高优先级，任何情况下不得入库存到公开仓库） ----------
+.env
+.env.*
+!.env.example
+!.env.prod.example
+*.pem
+*.key
+secrets/
+credentials.json
+
+# ---------- Python 环境与缓存 ----------
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------- 前端依赖与产物 ----------
+**/node_modules/
+web/dist/
+web/dist_gone_*/
+web/.vite/
+web/test-results/
+web/playwright-report/
+web/reg_sidebar.json
+web/registry_tmp.json
+
+# ---------- 运行时数据（本地跑出来的，镜像与仓库都不收） ----------
+data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+milvus_lite/
+milvus_lite.db
+uploads/
+
+# ---------- 第三方参考资料（各自是独立 git 克隆，纳入会变嵌套仓库） ----------
+references/
+
+# ---------- 本地实验残留与日志 ----------
+tmp_*/
+tmp*
+*.log
+*.xml
+!pom.xml
+
+# ---------- 截图与设计稿（README/docs 未引用，属本地存档） ----------
+shots/
+ui-*.png
+
+# ---------- 编辑器 / IDE / 系统 ----------
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------- 工作记忆与 Agent 运行时目录 ----------
+.workbuddy/

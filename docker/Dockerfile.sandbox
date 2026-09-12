@@ -1,0 +1,12 @@
+# Python 沙箱执行镜像（python_analysis 工具的 Docker 后端）
+# 参考 DeepAnalyze docker_executor：非 root、无头 matplotlib。
+# 构建上下文即本目录（只含 Dockerfile，避免把整个项目发给 daemon）：
+#   docker build -f docker/Dockerfile.sandbox -t da-python-sandbox docker/
+FROM python:3.11-slim
+
+RUN pip install --no-cache-dir pandas numpy matplotlib scipy
+
+RUN useradd -u 1000 -m sandbox
+USER sandbox
+ENV MPLBACKEND=Agg PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8
+WORKDIR /sandbox

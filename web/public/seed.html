@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Loading /ui…</title>
+  <script>
+    const conversation = {
+      id: "demo_conv_1",
+      title: "统计各客户类别的消费占比与复购率",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [
+        {
+          id: "m1", role: "user", text: "统计各客户类别的消费占比与复购率，顺便看下我传的渠道表",
+          attachments: [
+            { id: "a1", name: "dim_channel.csv", mime: "text/csv", size: 20480, kind: "file" },
+            { id: "a2", name: "revenue-q3.xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: 153600, kind: "file" },
+          ],
+        },
+        {
+          id: "m2", role: "assistant", status: "FINISH", done: true,
+          objective: "统计各客户类别的消费占比与复购率",
+          events: [
+            { status: "INIT",      message: "初始化",           objective: "统计各客户类别的消费占比与复购率", tool: null,             last_result_ok: null, step: null, report: null },
+            { status: "UNDERSTAND", message: "解析业务意图",     objective: "统计各客户类别的消费占比与复购率", tool: null,             last_result_ok: null, step: null, report: null },
+            { status: "PLAN",       message: "制定分析计划",     objective: "统计各客户类别的消费占比与复购率", tool: null,             last_result_ok: null, step: null, report: null },
+            { status: "EXECUTE",    message: "执行工具获取数据", objective: "统计各客户类别的消费占比与复购率", tool: "schema_search",  last_result_ok: true, step: { step_id: "step_1", tool: "schema_search",  status: "SUCCESS", execution_time_ms: 21, attempts: 1, error: null, error_class: null, artifacts: 0, digest: "发现 4 张表" }, report: null },
+            { status: "EXECUTE",    message: "执行工具获取数据", objective: "统计各客户类别的消费占比与复购率", tool: "dataset_profile",last_result_ok: true, step: { step_id: "step_2", tool: "dataset_profile",status: "SUCCESS", execution_time_ms: 21, attempts: 1, error: null, error_class: null, artifacts: 0, digest: "" }, report: null },
+            { status: "EXECUTE",    message: "执行工具获取数据", objective: "统计各客户类别的消费占比与复购率", tool: "sql_query",      last_result_ok: true, step: { step_id: "step_3", tool: "sql_query",      status: "SUCCESS", execution_time_ms: 4,  attempts: 1, error: null, error_class: null, artifacts: 1, digest: "返回 3 行 → step_3.csv" }, report: null },
+            { status: "ANALYZE",    message: "分析证据",         objective: "统计各客户类别的消费占比与复购率", tool: "python_analysis",last_result_ok: true, step: null, report: null },
+            { status: "REFLECT",    message: "质检与反思",       objective: "统计各客户类别的消费占比与复购率", tool: "python_analysis",last_result_ok: true, step: null, report: null },
+            { status: "REPORT",     message: "生成业务报告",     objective: "统计各客户类别的消费占比与复购率", tool: "python_analysis",last_result_ok: true, step: null, report: null },
+            { status: "FINISH",     message: "完成",             objective: "统计各客户类别的消费占比与复购率", tool: "python_analysis",last_result_ok: true, step: null, report: "# 数据分析报告：统计各客户类别的消费占比与复购率\n\n## Executive Summary\n\nMock分析师未做深度统计推断\n\n## Key Metrics\n\n_未显式计算指标，详见发现。_\n\n## Key Findings\n\n### 发现 1（置信度 0.90）\n- **结论**：工具 sql_query 返回 3 行结果，首行示例：{\"channel_id\": 1, \"channel_name\": \"直销\"}\n  - 证据（sql_query）：result = 3\n- **解读**：已通过工具获取真实数据，可作为结论支撑。\n\n## Hypotheses\n\n\n## Recommendations\n\n- **问题**：需结合业务行动 → **行动**：针对主要贡献维度制定改进措施 （预期影响：提升核心指标，优先级 MEDIUM）\n\n## Limitations\n\n- Mock分析师未做深度统计推断\n- 质检结论：证据充分（置信度 0.90）" }
+          ],
+          text: "# 数据分析报告：统计各客户类别的消费占比与复购率\n\n## Executive Summary\n\nMock分析师未做深度统计推断\n\n## Key Metrics\n\n_未显式计算指标，详见发现。_\n\n## Key Findings\n\n### 发现 1（置信度 0.90）\n- **结论**：工具 sql_query 返回 3 行结果\n  - 证据（sql_query）：result = 3\n- **解读**：已通过工具获取真实数据，可作为结论支撑。\n\n### SQL 与数据预览\n\n```sql\nSELECT * FROM dim_channel LIMIT 100\n```\n\n*已只读执行并校验，返回 3 行。*\n\n预览： | channel_id | channel_name | | 1 | 直销 | | 2 | 合作伙伴 | | 3 | 线上 |\n\n## Hypotheses\n\n\n## Recommendations\n\n- **问题**：需结合业务行动 → **行动**：针对主要贡献维度制定改进措施 （预期影响：提升核心指标，优先级 MEDIUM）\n\n## Limitations\n\n- Mock分析师未做深度统计推断\n- 质检结论：证据充分（置信度 0.90）"
+        }
+      ]
+    };
+    localStorage.setItem("da_conversations_v1", JSON.stringify([conversation]));
+    location.replace("/ui#conv=demo_conv_1");
+  </script>
+</head>
+<body style="background:#0a0a0a;color:#a3a3a3;font-family:system-ui;padding:40px">
+  <p>注入演示对话 → 跳转 /ui …</p>
+</body>
+</html>

@@ -1,0 +1,21 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户(业务)
+    participant FE as React 前端(web/dist)
+    participant API as FastAPI /api/v1/chat/analyze/stream
+    participant DRV as stream_analysis 编排
+    participant EV as SSE 事件流
+
+    U->>FE: 输入业务问题并回车
+    FE->>API: POST {query, session_id, stream:true, history:最近12条}（fetch + AbortController）
+    API->>DRV: 逐节点驱动 AgentState
+    loop 每完成一个编排节点
+        DRV-->>EV: 状态快照(status/message/objective)
+        DRV-->>EV: EXECUTE 时附 step 明细(tool/digest/error/耗时)
+        DRV-->>EV: FINISH 时附 report
+        EV-->>FE: data:{...} (SSE)
+        FE-->>U: 实时渲染：阶段卡 → 工具轨迹(可展开日志) → 业务报告
+    end
+    FE-->>EV: [DONE]
+    Note over U,FE: 多轮对话：再次提问携带最近12条 + session_id；<br/>服务端按 session 追加短期记忆与长期结论
+    U->>FE: 点「停止」→ AbortController 中断本次分析

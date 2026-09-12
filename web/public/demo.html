@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>完整 UI 演示 · 真实对话样例</title>
+  <link rel="stylesheet" href="/assets/index-D1AmEZsR.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .layout { display: grid; grid-template-columns: 60px 280px 1fr; height: 100vh; }
+    .sidebar-icon {
+      width: 60px; background: #0a0a0a; border-right: 1px solid rgba(255,255,255,.06);
+      display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 18px;
+    }
+    .sidebar-icon .logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      display: grid; place-items: center; color: white; font-weight: 700;
+      box-shadow: 0 6px 24px -8px rgba(14,165,233,.5);
+    }
+    .sidebar-icon .icon-btn {
+      width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+      color: #a3a3a3; transition: .15s;
+    }
+    .sidebar-icon .icon-btn:hover { color: white; background: rgba(255,255,255,.06); }
+    .sidebar-icon .icon-btn.active { color: #7dd3fc; background: rgba(14,165,233,.12); }
+
+    .conv-list {
+      background: rgba(10,10,10,.6); border-right: 1px solid rgba(255,255,255,.06);
+      padding: 16px 12px; overflow-y: auto;
+    }
+    .conv-list h2 {
+      font-size: 11px; font-weight: 600; color: #737373; letter-spacing: .12em;
+      text-transform: uppercase; margin: 0 8px 10px;
+    }
+    .new-btn {
+      width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1);
+      background: linear-gradient(135deg, rgba(14,165,233,.15), rgba(99,102,241,.15));
+      color: white; font-size: 13px; font-weight: 500; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: .15s; margin-bottom: 12px;
+    }
+    .new-btn:hover { background: linear-gradient(135deg, rgba(14,165,233,.25), rgba(99,102,241,.25)); }
+    .conv-item {
+      padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: .12s;
+      display: flex; flex-direction: column; gap: 2px; position: relative;
+      border: 1px solid transparent;
+    }
+    .conv-item:hover { background: rgba(255,255,255,.04); }
+    .conv-item.active {
+      background: linear-gradient(135deg, rgba(14,165,233,.08), rgba(99,102,241,.04));
+      border-color: rgba(14,165,233,.3);
+    }
+    .conv-item .title { font-size: 13px; font-weight: 500; color: #e5e5e5; }
+    .conv-item.active .title { color: white; }
+    .conv-item .meta { font-size: 11px; color: #737373; }
+
+    .chat-area { background: #0a0a0a; display: flex; flex-direction: column; min-width: 0; }
+    .chat-header {
+      padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,.06);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .chat-header .title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #f5f5f5; }
+    .chat-header .status {
+      display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06);
+      font-size: 11px; color: #a3a3a3;
+    }
+    .chat-header .status .dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; }
+
+    .messages { flex: 1; overflow-y: auto; padding: 28px 20px 12px; }
+    .messages-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+    .user-bubble-wrap { display: flex; justify-content: flex-end; }
+    .user-bubble {
+      max-width: 78%; padding: 10px 14px;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: white; border-radius: 18px 18px 4px 18px;
+      font-size: 14px; line-height: 1.55;
+      box-shadow: 0 4px 18px -8px rgba(2,132,199,.6);
+    }
+
+    .bot-bubble-wrap { display: flex; gap: 12px; }
+    .bot-avatar {
+      width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      display: grid; place-items: center; color: white;
+      box-shadow: 0 4px 16px -6px rgba(14,165,233,.4);
+    }
+    .bot-body { min-width: 0; flex: 1; }
+    .bot-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .bot-name { font-size: 14px; font-weight: 600; color: #f5f5f5; }
+    .bot-status {
+      display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px;
+      font-size: 11px; font-weight: 500;
+    }
+    .bot-status.done { background: rgba(16,185,129,.1); color: #6ee7b7; }
+    .bot-status.busy { background: rgba(251,191,36,.1); color: #fcd34d; }
+
+    .timeline-card {
+      border: 1px solid rgba(255,255,255,.08); border-radius: 16px;
+      background: rgba(255,255,255,.015); padding: 18px 20px;
+    }
+    .timeline-card .timeline-row {
+      display: flex; gap: 14px; padding: 8px 0;
+      position: relative;
+    }
+    .timeline-card .timeline-row:not(:last-child)::after {
+      content: ""; position: absolute; left: 12px; top: 32px; bottom: -8px;
+      width: 1px; background: linear-gradient(180deg, rgba(14,165,233,.4), transparent);
+    }
+    .timeline-card .timeline-dot {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      display: grid; place-items: center;
+      background: #18181b; border: 1px solid rgba(255,255,255,.1);
+      font-size: 10px; font-weight: 700; color: #a3a3a3; font-family: ui-monospace, monospace;
+      z-index: 1;
+    }
+    .timeline-card .timeline-dot.ok { background: rgba(16,185,129,.15); color: #6ee7b7; border-color: rgba(16,185,129,.3); }
+    .timeline-card .timeline-dot.tool { background: rgba(14,165,233,.15); color: #7dd3fc; border-color: rgba(14,165,233,.3); }
+    .timeline-card .timeline-body { flex: 1; min-width: 0; }
+    .timeline-card .timeline-title {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-size: 13.5px;
+    }
+    .timeline-card .timeline-stage { color: #e5e5e5; font-weight: 500; }
+    .timeline-card .timeline-tag {
+      font-size: 10px; font-family: ui-monospace, monospace; padding: 1.5px 7px;
+      border-radius: 4px; background: rgba(255,255,255,.04); color: #a3a3a3;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .timeline-card .timeline-tool-line {
+      margin-top: 5px; font-size: 12.5px; font-family: ui-monospace, monospace;
+      color: #737373; padding-left: 2px;
+    }
+    .timeline-card .timeline-tool-line .tool-name { color: #7dd3fc; }
+    .timeline-card .timeline-tool-line .digest { color: #a3a3a3; }
+    .timeline-card .timeline-tool-line .ms { color: #52525b; }
+    .timeline-card .timeline-card-inner {
+      margin-top: 8px; padding: 10px 12px;
+      background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.06);
+      border-radius: 10px; font-size: 12.5px; line-height: 1.6; color: #d4d4d8;
+    }
+    .timeline-card .timeline-card-inner.amber {
+      background: rgba(251,191,36,.05); border-color: rgba(251,191,36,.18); color: #fde68a;
+    }
+
+    .report-card {
+      margin-top: 16px;
+      border: 1px solid rgba(255,255,255,.08); border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.005));
+      padding: 20px; box-shadow: 0 8px 28px -16px rgba(0,0,0,.5);
+    }
+    .report-card .report-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .report-card .report-head .label {
+      font-size: 11px; font-weight: 600; color: #737373; letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .report-card .report-actions { display: flex; gap: 4px; }
+    .report-card .report-actions .act {
+      display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+      border-radius: 7px; font-size: 11.5px; color: #a3a3a3;
+      cursor: pointer; transition: .12s;
+    }
+    .report-card .report-actions .act:hover { background: rgba(255,255,255,.07); color: white; }
+
+    /* Markdown 渲染样式（继承自 da-markdown） */
+    .da-markdown { font-size: 14.5px; line-height: 1.8; color: #e5e5e5; }
+    .da-markdown h1 { margin: 14px 0 8px; font-size: 19px; font-weight: 600; color: white; }
+    .da-markdown h2 { margin: 18px 0 8px; font-size: 16.5px; font-weight: 600; color: white; border-bottom: 1px solid rgba(255,255,255,.08); padding-bottom: 4px; }
+    .da-markdown h3 { margin: 14px 0 6px; font-size: 14.5px; font-weight: 600; color: #f5f5f5; }
+    .da-markdown p { margin: 8px 0; }
+    .da-markdown ul { margin: 8px 0; padding-left: 22px; list-style: disc; }
+    .da-markdown ul li { padding-left: 2px; margin: 2px 0; }
+    .da-markdown code { background: rgba(255,255,255,.08); padding: 1.5px 6px; border-radius: 4px; font-size: 12.5px; color: #fcd34d; font-family: ui-monospace, monospace; }
+    .da-markdown strong { font-weight: 600; color: white; }
+    .da-markdown em { color: #a3a3a3; }
+
+    .composer-wrap { padding: 18px 20px 24px; border-top: 1px solid rgba(255,255,255,.06); background: rgba(10,10,10,.4); }
+    .composer-inner { max-width: 760px; margin: 0 auto; }
+    .composer {
+      display: flex; align-items: end; gap: 10px;
+      border: 1px solid rgba(255,255,255,.1); border-radius: 16px;
+      padding: 12px 14px; background: rgba(255,255,255,.03);
+      transition: .15s;
+    }
+    .composer:focus-within { border-color: rgba(14,165,233,.4); background: rgba(255,255,255,.04); }
+    .composer input {
+      flex: 1; background: transparent; border: 0; outline: none;
+      color: white; font-size: 14px;
+    }
+    .composer input::placeholder { color: #52525b; }
+    .composer .send {
+      width: 36px; height: 36px; border-radius: 10px; border: 0;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      color: white; cursor: pointer; display: grid; place-items: center;
+      box-shadow: 0 4px 14px -4px rgba(14,165,233,.6);
+    }
+    .composer .send:hover { transform: translateY(-1px); }
+  </style>
+</head>
+<body class="bg-neutral-950 text-neutral-100">
+  <div class="layout">
+
+    <!-- 左侧图标栏（60px，Aceternity Sidebar 收拢态） -->
+    <aside class="sidebar-icon">
+      <div class="logo">DA</div>
+      <div class="icon-btn active" title="对话">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="icon-btn" title="新对话">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+      <div class="icon-btn" title="文档">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      </div>
+      <div class="icon-btn" title="设置">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+    </aside>
+
+    <!-- 中间会话列表 -->
+    <aside class="conv-list">
+      <h2>对话</h2>
+      <button class="new-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+        新建对话
+      </button>
+      <div class="conv-item active">
+        <div class="title">统计各客户类别的消费占比...</div>
+        <div class="meta">刚刚 · 6 阶段 · 3 工具</div>
+      </div>
+      <div class="conv-item">
+        <div class="title">对比各区域营收表现</div>
+        <div class="meta">5 分钟前</div>
+      </div>
+      <div class="conv-item">
+        <div class="title">查询 orders 表的总行数</div>
+        <div class="meta">12 分钟前</div>
+      </div>
+    </aside>
+
+    <!-- 右侧对话区 -->
+    <main class="chat-area">
+      <header class="chat-header">
+        <div class="title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M12 2L9.5 8.5 2 10l5.5 5.5L6 23l6-4 6 4-1.5-7.5L22 10l-7.5-1.5z"/></svg>
+          统计各客户类别的消费占比与复购率
+        </div>
+        <div class="status">
+          <span class="dot"></span>
+          deepseek-chat · 实时
+        </div>
+      </header>
+
+      <div class="messages">
+        <div class="messages-inner">
+
+          <!-- 用户消息 -->
+          <div class="user-bubble-wrap">
+            <div class="user-bubble">统计各客户类别的消费占比与复购率</div>
+          </div>
+
+          <!-- 助手回复 -->
+          <div class="bot-bubble-wrap">
+            <div class="bot-avatar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
+            </div>
+            <div class="bot-body">
+              <div class="bot-meta">
+                <span class="bot-name">数据分析智能体</span>
+                <span class="bot-status done">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  已完成
+                </span>
+              </div>
+
+              <!-- 6 阶段时间线（修复后：无顶部"Changelog"硬编码） -->
+              <div class="timeline-card">
+                <div class="timeline-row">
+                  <div class="timeline-dot">1</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">初始化</span>
+                      <span class="timeline-tag">INIT</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot">2</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">解析业务意图</span>
+                      <span class="timeline-tag">UNDERSTAND</span>
+                    </div>
+                    <div class="timeline-card-inner">业务目标 · 统计各客户类别的消费占比与复购率</div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot">3</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">制定分析计划</span>
+                      <span class="timeline-tag">PLAN</span>
+                    </div>
+                    <div class="timeline-card-inner">
+                      <svg style="display:inline;vertical-align:-3px" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M12 2L9.5 8.5 2 10l5.5 5.5L6 23l6-4 6 4-1.5-7.5L22 10l-7.5-1.5z"/></svg>
+                      已生成分析计划，将依次调用工具取证。
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot tool">4</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">执行 · schema_search</span>
+                      <span class="timeline-tag">EXECUTE</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <div class="timeline-tool-line">
+                      <span class="tool-name">schema_search</span>
+                      <span class="digest">· 发现 4 张表</span>
+                      <span class="ms">· 21ms</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot tool">5</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">执行 · dataset_profile</span>
+                      <span class="timeline-tag">EXECUTE</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <div class="timeline-tool-line">
+                      <span class="tool-name">dataset_profile</span>
+                      <span class="ms">· 21ms</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot tool">6</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">执行 · sql_query</span>
+                      <span class="timeline-tag">EXECUTE</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <div class="timeline-tool-line">
+                      <span class="tool-name">sql_query</span>
+                      <span class="digest">· 返回 3 行 → step_3.csv</span>
+                      <span class="ms">· 4ms</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot">7</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">分析证据</span>
+                      <span class="timeline-tag">ANALYZE</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot">8</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">质检与反思</span>
+                      <span class="timeline-tag">REFLECT</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot">9</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">生成业务报告</span>
+                      <span class="timeline-tag">REPORT</span>
+                    </div>
+                    <div class="timeline-card-inner amber">正在撰写业务报告…</div>
+                  </div>
+                </div>
+                <div class="timeline-row">
+                  <div class="timeline-dot ok">✓</div>
+                  <div class="timeline-body">
+                    <div class="timeline-title">
+                      <span class="timeline-stage">完成</span>
+                      <span class="timeline-tag">FINISH</span>
+                    </div>
+                    <div class="timeline-card-inner">分析完成，报告已生成。</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 报告卡片（修复后：渲染真正的 Markdown，不是 JSON 信号） -->
+              <div class="report-card">
+                <div class="report-head">
+                  <span class="label">分析报告</span>
+                  <div class="report-actions">
+                    <span class="act">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      复制
+                    </span>
+                    <span class="act">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-6 0v4M5 9h14l1 12H4z"/></svg>
+                    </span>
+                    <span class="act">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                    </span>
+                  </div>
+                </div>
+                <div class="da-markdown" id="report-body"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="composer-inner">
+          <div class="composer">
+            <input placeholder="问点什么产品的销售额异常波动？解释原因" />
+            <button class="send">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // 真实报告（来自 sse_demo.log）
+    const REPORT_MD = `# 数据分析报告：统计各客户类别的消费占比与复购率
+
+## Executive Summary
+
+Mock分析师未做深度统计推断
+
+## Key Metrics
+
+_未显式计算指标，详见发现。_
+
+## Key Findings
+
+### 发现 1（置信度 0.90）
+- **结论**：工具 sql_query 返回 3 行结果，首行示例：{"channel_id": 1, "channel_name": "直销"}
+  - 证据（sql_query）：result = 3
+- **解读**：已通过工具获取真实数据，可作为结论支撑。
+
+## Hypotheses
+
+
+
+## Recommendations
+
+- **问题**：需结合业务行动 → **行动**：针对主要贡献维度制定改进措施 （预期影响：提升核心指标，优先级 MEDIUM）
+
+## Limitations
+
+- Mock分析师未做深度统计推断
+- 质检结论：证据充分（置信度 0.90）`;
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    }
+    function formatInline(s) {
+      return escapeHtml(s)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/_(.+?)_/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, '<code>$1</code>');
+    }
+    function renderMarkdown(md) {
+      const lines = md.split("\n");
+      let html = "", i = 0;
+      while (i < lines.length) {
+        const ln = lines[i];
+        if (ln.startsWith("### "))      html += `<h3>${formatInline(ln.slice(4))}</h3>`;
+        else if (ln.startsWith("## ")) html += `<h2>${formatInline(ln.slice(3))}</h2>`;
+        else if (ln.startsWith("# "))  html += `<h1>${formatInline(ln.slice(2))}</h1>`;
+        else if (ln.startsWith("  - ")) html += `<ul style="margin:6px 0 6px 28px;list-style:disc"><li style="font-size:13.5px;color:#a3a3a3">${formatInline(ln.slice(4))}</li></ul>`;
+        else if (ln.startsWith("- "))   html += `<ul><li>${formatInline(ln.slice(2))}</li></ul>`;
+        else if (ln.trim() === "")      html += "";
+        else                            html += `<p>${formatInline(ln)}</p>`;
+        i++;
+      }
+      return html;
+    }
+    document.getElementById("report-body").innerHTML = renderMarkdown(REPORT_MD);
+  </script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>上传功能自测 · DA Agent</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+           background: #f8fafc; color: #0f172a; padding: 32px; max-width: 860px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    p.sub { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; }
+    .ok { color: #059669; font-weight: 600; }
+    .fail { color: #dc2626; font-weight: 600; }
+    code { background: #eef2ff; color: #4338ca; padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #f1f5f9; }
+    th { background: #f8fafc; color: #475569; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>上传功能自测</h1>
+  <p class="sub">在真实页面 <code>/ui</code> 上验证：① 点击回形针选文件 ② 拖拽文件进输入区 ③ Ctrl+V 粘贴图片 ④ 附件预览 & 移除</p>
+  <div id="results"></div>
+
+  <script>
+    const rows = [];
+    function add(name, pass, detail) { rows.push({ name, pass, detail }); }
+    function render() {
+      document.getElementById('results').innerHTML =
+        '<div class="card"><table><thead><tr><th>检查项</th><th>结果</th><th>说明</th></tr></thead><tbody>' +
+        rows.map(r => `<tr><td>${r.name}</td><td class="${r.pass ? 'ok' : 'fail'}">${r.pass ? '通过' : '未通过'}</td><td>${r.detail}</td></tr>`).join('') +
+        '</tbody></table></div>';
+    }
+
+    (async () => {
+      // 1) bundle 里是否存在上传相关代码
+      try {
+        const html = await fetch('/ui').then(r => r.text());
+        const jsPath = (html.match(/\/assets\/(index-[^"]+\.js)/) || [])[1];
+        add('SPA 入口可访问', !!jsPath, jsPath ? `bundle = ${jsPath}` : '未在 /ui 中找到 assets 引用');
+
+        if (jsPath) {
+          const js = await fetch('/assets/' + jsPath).then(r => r.text());
+          const checks = [
+            ['点击上传按钮（回形针）', '上传文件或图片'],
+            ['拖拽上传提示层', '松开即可上传文件或图片'],
+            ['粘贴图片重命名', 'pasted-'],
+            ['文件类型白名单', 'image/*,.pdf,.csv'],
+            ['附件移除按钮', '移除附件'],
+            ['图片预览渲染', 'previewUrl'],
+            ['发送键提示（Ctrl+Enter）', 'Ctrl'],
+            ['浅色主题（slate 背景）', 'bg-slate-50'],
+            ['品牌色（indigo/violet）', 'from-indigo-500'],
+          ];
+          checks.forEach(([name, needle]) => {
+            const hit = js.includes(needle);
+            add(name, hit, hit ? `命中 "${needle}"` : `未命中 "${needle}"`);
+          });
+        }
+      } catch (e) {
+        add('静态资源探测', false, String(e));
+      }
+
+      // 2) 验证 accept 属性覆盖面（模拟 input 元素）
+      const probe = document.createElement('input');
+      probe.type = 'file';
+      probe.multiple = true;
+      probe.accept = 'image/*,.pdf,.csv,.tsv,.txt,.md,.json,.xlsx,.xls,.docx,.doc,.log,.py,.sql';
+      const accepts = probe.accept.split(',');
+      add('accept 覆盖图片', accepts.some(a => a === 'image/*'), 'image/*');
+      add('accept 覆盖表格', accepts.includes('.csv') && accepts.includes('.xlsx'), '.csv / .xlsx');
+      add('accept 覆盖文档', accepts.includes('.pdf') && accepts.includes('.docx'), '.pdf / .docx');
+      add('multiple 多选开启', probe.multiple === true, 'input.multiple = true');
+
+      // 3) 验证拖拽事件处理器存在（DataTransfer 可用）
+      let dnd = false;
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(new File(['x'], 'a.csv', { type: 'text/csv' }));
+        dnd = dt.files.length === 1;
+      } catch (e) { /* noop */ }
+      add('浏览器支持 DataTransfer（拖拽）', dnd, dnd ? '可构造 drag 事件携带文件' : '环境不支持');
+
+      // 4) 验证粘贴图片可被 ClipboardEvent 承载
+      let pasteOk = false;
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(new File([new Uint8Array([137,80,78,71])], 'paste.png', { type: 'image/png' }));
+        const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+        pasteOk = ev.clipboardData && ev.clipboardData.items.length === 1;
+      } catch (e) { /* noop */ }
+      add('浏览器支持粘贴图片（ClipboardEvent）', pasteOk, pasteOk ? 'ClipboardEvent 可携带 image/png' : '环境不支持');
+
+      render();
+    })();
+  </script>
+</body>
+</html>

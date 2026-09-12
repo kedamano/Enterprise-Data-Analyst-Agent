@@ -1,0 +1,32 @@
+# Core web / orchestration
+fastapi>=0.110
+python-multipart>=0.0.9
+uvicorn[standard]>=0.29
+pydantic>=2.7
+pydantic-settings>=2.3
+tenacity>=8.3
+loguru>=0.7
+
+# Data stack (analytical queries + Python sandbox)
+sqlalchemy>=2.0
+pandas>=2.0
+numpy>=1.26
+matplotlib>=3.8
+scipy>=1.11        # E5/01：统计检验（t 检验/卡方/比例检验）由分析师脚本使用
+
+# LLM gateway (OpenAI-compatible)
+openai>=1.30
+# Optional: LangGraph graph definition (graph.build_graph)
+langgraph>=0.2
+
+# Knowledge base / RAG (optional – graceful fallback if absent)
+pymilvus>=2.4
+redis>=5.0
+sentence-transformers>=2.7
+pypdf>=4.0
+unstructured>=0.13
+
+# App metadata store (optional)
+psycopg2-binary>=2.9
+# MySQL 方言驱动（SQLAlchemy mysql+pymysql://…）；只读守卫/跨方言 live 验证需要
+pymysql>=1.1

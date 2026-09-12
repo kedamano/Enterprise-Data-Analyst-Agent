@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ===== 设计令牌（浅色主题，对齐参考图的明亮质感） ===== */
+:root {
+  --background: 210 20% 98%;        /* 接近 #fafbfc */
+  --foreground: 222 47% 11%;        /* slate-900 附近 */
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  --primary: 244 75% 57%;          /* indigo-600 */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 220 14% 96%;
+  --muted-foreground: 215 16% 47%;
+
+  --accent: 262 83% 58%;           /* violet-600 */
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 244 75% 57%;
+
+  --radius: 0.75rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 细腻滚动条（浅色） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(220 13% 80%);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 13% 70%);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 极淡点阵纹理 —— 浅色版 */
+.bg-dotgrid {
+  background-image: radial-gradient(
+    hsl(220 13% 88% / 0.6) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+/* 一次性入场动画：用 CSS 而非 JS 编排，即使动画被打断也能回到可见状态。
+   注意：基础态即为「可见」，动画只作为锦上添花——避免 fill-mode 把元素
+   在动画未跑完时锁死在 opacity:0（无头截图 / 弱性能设备上会白屏）。 */
+@keyframes daFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.da-fade-up {
+  animation: daFadeUp 0.5s ease-out backwards;
+}
+
+.da-fade-up button {
+  animation: daFadeUp 0.45s ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .da-fade-up,
+  .da-fade-up button {
+    animation: none;
+  }
+}

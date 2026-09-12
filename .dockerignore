@@ -1,0 +1,54 @@
+# 构建上下文瘦身（Dockerfile.prod 只 COPY：app/ scripts/ web/dist/）
+#
+# 没有这个文件时，`docker build` 会把整个项目（含 data/ 107MB、references/ 333MB、
+# web/node_modules 357MB、各种 tmp_*/日志）作为 context 发给 daemon —— 上传极慢，
+# 也让构建在低配机器上失败。镜像本体与 context 是两件事，这里只砍 context。
+#
+# ⚠️ 不要忽略 `web/dist`：Dockerfile.prod 会 COPY 它（UI 静态资源）。
+
+# VCS / CI / 编辑器
+.git
+.gitignore
+.github
+.idea
+.vscode
+*.swp
+
+# Python 环境与缓存
+.venv
+venv
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# 前端依赖与测试产物（保留 web/dist）
+**/node_modules/
+web/test-results/
+web/playwright-report/
+web/.vite/
+
+# 数据与参考资料（镜像运行时自建 data/ 子目录，不 COPY 仓库里的 data/）
+data/
+references/
+shots/
+
+# 文档与工作记忆（不进镜像）
+docs/
+.workbuddy/
+
+# 临时/本地实验产物与日志
+tmp_*/
+tmp*
+*.log
+*.db
+*.db-journal
+*.png
+*.jpg
+milvus_lite/
+milvus_lite.db/

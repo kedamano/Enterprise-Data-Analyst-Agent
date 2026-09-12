@@ -1,0 +1,50 @@
+sequenceDiagram
+    autonumber
+    participant G as Driver(stream_analysis)
+    participant CTX as run_context
+    participant PLN as run_planner
+    participant EXE as run_executor
+    participant TL as Tools(7)·审计/沙箱
+    participant ANA as run_analyst
+    participant RFL as run_reflection
+    participant RPT as run_reporter
+    participant LLM as LLM 网关(路由/熔断/4xx快败)
+    participant M as 记忆+Trace+Checkpoint
+
+    G->>G: trace_run(session_id) 开始
+    G->>CTX: status=UNDERSTAND
+    CTX->>M: 召回 history(滚动摘要)+长期结论/教训
+    CTX->>LLM: context.md + <user_request>（JSON 约束）
+    LLM-->>CTX: ContextModel(objective/metrics/dims)
+    alt clarification_required
+        CTX-->>G: status=ERROR（返回澄清问题，结束）
+    else
+        CTX-->>G: context 就绪
+    end
+    G->>PLN: status=PLAN
+    PLN->>LLM: planner.md（REPLAN 时附上一轮失败回注）
+    LLM-->>PLN: PlanModel steps[tool/deps/成功判据]
+    loop 逐条执行计划步骤
+        G->>EXE: status=EXECUTE
+        EXE->>TL: execute_tool(确定性参数合成→校验→执行)
+        TL-->>EXE: ToolResult(sql→CSV物化 / Python→沙箱产物)
+        EXE-->>G: step 事件(step_id/digest/error)
+    end
+    G->>ANA: status=ANALYZE
+    ANA->>LLM: analyst.md（证据化发现/假设/建议）
+    LLM-->>ANA: AnalysisResult(findings[evidence])
+    G->>RFL: status=REFLECT
+    RFL->>LLM: reflection.md（六维质检）
+    LLM-->>RFL: decision=PASS/REPLAN/FAIL + missing_evidence
+    alt PASS
+        RFL-->>G: status=REPORT
+    else REPLAN 且 未达上限 且 非空转
+        RFL-->>G: status=REPLAN（→回 PLN，带 replan_objectives）
+    else FAIL / 超限 / 无进展
+        RFL-->>G: status=FAILED（尽力出兜底报告）
+    end
+    G->>RPT: status=REPORT → FINISH
+    RPT->>LLM: reporter.md（模板+润色）
+    LLM-->>RPT: 业务报告
+    RPT->>M: 持久化 last_analysis/history≤20/lessons≤5/<br/>analysis_summary或lesson / checkpoint / trace+token
+    G-->>客户端: FINISH + report（SSE）

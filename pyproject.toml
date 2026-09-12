@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enterprise-data-analyst-agent"
+version = "0.1.0"
+description = "企业级数据分析 Agent：Context → Planner → Executor → Analyst → Reflection → Reporter 自适应编排"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "tenacity>=8.3",
+    "loguru>=0.7",
+    "sqlalchemy>=2.0",
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+    "openai>=1.30",
+    "langgraph>=0.2",
+]
+
+[project.optional-dependencies]
+rag = ["pymilvus>=2.4", "redis>=5.0", "sentence-transformers>=2.7", "pypdf>=4.0", "unstructured>=0.13"]
+pg = ["psycopg2-binary>=2.9"]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md"]
+
+[tool.pytest.ini_options]
+# 仓库根目录里 clone 了 DeepAnalyze / ai-agent-interview-guide 等参考项目，
+# pytest 默认会递归扫它们的 tests/ —— 必须明确排除，否则采集阶段就一堆 import error。
+norecursedirs = ["references", "data", "web", "scripts", "node_modules", ".venv", "venv", ".idea", "docker"]
+# 默认只跑我们自己的 tests/；live / real LLM 测试通过 -m live 显式启用。
+testpaths = ["tests"]
+markers = [
+    "live: 需要外部服务（Postgres/Milvus/Redis/Docker/OpenRouter 等），本地默认 skip。",
+]

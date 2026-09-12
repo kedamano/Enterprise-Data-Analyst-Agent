@@ -1,0 +1,52 @@
+# E7/01 生产镜像（多阶段 · 目标 <2GB）
+#
+# 与开发用 Dockerfile 的区别：
+#   1) 多阶段：依赖在 builder 装好，runtime 只带 venv + 源码（不含编译器与缓存）
+#   2) 非 root 运行；带 HEALTHCHECK
+#   3) 不进镜像：tests/、docs/、.git、.venv、node_modules
+#   4) UI 用**预构建**的 web/dist（镜像里不装 node —— 构建产物由 CI 或本机 `npm run build` 生成）
+#
+# 构建：
+#   cd web && npm run build && cd ..
+#   docker build -f Dockerfile.prod -t da-analyst:prod .
+
+# ---------- builder ----------
+FROM python:3.11-slim AS builder
+WORKDIR /build
+COPY requirements.txt .
+# <2GB 目标：默认**不装** sentence-transformers（它会拉 torch，单这一项就把镜像推到 >2GB）。
+# 检索自动降级为 BM25 —— 代码本就支持（见 config.embed_load_timeout_s 的降级路径）。
+# 需要向量检索时：docker build --build-arg WITH_EMBEDDINGS=1 ...
+ARG WITH_EMBEDDINGS=0
+RUN if [ "$WITH_EMBEDDINGS" = "1" ]; then cp requirements.txt /tmp/req.txt; \
+    else grep -v '^sentence-transformers' requirements.txt > /tmp/req.txt; fi \
+ && pip install --no-cache-dir --prefix=/install -r /tmp/req.txt
+
+# ---------- runtime ----------
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=utf-8 \
+    MPLBACKEND=Agg \
+    ENVIRONMENT=production
+
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+COPY app/ ./app/
+COPY scripts/ ./scripts/
+# UI 静态资源（先在本机/CI 执行 `npm run build`）
+COPY web/dist/ ./web/dist/
+
+# 可写目录（工具产物/检查点/审计）+ 非 root 用户
+RUN useradd -u 1000 -m appuser \
+ && mkdir -p data/artifacts data/checkpoints data/audit data/traces \
+ && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,sys; \
+sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).status==200 else 1)"
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
