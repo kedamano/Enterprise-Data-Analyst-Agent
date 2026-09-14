@@ -100,14 +100,25 @@ def build_system_message(stage: str) -> str:
     )
 
 
-def build_user_message(user_query: str, task_context: dict) -> str:
+def build_user_message(user_query: str, task_context: dict,
+                       budget_tokens: int = 0) -> str:
     """STRUCTURED INPUT + USER CONTENT, with the user query fenced as data.
 
     The raw user query goes inside a delimited ``<user_request>`` block so it
     can never be confused with instructions; the structured payload (schema,
     plan, tool results, ...) sits in a separate ``<task_context>`` block.
+
+    D42：``budget_tokens > 0`` 时按预算**强制压缩** ``task_context``
+    （见 `prompts/budget.py`）。压缩发生在**序列化之前**，所以 JSON 围栏始终合法；
+    且**用户问题永远不截断**——截了就不是同一个问题了。
+    压缩说明会写进 ``<context_budget>`` 块（**给模型也给人看**，不许只在日志里）。
     """
-    return (
+    notes: list[str] = []
+    if budget_tokens and budget_tokens > 0:
+        from .budget import enforce_context_budget
+
+        task_context, notes = enforce_context_budget(task_context, budget_tokens)
+    body = (
         "<user_request>\n"
         + _neutralize(user_query)
         + "\n</user_request>\n\n"
@@ -115,3 +126,11 @@ def build_user_message(user_query: str, task_context: dict) -> str:
         + _json.dumps(task_context, ensure_ascii=False, default=str)
         + "\n</task_context>"
     )
+    if notes:
+        body += (
+            "\n\n<context_budget>\n"
+            "因上下文预算，部分内容已压缩（**如实告知，不是没数据**）：\n"
+            + "\n".join(f"- {n}" for n in notes)
+            + "\n</context_budget>"
+        )
+    return body

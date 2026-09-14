@@ -94,8 +94,46 @@ def sql_of_step(step_id: str, results: list[ToolResult]) -> tuple[str, str, list
     return sql, "", list(rows[:10])
 
 
+def trace_coverage(findings: list[Any], results: list[ToolResult]) -> dict:
+    """**唯一的溯源口径**：数值 claim 数 / 可溯源数 / 覆盖率 / 疑似幻觉率。
+
+    离线（`app/eval/runner`）与在线（`/trace` API、SSE FINISH、`/metrics`）
+    **必须都走这里**。此前的真问题：两边各算各的——
+
+    | 位置 | 判据 |
+    |---|---|
+    | `trace_counts`（离线） | `sql_id` 能 resolve 到**真实 SQL step** |
+    | `trace_manifest`（在线） | `sql_id` 非空 **且 `sql_of_step` 有返回** |
+
+    两个定义会漂移，而**没有任何测试比对**——离线说 0.9、在线说 0.6 也没人知道。
+
+    **语义边界（必须守住）**：零数值 claim 时 `rate` / `hallucination_rate` 为
+    `None`（未定义），**不是 0**。把"没测到"报成"0 幻觉"是最典型的自欺——
+    D38 的 `溯源 0/0` 就是这样全程判过的。
+    """
+    total = traced = 0
+    for f in findings or []:
+        for ev in (getattr(f, "evidence", None) or []):
+            if not _is_numeric(getattr(ev, "value", None)):
+                continue
+            total += 1
+            sql_id = getattr(ev, "sql_id", None)
+            if sql_id and resolve_sql_source(sql_id, results) is not None:
+                traced += 1
+    rate = round(traced / total, 4) if total else None
+    return {
+        "numeric_claims": total,
+        "traced_claims": traced,
+        "rate": rate,
+        "hallucination_rate": (round(1 - rate, 4) if rate is not None else None),
+    }
+
+
 def trace_manifest(state: Any) -> dict:
-    """把一次运行的分析结果折叠成 claim→SQL→样本 的可视化清单。"""
+    """把一次运行的分析结果折叠成 claim→SQL→样本 的可视化清单。
+
+    `coverage` **直接取自** :func:`trace_coverage`（唯一口径），不另算一套。
+    """
     findings = getattr(getattr(state, "analysis", None), "findings", []) or []
     results = list(getattr(state, "tool_results", None) or [])
     claims = []
@@ -110,13 +148,10 @@ def trace_manifest(state: Any) -> dict:
                         "rows_sample": rows, "value": getattr(ev, "value", None)})
         if evs:
             claims.append({"finding": getattr(f, "finding", ""), "evidence": evs})
-    numeric = sum(len(c["evidence"]) for c in claims)
-    traced = sum(1 for c in claims for e in c["evidence"] if e["sql_id"] and e["sql"])
     return {
         "objective": getattr(getattr(state, "context", None), "objective", ""),
         "claims": claims,
-        "coverage": {"numeric_claims": numeric, "traced_claims": traced,
-                     "rate": round(traced / numeric, 4) if numeric else None},
+        "coverage": trace_coverage(findings, results),
     }
 
 
@@ -139,14 +174,9 @@ def append_citations(report: str, analysis: Any, results: list[ToolResult]) -> s
 
 
 def trace_counts(findings: list[Any], results: list[ToolResult]) -> tuple[int, int]:
-    """返回 (数值 evidence 总数, 其中有有效 sql_id 的数量)。"""
-    total = traced = 0
-    for f in findings:
-        for ev in (getattr(f, "evidence", None) or []):
-            if not _is_numeric(getattr(ev, "value", None)):
-                continue
-            total += 1
-            sql_id = getattr(ev, "sql_id", None)
-            if sql_id and resolve_sql_source(sql_id, results) is not None:
-                traced += 1
-    return total, traced
+    """返回 (数值 evidence 总数, 其中有有效 sql_id 的数量)。
+
+    保留此签名（多处调用），实现**委托**给 :func:`trace_coverage` —— 单一口径。
+    """
+    cov = trace_coverage(findings, results)
+    return cov["numeric_claims"], cov["traced_claims"]

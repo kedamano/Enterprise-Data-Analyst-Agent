@@ -32,6 +32,20 @@ def _make_plan() -> PlanModel:
     ])
 
 
+def _plan_ids(results) -> list[str]:
+    """计划步骤产生的 id（**排除**执行器自动补的 schema 发现）。
+
+    本文件的计划是 4 个裸 `sql_query`（没有 `schema_search`、也不带 `input.sql`），
+    属"漏排发现步骤"——执行器现在会自动补一次 `schema_search`（E2/02），
+    这是**预期行为**，不该混进"计划步骤是否都跑了"的断言里。
+    """
+    return [r.step_id for r in results if not r.step_id.endswith("__auto_schema")]
+
+
+def _auto_discovery_calls(results) -> list[str]:
+    return [r.step_id for r in results if r.step_id.endswith("__auto_schema")]
+
+
 def test_independent_steps_run_in_parallel(monkeypatch):
     import app.core.agents.data_analyst.nodes as nd
 
@@ -54,14 +68,17 @@ def test_independent_steps_run_in_parallel(monkeypatch):
     st = AgentState(session_id="p11", user_query="q", plan=_make_plan())
     nd.run_executor_all(st)
 
-    ids = {r.step_id for r in st.tool_results if r.status == "SUCCESS"}
+    ids = {r.step_id for r in st.tool_results if r.status == "SUCCESS"} - set(
+        _auto_discovery_calls(st.tool_results))
     assert ids == {"s1", "s2", "s3", "s4"}, ids
     # s2/s3 同波并发 → 峰值并发达到 2
     assert peak["v"] >= 2, f"并行未发生，峰值并发={peak['v']}"
-    order = [r.step_id for r in st.tool_results if r.status == "SUCCESS"]
+    order = _plan_ids([r for r in st.tool_results if r.status == "SUCCESS"])
     assert order.index("s1") < order.index("s2")
     assert order.index("s2") < order.index("s4")
     assert order.index("s3") < order.index("s4")
+    # 计划漏排 schema 发现 → 自动补一次，且**只补一次**（补不到表时不得每步都重试）
+    assert len(_auto_discovery_calls(st.tool_results)) == 1, st.tool_results
 
 
 def test_sequential_fallback_when_workers_le(monkeypatch):
@@ -83,8 +100,9 @@ def test_sequential_fallback_when_workers_le(monkeypatch):
     st = AgentState(session_id="p11b", user_query="q", plan=_make_plan())
     nd.run_executor_all(st)
 
-    assert order == ["s1", "s2", "s3", "s4"], order  # 严格顺序，无并发波次
-    assert len(st.tool_results) == 4
+    plan_order = [x for x in order if not x.endswith("__auto_schema")]
+    assert plan_order == ["s1", "s2", "s3", "s4"], order  # 计划步骤严格顺序，无并发波次
+    assert len(_auto_discovery_calls(st.tool_results)) == 1
 
 
 def test_failed_dependency_blocks_dependents(monkeypatch):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 
 from pydantic import Json, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -79,11 +79,56 @@ class Settings(BaseSettings):
     # 真实环境若额度充足可调高；agent 各阶段 JSON 响应通常在 2k 以内。
     llm_max_tokens: int = 2048
     llm_timeout_s: int = 120
+    # **墙钟兜底**（秒）：与传输层 timeout 无关的硬上限。
+    #
+    # 为什么需要它：httpx 的 read timeout **每收到一块数据就重置**——上游只要周期性
+    # 吐 keep-alive 字节（网关/反代常见），`llm_timeout_s` 就**永不触发**。
+    # 2026-09-14 实测：进程在 analyst 的 LLM 调用上挂了 **>3 小时**（CPU=0s，等 I/O），
+    # 而配置是 timeout=300 + 5 次重试 —— 整轮评测被永久占住，且无任何告警。
+    #
+    # 必须**大于** llm_timeout_s（否则会误杀正常但慢的调用：实测单次 context 调用可到 253s）。
+    # 设为 0 = 关闭兜底（退回旧行为，便于排障）。
+    llm_hard_deadline_s: float = 600.0
     llm_max_retries: int = 5
-    # token 计费价（USD / 每百万 token），设 0 表示未知（cost 输出为 None）。
-    # 与模型网关 usage 上报配合：eval 据此把 llm_calls 折算为真实成本。
-    cost_input_per_mtok: float = 0.0
-    cost_output_per_mtok: float = 0.0
+    # D42：**prompt 预算强制**（tokens，按 CJK 感知的字符代理估算）。
+    #
+    # 此前 `memory/budget.py` 的 `fit_to_budget` **只在测试里被调用过**（app/ 下零命中），
+    # 于是 `build_user_message` 直接 `json.dumps(task_context)`——而 analyst 的 payload
+    # 带 `tool_results[].output.rows`，8 个工具结果轻易把单次 prompt 推到十几万字符。
+    #
+    # 超预算时按优先级压缩（先砍行数据 → 再丢最旧工具结果 → 最后只留 context/plan），
+    # **压缩说明会写进 prompt 的 `<context_budget>` 块**（不许静默）。
+    # 实测正常单次 prompt 约 5–9k tokens，16000 只兜异常大的尾巴、不动正常链路。
+    # 设 0 = 关闭（退回旧行为）。
+    prompt_budget_tokens: int = 16000
+    # D43：**单会话（按 run）token 熔断**。
+    #
+    # 单次运行的成本此前**没有硬上限**：REPLAN 循环 / 失败重试 / 多模型链回落，
+    # 任一环节打滑都会让同一轮不断发请求。实测一次 `--only-real` 全量约 **91 万** tokens
+    # （正常），但没有任何东西阻止它变成 9000 万。
+    #
+    # 默认 **200 万**：明显高于一次正常全量（≈91 万），给重规划留足余量，
+    # 又能兜住真正的打滑。**默认值不能打断正常跑**——这条与 D42 同源。
+    # 设 0 = 关闭。
+    session_token_budget: int = 2_000_000
+    # D44：**日志采样比例**（1.0 = 不采样）。高并发下每个节点一条 [span] INFO，
+    # 量级随请求线性上涨。**只采"正常"，失败永不采样**——采掉失败日志等于故障自愈。
+    # 写成 0/负数 = 不采样（而不是全丢弃：静音日志不是采样，是失明）。
+    log_sample_ratio: float = 1.0
+    # **推理模型**的思考预算：none | low | medium | high。
+    # 留空 = 不注入该字段（默认行为，非推理模型不受影响）。
+    # 为什么必须有这个开关（实测 glm-5.3，8k prompt）：
+    #   不给约束 → 15352/16384 token 花在 reasoning、正文被截断（finish=length）、单次 504s；
+    #   设 none   → reasoning ~41 token、单次 ~10s。
+    # 即"推理预算"决定这个模型**能不能用**，不是性能优化。
+    llm_reasoning_effort: str = ""
+    # token 计费价（USD / 每百万 token）。
+    # **未设置 = 单价未知** → eval 报 `cost=None`（"不知道多少钱"）；
+    # **显式设 0 = 已知免费** → eval 报 `0.0`（"确实不花钱"）。
+    # 这两件事必须能区分：此前用 0.0 兼表"未知"，于是免费模型（真 0）与
+    # 没配单价在报告里长得一模一样，成本列**恒为 None**，谁也没法发现。
+    cost_input_per_mtok: Optional[float] = None
+    cost_output_per_mtok: Optional[float] = None
     # 三态熔断（project-python circuit_breaker 同款）：连续失败超过阈值 → OPEN，
     # Open 态跳过网络直降级；recovery 后进 HALF_OPEN 放行一次探测。
     cb_failure_threshold: int = 5
@@ -169,11 +214,38 @@ class Settings(BaseSettings):
     auth_keys: str = ""
     auth_anonymous_tenant: str = ""
 
+    # --- D45 两步授权（HITL）：高危动作需二次确认 ---
+    # **默认关**：既有 950+ 用例与本地开发行为零影响。
+    # 打开后，`export_raw`（导出未脱敏原始值）/ `deliver_python`（交付模型写的脚本）
+    # / 以及**任何未登记的动作**都需人工确认后才执行。
+    hitl_enabled: bool = False
+    # 审计落盘路径（允许与拒绝**都记**——只记拒绝无法复盘，同 AUTH/01 的取舍）
+    hitl_audit_log: str = "data/audit/hitl.jsonl"
+
+    # --- D46 审计落库（SQLite / PostgreSQL）---
+    # jsonl（默认，既有行为一字不变）| sqlite | postgres
+    # 缺口原文："审计为文件非不可篡改库、无 SQL 审计查询"。
+    # **不做双写**：写两处会立刻带来"以哪份为准"的新问题；只写一处，由配置决定，
+    # 历史 JSONL 用 `audit_store.import_jsonl()` 一次性迁入（内容指纹保证幂等）。
+    audit_backend: str = "jsonl"
+    # 留空时：sqlite → ./data/audit.db；postgres → 复用 POSTGRES_DSN
+    audit_db_url: str = ""
     # --- Safety ---
     sql_max_rows: int = 5000
     # E4/04 质量门禁阈值：join 放大倍数 / 列缺失率（超阈值才提示）
     profile_join_amp_threshold: float = 1.5
     profile_null_high_ratio: float = 0.3
+    # dataset_profile 逐列 COUNT(DISTINCT) 的**批量大小**。
+    # 原实现每列发一条查询 → N 次全表扫描（1M×9 列实测 PG 3.7s / MySQL 12.6s，
+    # 随**列数**线性恶化，100 列外推 ≈22s）。合并为每批一条聚合后
+    # N 列 → ceil(N/batch) 次扫描，**结果完全等价**（非抽样、非近似）。
+    # 调小可降低单条 SQL 的宽度（超宽表/代理限制），调大减少扫描次数。
+    profile_column_batch: int = 16
+    # 宽表上界：最多画像多少列（**0 = 不限制**，向后兼容）。
+    # 批量化只省"重复扫表"，省不掉每列 COUNT(DISTINCT) 的去重开销 → 列数因子仍线性。
+    # 超此上限时按优先级保留（声明的键/日期列优先），未画像的列记入 `columns_skipped`。
+    # 默认 40：常见分析表（≤40 列）行为与之前完全一致；超宽表才触发截断。
+    profile_max_columns: int = 40
     # E4/02 输出脱敏：**默认开**。敏感列的值不进 LLM 上下文（CSV 产物不脱敏）。
     mask_pii_enabled: bool = True
     mask_level: str = "sample"        # none | sample | strict

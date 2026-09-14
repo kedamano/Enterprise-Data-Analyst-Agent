@@ -111,6 +111,21 @@ def record_tool_call(tool: str, duration_s: float, ok: bool) -> None:
         metrics.inc("tool_calls_failed_total")
 
 
+def record_trace_coverage(numeric_claims: int, traced_claims: int) -> None:
+    """D41：把本轮的溯源覆盖 / 疑似幻觉计入 `/metrics`（**在线**监控）。
+
+    与 `app/eval` **同一口径**（都走 `sources.trace_coverage`），否则离线报告与线上
+    大盘会各说各话。`numeric_claims=0` 时不记 —— 没有数值结论就没有"幻觉率"可言，
+    记 0 会造成"系统很干净"的错觉（同 eval：零 claim → `None` 而非 0）。
+    """
+    if not numeric_claims:
+        return
+    untraced = max(0, numeric_claims - traced_claims)
+    metrics.inc("trace_numeric_claims_total", numeric_claims)
+    metrics.inc("trace_untraced_claims_total", untraced)
+    metrics.set_gauge("trace_hallucination_ratio", untraced / numeric_claims)
+
+
 def record_llm_call(prompt_tokens: int, completion_tokens: int, cost_usd: Optional[float]) -> None:
     metrics.inc("llm_calls_total")
     metrics.inc("llm_prompt_tokens_total", prompt_tokens)

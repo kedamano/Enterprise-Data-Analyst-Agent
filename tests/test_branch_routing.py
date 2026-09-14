@@ -39,6 +39,14 @@ def mock_llm_env(monkeypatch):
 
 
 def _state_with_sql_step() -> AgentState:
+    """构造"**已发现过 schema**"的单步计划。
+
+    预置一条 `schema_search` 成功结果，是为了让本文件专注 §23 的
+    "schema 错误 → 补偿 → 重试"分支。否则执行器的**自动补发现**（E2/02：
+    计划漏排 schema_search 时自动补一次）会先插一次 `schema_search`，
+    把本文件三条精确序列断言全部打乱——那条行为由
+    `tests/test_executor_autodiscover.py` 专门覆盖，两边各测各的。
+    """
     state = AgentState(session_id="routing", user_query="分析营收")
     state.context.objective = "分析营收"
     state.context.metrics = ["revenue"]
@@ -47,6 +55,10 @@ def _state_with_sql_step() -> AgentState:
         PlanStep(id="s1", objective="查询营收", action="SQL", tool="sql_query",
                  dependencies=[], expected_output="rows", success_criteria="ok"),
     ])
+    state.tool_results.append(ToolResult(
+        step_id="s0", tool="schema_search", status="SUCCESS",
+        output={"tables": [{"table": "fact_sales",
+                            "columns": [{"name": "region"}, {"name": "revenue"}]}]}))
     return state
 
 
@@ -77,12 +89,13 @@ def test_schema_error_triggers_auto_schema_search_and_retry(monkeypatch, mock_ll
     monkeypatch.setattr(nodes, "execute_tool", fake_execute_tool)
 
     state = _state_with_sql_step()
+    seed_n = len(state.tool_results)      # 跳过预置的 schema_search
     state = run_executor(state)
 
     # 调用序列：原步骤失败 → 自动 schema_search 补偿 → 带新 schema 重试
     assert [t for _, t in calls] == ["sql_query", "schema_search", "sql_query"], calls
     # 补偿与重试均入 tool_results（可审计）
-    tools = [r.tool for r in state.tool_results]
+    tools = [r.tool for r in state.tool_results[seed_n:]]
     assert tools == ["sql_query", "schema_search", "sql_query"]
     # 重试成功后该步骤最终为 SUCCESS，下游节点看到的是修复后的结果
     assert state.tool_results[-1].status == "SUCCESS"

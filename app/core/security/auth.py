@@ -168,7 +168,8 @@ def reset_quota() -> None:
 def audit(principal: Optional[Principal], endpoint: str, decision: str,
           reason: str = "", session_id: str = "") -> None:
     try:
-        AUTH_AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        from .audit_store import record as _store_record
+
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "user_id": getattr(principal, "user_id", _ANONYMOUS),
@@ -178,8 +179,8 @@ def audit(principal: Optional[Principal], endpoint: str, decision: str,
             "reason": reason,
             "session_id": session_id,
         }
-        with AUTH_AUDIT_LOG.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        # D46：统一经审计存储（默认仍写 auth.jsonl；可切 sqlite/postgres）
+        _store_record("auth", record, path=AUTH_AUDIT_LOG)
     except Exception:
         pass  # 审计失败绝不打断请求
 

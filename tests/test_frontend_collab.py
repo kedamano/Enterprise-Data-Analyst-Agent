@@ -112,6 +112,42 @@ def test_package_json_declares_e2e_dependency_and_script():
     assert pkg.get("scripts", {}).get("test:e2e"), "缺少 npm run test:e2e 入口"
 
 
+def test_e2e_test_timeout_exceeds_every_explicit_expect_timeout():
+    """**测试级 timeout 必须大于 spec 里显式写的 expect timeout，否则那句 timeout 是死的。**
+
+    真实缺陷（已修）：config 里 `timeout: 30_000`，而 `export.spec.ts` 写
+    `expect(...).toBeVisible({ timeout: 60_000 })` 想等一轮分析跑完 ——
+    但测试级 30s 上限**先生效**，60s 永远等不到，用例在 30s 被掐断。
+    徽标用例各自 `setTimeout(180_000)` 绕开了，`export.spec.ts` **没绕** → 潜伏的必现 flake。
+
+    这类"写了但从未生效"的配置与本文件其它契约同族：靠真跑发现不了（跑得快时照样绿），
+    必须静态钉住。
+    """
+    import re
+
+    def _strip_ts_comments(text: str) -> str:
+        """先剥注释再匹配——否则会读到**文档注释里举的例子**。
+        （本测试第一版就栽在这：注释里写的 `{ timeout: 60_000 }` 被当成了实际配置值。）"""
+        text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+        return re.sub(r"//[^\n]*", "", text)
+
+    cfg = _strip_ts_comments(_read("playwright.config.ts"))
+    m = re.search(r"timeout:\s*([0-9_]+)", cfg)
+    assert m, "playwright.config.ts 里找不到 timeout"
+    test_timeout = int(m.group(1).replace("_", ""))
+
+    worst = 0
+    for p in (_WEB / "e2e").glob("*.spec.ts"):
+        body = _strip_ts_comments(p.read_text(encoding="utf-8"))
+        for raw in re.findall(r"timeout:\s*([0-9_]+)", body):
+            worst = max(worst, int(raw.replace("_", "")))
+    assert worst, "spec 里没有任何显式 timeout —— 本契约失去意义，请复核"
+    assert test_timeout >= worst, (
+        f"测试级 timeout={test_timeout}ms 小于 spec 里的 expect timeout={worst}ms "
+        f"→ 那句 timeout 永远不会生效（用例会先被测试级上限掐断）"
+    )
+
+
 # --------------------------------------------------------------------------- #
 # E3/E4 徽标：mode/iteration/质量门禁的 UI 呈现
 #    后端早就下发了 iteration / quality_issues，前端此前没人消费——

@@ -158,6 +158,26 @@ def analyze_export(session_id: str,
     except Exception:
         pass
 
+    # D45 两步授权：导出物**保留未脱敏原始值**（E4/02 只约束进 LLM 上下文的那份），
+    # 属合规上的高危动作。默认关（HITL_ENABLED=false）→ 这段不生效。
+    try:
+        from ...core.security import hitl
+
+        if not hitl.take_grant(session_id, "export_raw"):
+            risk = hitl.requires_confirmation("export_raw", {"format": format})
+            if risk is not None:
+                pending = hitl.begin(session_id, risk.action, risk.detail)
+                raise HTTPException(status_code=428, detail={
+                    "message": "该导出需要人工确认（两步授权）",
+                    "action": risk.action, "reason": risk.reason,
+                    "token": pending["token"],
+                    "howto": "POST /api/v1/chat/analyze/confirm {session_id, token, approved}",
+                })
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # 策略层故障不得让导出直接崩（fail-closed 由 requires_confirmation 内部保证）
+
     state = _load_state(session_id)
     workdir = _session_workdir(session_id)
     csvs, skipped = _csv_artifacts(state, workdir)

@@ -136,7 +136,33 @@ def test_llm_model_raises_when_still_invalid_without_fallback(monkeypatch):
     assert "不可用" in str(ei.value)
 
 
-def test_llm_model_uses_fallback_and_reports_degradation(monkeypatch):
+def test_empty_content_is_reported_as_empty_not_schema_problem(monkeypatch):
+    """**空内容 ≠ "字段为空"**：必须报出真正的原因，否则排查会走错方向。
+
+    真实踩坑：glm-5.3（推理模型）在 planner 的大提示词下返回**空串**——
+    max_tokens 被 reasoning 占满、正文没吐出来。此时 `parsed == {}`，
+    而本套 schema 字段几乎都有默认值 ⇒ `model_validate({})` **成功** ⇒
+    旧实现报"输出结构合法但内容不可用：关键字段为空（首 400 字符：）"，
+    **首 400 字符是空的**，看不出是模型没输出、还是模型输出了空 JSON。
+    """
+    monkeypatch.setattr(N, "_llm", lambda *a, **k: "")  # 模型什么都没吐
+
+    with pytest.raises(ModelOutputError) as ei:
+        N._llm_model(PlanModel, "planner", "q", ok=lambda p: bool(p.steps), retries=1)
+
+    msg = str(ei.value)
+    assert "空内容" in msg, msg
+    assert "LLM_MAX_TOKENS" in msg, "应提示调大 token 预算（推理模型占满是常见原因）"
+
+
+def test_whitespace_only_content_also_treated_as_empty(monkeypatch):
+    monkeypatch.setattr(N, "_llm", lambda *a, **k: "   \n  ")
+    with pytest.raises(ModelOutputError) as ei:
+        N._llm_model(PlanModel, "planner", "q", ok=lambda p: bool(p.steps), retries=1)
+    assert "空内容" in str(ei.value)
+
+
+
     monkeypatch.setattr(N, "_llm", lambda *a, **k: "{}")
     model, err = N._llm_model(
         ContextModel, "context", "q",

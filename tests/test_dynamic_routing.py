@@ -59,8 +59,13 @@ def test_provider_routing_invalid_sort_ignored():
 
 
 def test_extra_body_shape():
-    assert R._extra_body(_settings()) == {"provider": {"allow_fallbacks": True, "sort": "throughput"}}
-    assert R._extra_body(_settings(llm_base_url="https://api.deepseek.com/v1")) is None
+    # `llm_reasoning_effort` 是**可选**字段：显式留空时不得出现
+    # （否则会给非推理模型/自建端点发未知参数）。此处显式传空，
+    # 避免断言依赖运行环境的 .env（曾因 .env 里配了 LLM_REASONING_EFFORT 而误红）。
+    assert R._extra_body(_settings(llm_reasoning_effort="")) == {
+        "provider": {"allow_fallbacks": True, "sort": "throughput"}}
+    assert R._extra_body(_settings(llm_base_url="https://api.deepseek.com/v1",
+                                   llm_reasoning_effort="")) is None
 
 
 # --------------------------------------------------------------------------- #

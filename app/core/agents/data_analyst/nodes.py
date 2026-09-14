@@ -42,14 +42,59 @@ _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 _MAX_CLARIFY_ROUNDS = 2
 
 
+# 常见"包装壳"的键：只在这些键构成整个对象时，才认为内层才是真 payload
+_WRAPPER_KEYS = frozenset({"role", "content", "result", "output", "data",
+                           "name", "type", "finish_reason", "tool_call_id"})
+_NESTED_CONTENT_KEYS = ("content", "result", "output", "data")
+
+
+def _unwrap_wrapper(parsed: Any) -> Any:
+    """拆掉 `{role, content:"<json>"}` 这类**包装壳**，取出真正的 payload。
+
+    真实模型实测会把整个答复再包一层，且**内层是字符串**：
+
+        {"role": "analyst", "content": "{\\"metrics\\":[],\\"findings\\":[...]}"}
+
+    原实现只解析外层 → 拿到 `{"role","content"}` → `AnalysisResult` 全空 →
+    **内容被静默丢掉**（真实基线 7 条用例全部 `findings=0` 就是这么来的）。
+
+    只在该对象**键集合很窄**（⊆ `_WRAPPER_KEYS`）时才拆，避免误伤正常 payload；
+    工具调用形状（`{tool, arguments}`）**不拆**——它不是壳，是要被判为不可用的内容。
+    """
+    for _ in range(3):                     # 有界，防畸形自嵌套
+        if not isinstance(parsed, dict):
+            return parsed
+        if not set(parsed) or not set(parsed) <= _WRAPPER_KEYS:
+            return parsed
+        inner: Any = None
+        for key in _NESTED_CONTENT_KEYS:
+            value = parsed.get(key)
+            if isinstance(value, dict):
+                inner = value
+                break
+            if isinstance(value, str) and value.strip().startswith("{"):
+                try:
+                    decoded = json.loads(value)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(decoded, dict):
+                    inner = decoded
+                    break
+        if inner is None:
+            return parsed
+        parsed = inner
+    return parsed
+
+
 def _parse_json(text: str) -> dict:
     if not text:
         return {}
     m = _JSON_RE.search(text)
     try:
-        return json.loads(m.group(0)) if m else json.loads(text)
+        parsed = json.loads(m.group(0)) if m else json.loads(text)
     except json.JSONDecodeError:
         return {}
+    return _unwrap_wrapper(parsed)
 
 
 def _llm(stage: str, user: str, json_mode: bool = True) -> str:
@@ -64,6 +109,27 @@ def _schema_feedback(exc: Exception) -> str:
     if len(text) > 1200:
         text = text[:1200] + " …（截断）"
     return text
+
+
+_ANALYSIS_SUBSTANTIVE_FIELDS = ("findings", "metrics", "recommendations",
+                                "limitations", "stats_notes")
+
+
+def _analysis_usable(model: Any) -> bool:
+    """`AnalysisResult` 在**内容层面**可用吗。
+
+    ⚠️ 「能过 pydantic 校验」在这里等于废话：`AnalysisResult` 的字段**全有默认值**，
+    任何 dict 都能校验通过并得到一份**全空的**分析。真实模型实测正是这么干的
+    （`analysis.raw` 出现过五种形状：正确 / `{role,content}` 壳 / 工具调用 /
+    别的阶段的 schema / ToolResult dump）。
+
+    后果是**无声的**：`findings=0` → E1 溯源维度 `numeric_claims=0/0` **测不出来**，
+    报告也没有任何发现，而流水线一路 FINISH。
+
+    判据：至少有一个实质字段非空。**"如实报告没数据"是合法结论**
+    （只有 `limitations` 也算可用），不能被当成不可用反复重试。
+    """
+    return any(getattr(model, f, None) for f in _ANALYSIS_SUBSTANTIVE_FIELDS)
 
 
 def _llm_model(model_cls, stage: str, user: str, *, ok=None, fallback=None, retries: int = 1):
@@ -89,14 +155,24 @@ def _llm_model(model_cls, stage: str, user: str, *, ok=None, fallback=None, retr
     for attempt in range(retries + 1):
         raw = _llm(stage, prompt)
         parsed = _parse_json(raw)
-        try:
-            model = model_cls.model_validate({**parsed, "raw": parsed})
-            if ok is None or ok(model):
-                return model, None
-            reason = ("输出结构合法但**内容不可用**：关键字段为空"
-                      f"（首 400 字符：{raw[:400]}）")
-        except Exception as exc:  # pydantic ValidationError 及其它解析异常
-            reason = _schema_feedback(exc)
+        # 空内容必须**单独说清楚**：此时 `parsed == {}`，而本套 schema 字段几乎都有默认值，
+        # `model_validate({})` 会**成功**，于是落到下面那句"结构合法但内容不可用"——
+        # 掩盖了真正的原因（模型根本没吐正文）。实测 glm-5.3 在 planner 的大提示词下必现：
+        # 它是推理模型，max_tokens 被 reasoning 占满后正文为空串。
+        if not (raw or "").strip():
+            reason = ("模型返回**空内容**（不是 JSON 不合法，而是没有输出正文）。"
+                      "推理模型常见：max_tokens 被 reasoning 占满后正文为空。"
+                      f"当前 LLM_MAX_TOKENS={get_settings().llm_max_tokens}，"
+                      "请调大后重试（或换非推理模型）")
+        else:
+            try:
+                model = model_cls.model_validate({**parsed, "raw": parsed})
+                if ok is None or ok(model):
+                    return model, None
+                reason = ("输出结构合法但**内容不可用**：关键字段为空"
+                          f"（首 400 字符：{raw[:400]}）")
+            except Exception as exc:  # pydantic ValidationError 及其它解析异常
+                reason = _schema_feedback(exc)
         if attempt < retries:
             prompt = (
                 f"{user}\n\n## 上一次输出不可用（第 {attempt + 1} 次尝试）\n"
@@ -286,6 +362,62 @@ def _semantics_text(state: AgentState) -> str:
         state.metadata["semantics_error"] = str(exc)
         return ""
 
+# 合成 SQL 前**必须先知道表**的工具（拿不到表就合成不出真实查询）
+_TABLE_DEPENDENT_TOOLS = ("sql_query", "freeform", "dataset_profile")
+
+
+def _step_supplies_own_source(step: PlanStep) -> bool:
+    """步骤自带表/SQL → 不需要先发现 schema。"""
+    inp = getattr(step, "input", None) or {}
+    if getattr(step, "tool", "") == "dataset_profile":
+        return bool(inp.get("table") or inp.get("sql"))
+    return bool(inp.get("sql"))
+
+
+def _needs_schema_discovery(step: PlanStep, state: AgentState) -> bool:
+    """这一步是否需要**先补一次 schema 发现**才跑得动。"""
+    if getattr(step, "tool", "") not in _TABLE_DEPENDENT_TOOLS:
+        return False
+    if _first_table(state)[0]:
+        return False          # 已有 schema_search 结果，或能解析到上传表
+    return not _step_supplies_own_source(step)
+
+
+def ensure_schema_discovered(state: AgentState, steps: list[PlanStep]) -> bool:
+    """计划漏排 `schema_search` 时**补跑一次真实的发现**，返回是否真的补了。
+
+    **动因（真实基线实测）**：planner 既不给 `input.sql`、也常漏排 `schema_search`
+    → `_first_table` 无表可解析 → 合成不出 SQL → 该步失败 → 后面整串
+    `依赖步骤未完成`。真实基线上**工具成功率只有 0.36，失败的全部是这一类**。
+
+    **为什么不改提示词**：`planner.md` 被 `test_prompt_negative` 钉死，且模型未必听。
+    改在执行器**把"不可用"变成"可用"**——确定性、可测、不碰提示词。
+
+    补的是**真实工具调用**：进 `tool_results`（可审计），并在 `metadata` 留痕（铁律 3）。
+    调用方需保证在主线程调用（并发批次里多线程写 `tool_results` 会串）。
+    """
+    todo = [s for s in steps if _needs_schema_discovery(s, state)]
+    if not todo:
+        return False
+    # **每次运行只补一次**：若补了却没拿到表（关键词没命中 / 库不可达 / 工具失败），
+    # `_first_table` 仍为空 → 下一步、下一波会**再次触发**，5 步的 5 次 sql_query
+    # 就是 5 次白跑。实测（test_parallel_executor）确实复现过 s1/s2/s4 各补一次。
+    if state.metadata.get("auto_schema_search_done"):
+        return False
+    state.metadata["auto_schema_search_done"] = True
+    keyword = (state.context.metrics or state.context.analysis_object or [""])[0]
+    step_id = f"{todo[0].id}__auto_schema"
+    res = execute_tool(step_id, "schema_search", {"keyword": keyword}, state.session_id)
+    state.tool_results.append(res)
+    state.metadata.setdefault("auto_schema_search", []).append(
+        {"step": todo[0].id, "keyword": keyword, "status": res.status,
+         "triggered_by": [s.id for s in todo]})
+    logger.warning("计划缺少 schema 发现步骤，已自动补跑 schema_search"
+                   "（keyword=%r, status=%s）触发步骤：%s",
+                   keyword, res.status, [s.id for s in todo])
+    return True
+
+
 def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
     """Synthesize validated tool arguments for a plan step from runtime context."""
     tool = step.tool
@@ -326,7 +458,14 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
                            getattr(step, "id", "?"), candidate[:200])
         table, cols = _first_table(state)
         if not table:
-            return {"sql": "SELECT 1"}
+            # ⚠️ 这里曾返回 `SELECT 1` —— 它是**合法只读 SQL**，会照常执行、返回 1 行、
+            # 让该步记 SUCCESS，于是分析在**假数据**上进行，而断言不依赖数据的 golden
+            # 照样通过（真实基线里两条 ✅ 用例的每一步都是 `SELECT 1`）。
+            # 占位符必须是**空串**：sql_tool 对空 SQL 直接判 `{"ok": False, "error": "缺少 sql 参数"}`
+            # → 该步响亮 FAILED，tool_success_rate 反映真相，Reflection 拿到的是真失败。
+            logger.warning("步骤 %s 无法合成真实 SQL（无可用表），将按失败处理",
+                           getattr(step, "id", "?"))
+            return {"sql": ""}
         dim = next((d for d in ctx.dimensions if d in cols), None)
         # 合成 SQL 也要尽量贴合"分析"意图：有数值列就 SUM，而不是一味 COUNT。
         # （真实 e2e 曾因退化到 COUNT 让"各区域营收"变成"各区域行数=2"。）
@@ -348,7 +487,8 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
         src = (getattr(step, "input", None) or {}).get("source")
         if sql:
             return {"sql": sql, **({"source": src} if src else {})}
-        return {"sql": "SELECT 1"}  # 空 → 无效占位，交由只读守卫判空
+        # 空 → 无效占位：交由工具判空失败（**不要**给 `SELECT 1`，见上条 sql_query 的说明）
+        return {"sql": ""}
     if tool == "python_analysis":
         sql_res = _last_result(state, "sql_query")
         csv_path = sql_res.output.get("csv_path") if sql_res else None
@@ -479,7 +619,8 @@ def run_context(state: AgentState) -> AgentState:
     # 校验失败：回喂错误重试一次；仍失败则降级为空 Context（后续按原话推进），
     # 并把降级写进 state.error —— 绝不让一个阶段的畸形输出打挂整条链路。
     ctx, ctx_err = _llm_model(
-        ContextModel, "context", build_user_message(state.user_query, payload),
+        ContextModel, "context", build_user_message(state.user_query, payload,
+                                   budget_tokens=get_settings().prompt_budget_tokens),
         # 可用性：得有目标，或明确要走澄清（澄清回合 objective 可为空）。
         ok=lambda c: bool(c.objective) or c.clarification_required,
         # 降级用 raw=... 构造（ContextModel 各字段都有默认值，不会二次抛错）
@@ -705,7 +846,8 @@ def run_planner(state: AgentState) -> AgentState:
     # 由编排层转成 status=ERROR（而不是裸抛 ValidationError 打挂整跑）。
     # 注意"可用"要显式判定：字段都有默认值，空计划也能过 pydantic 校验。
     plan, plan_err = _llm_model(
-        PlanModel, "planner", build_user_message(state.user_query, task_context),
+        PlanModel, "planner", build_user_message(state.user_query, task_context,
+                                   budget_tokens=get_settings().prompt_budget_tokens),
         ok=lambda p: bool(p.steps),
     )
     if plan_err:
@@ -758,6 +900,9 @@ def run_executor(state: AgentState) -> AgentState:
         result = ToolResult(step_id=step.id, tool=step.tool, status="FAILED",
                             error="依赖步骤未完成")
     else:
+        # E2/02：计划漏排 schema_search 时先补一次发现，否则合成不出真实 SQL
+        # （真实基线上 64% 的工具调用失败源于此）
+        ensure_schema_discovered(state, [step])
         params = build_executor_params(state, step)
         result = execute_tool(step.id, step.tool, params, state.session_id)
         # §23 确定性分支路由：Invalid Column/Table → Schema Search → Retry。
@@ -835,6 +980,19 @@ def _run_batch(steps: list[PlanStep], state: AgentState, max_workers: int) -> di
     return out
 
 
+def _run_batch_after_discovery(steps: list[PlanStep], state: AgentState,
+                               max_workers: int) -> dict[str, list[ToolResult]]:
+    """先在本波**主线程**补一次 schema 发现，再并发执行。
+
+    两处都必须这样：
+    - 发现动作写在主线程——worker 线程各写 `state.tool_results` 会串（`_execute_one_step`
+      刻意不修改共享 state，就是为了并发安全）；
+    - 发现放在**波次级**而不是每步——同一波若有多步都需要表，补一次、全体受益。
+    """
+    ensure_schema_discovered(state, steps)
+    return _run_batch(steps, state, max_workers)
+
+
 @trace("executor")
 def run_executor_all(state: AgentState) -> AgentState:
     """P1-1：按依赖关系把计划拆成「波次」，同一波内并发执行，跨波次仍串行。
@@ -870,7 +1028,7 @@ def run_executor_all(state: AgentState) -> AgentState:
                                    error="依赖步骤未完成"))
                     done_ids.add(s.id)
             break
-        batch = _run_batch(ready, state, max_workers)
+        batch = _run_batch_after_discovery(ready, state, max_workers)
         for step in ready:
             for r in batch.get(step.id, []):
                 state.tool_results.append(r)
@@ -902,8 +1060,13 @@ def run_analyst(state: AgentState) -> AgentState:
     if sem_text:
         payload["business_semantics"] = sem_text
     # 校验失败回喂重试一次；仍失败则降级为只带 raw 的空分析（**绝不崩**）。
+    # `ok=_analysis_usable`：**「能过校验」≠「可用」**——AnalysisResult 字段全有默认值，
+    # 工具调用 JSON / 别的阶段的 schema / `{role,content}` 壳都能"校验通过"并得到全空分析。
+    # 真实基线 7 条用例 `findings=0`、E1 溯源 `0/0` 就是这么来的（无声）。
     state.analysis, ana_err = _llm_model(
-        AnalysisResult, "analyst", build_user_message(state.user_query, payload),
+        AnalysisResult, "analyst", build_user_message(state.user_query, payload,
+                                   budget_tokens=get_settings().prompt_budget_tokens),
+        ok=_analysis_usable,
         fallback=lambda parsed, _exc: AnalysisResult(raw=parsed or {}),
     )
     if ana_err:
@@ -932,7 +1095,8 @@ def run_reflection(state: AgentState) -> AgentState:
     # 校验失败回喂重试一次；仍失败则用 ReflectionResult 的默认值（decision=REPLAN，
     # 是"保守"的一侧：宁可再审一轮也不放过没证据的结论）并留下降级说明。
     refl, refl_err = _llm_model(
-        ReflectionResult, "reflection", build_user_message(state.user_query, payload),
+        ReflectionResult, "reflection", build_user_message(state.user_query, payload,
+                                   budget_tokens=get_settings().prompt_budget_tokens),
         fallback=lambda parsed, _exc: ReflectionResult(raw=parsed or {}),
     )
     if refl_err:
@@ -1048,6 +1212,43 @@ def _report_evidence(state: AgentState, max_rows: int = 12) -> list[dict[str, An
     return out
 
 
+_REPORT_FIELD_NAMES = ("report", "markdown", "content", "text")
+
+
+def _sanitize_report_output(raw: Any, template: str) -> tuple[str, str | None]:
+    """(报告文本, 兜底原因)。**"像报告的文本"才配当报告。**
+
+    报告必须是 Markdown 文本，但真实模型会返回别的东西。真跑实测（2026-09-13，
+    `nvidia/nemotron-3-super-120b-a12b`）：模型返回工具调用 JSON
+    ``{"tool": "schema", "args": {}}``，被原样当成报告发给用户——报告 36 字符、
+    0 条 findings。原实现的唯一守卫是 MockLLM 的 ``__markdown__`` 信号，
+    即"只防自己人"。
+
+    三类处理：
+    - MockLLM 信号 → 走模板（历史行为）；
+    - Markdown 被**包在 JSON 字段里**（模型常见）→ 取出内层，不丢内容；
+    - 其它 JSON 对象（含工具调用）→ 走模板，并**记下原因**（铁律 3：不静默降级）。
+    """
+    if not raw or not isinstance(raw, str):
+        return template, "reporter 输出为空"
+    stripped = raw.strip()
+    if not stripped.startswith("{"):
+        return raw, None          # 正常 Markdown
+    try:
+        parsed = json.loads(stripped)
+    except (ValueError, TypeError):
+        return raw, None          # 以 { 开头但不是合法 JSON → 当作 Markdown 照用
+    if not isinstance(parsed, dict):
+        return raw, None
+    if "__markdown__" in parsed:
+        return template, "MockLLM 的 __markdown__ 信号"
+    for key in _REPORT_FIELD_NAMES:
+        inner = parsed.get(key)
+        if isinstance(inner, str) and inner.strip():
+            return inner, f"Markdown 被包在 JSON 字段 {key!r} 里"
+    return template, f"输出是 JSON 对象而非报告（keys={sorted(parsed)[:5]}）"
+
+
 @trace("reporter")
 def run_reporter(state: AgentState) -> AgentState:
     state.status = "REPORT"
@@ -1069,24 +1270,29 @@ def run_reporter(state: AgentState) -> AgentState:
             "evidence": evidence,
             "attachment": state.attachment_context,
         }, ensure_ascii=False, default=str), json_mode=False)
-        # MockLLM._stage_reporter 返回 ``{"__markdown__": True}`` 这个"信号"，
-        # 但没有任何节点消费它——若直接当报告发出，前端会原样渲染 JSON 字符串。
-        # 这里显式检测：信号或非字符串 / 空 → 退回模板报告（仍可渲染完整 Markdown）。
-        if not raw or not isinstance(raw, str):
-            state.report = tpl.get("report", "")
-        else:
-            stripped = raw.strip()
-            is_signal = stripped.startswith("{") and ("__markdown__" in stripped or '"__markdown__"' in stripped)
-            if is_signal:
-                state.report = tpl.get("report", "")
-            else:
-                state.report = raw
+        # REP/02：模型输出**净化**——报告必须是 Markdown。
+        # 真跑实测：模型返回工具调用 JSON 时曾被原样当报告发出（见 _sanitize_report_output）。
+        report_text, fallback_reason = _sanitize_report_output(raw, tpl.get("report", ""))
+        state.report = report_text
+        if fallback_reason:
+            # 铁律 3：兜底属降级，必须可观测，不许静默。
+            state.metadata["reporter_fallback"] = fallback_reason
+            logger.warning("reporter 输出不可用，已回退模板报告：%s", fallback_reason)
     # E1：报告追加「数字来源」块（每条数值 evidence → [src: step_id]）
     try:
         from ....core.agents.data_analyst.sources import append_citations
         state.report = append_citations(state.report or "", state.analysis, state.tool_results)
     except Exception:
         pass
+    # D41：把本轮的溯源覆盖 / 疑似幻觉计入 /metrics（与 eval **同一口径**）
+    try:
+        from ....core.agents.data_analyst.sources import trace_coverage
+        from ....infrastructure.observability.metrics import record_trace_coverage
+
+        cov = trace_coverage(state.analysis.findings, state.tool_results)
+        record_trace_coverage(cov["numeric_claims"], cov["traced_claims"])
+    except Exception:
+        pass  # 埋点故障不得打断报告
     # P0-4：降级链路可见化 —— 把「哪一级降了 / 为什么 / 影响什么」置顶写进报告。
     # 此前只有一句笼统的"处于降级模式"，用户无从判断结论可信度的边界在哪。
     try:

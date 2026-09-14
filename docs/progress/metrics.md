@@ -220,9 +220,9 @@
 | 装载（建表+写 1M 行+建索引） | 2.7 s | 5.9 s（PG `COPY`） | 42.7 s | MySQL 走 ORM 批插，未开 `LOAD DATA` |
 
 **结论（只认实测）**：
-- **`dataset_profile` 是规模瓶颈**：1M 行 / 9 列要在 PG 上 3.7s、MySQL 上 12.6s。
-  它是逐列 `COUNT(DISTINCT)` 的 N 次全表扫 → **随列数线性恶化**。宽表（30+ 列）会成秒级阻塞，
-  建议：① 只对抽样/关键列做 distinct；② 或加 `profile_max_columns` 上限 + 抽样比例。
+- **`dataset_profile` 曾是规模瓶颈 —— 已于 2026-09-13 修掉（常数上界，见下）**：
+  1M 行 / 9 列在 PG 上 3.7s、MySQL 上 12.6s；它是逐列 `COUNT(DISTINCT)` 的 N 次全表扫 →
+  **随列数线性恶化**。**修法与实测见本节末「dataset_profile 规模修复」**。
 - **MySQL 慢 50× 不是我们这层的问题，是缺覆盖索引**：`EXPLAIN` 显示优化器选了 `idx_region`
   索引扫描，但 `SUM(revenue)` 需**回表 100 万次** → 随机 I/O。补一个覆盖索引即可：
 
@@ -241,3 +241,91 @@ python scripts/bench_scale.py --rows 1000000 --backend postgres
 python scripts/bench_scale.py --rows 1000000 --backend mysql \
   --dsn 'mysql+pymysql://root:***@127.0.0.1:3306/da_agent'
 ```
+
+## 记录于真实基线首次产出（2026-09-13 · 分水岭）
+
+> **这是本项目第一个有效的真实模型基线**——此前每次尝试都因额度/降级而作废
+> （历史见 `pending-real.md` §C/§D/§E 与 `eval-real-baseline-INVALID.md`）。
+
+**端点**：`https://matrix.mzsjai.com/v1` · 模型 `deepseek/deepseek-v4-flash-w8a8`（非推理）
+**报告**：`docs/progress/eval-real-analyst-dataset.md`（数据集 `data/sample_analyst.db`）
+
+> ⚠️ **首跑（13:30）的数字已作废**——它跑在 `SELECT 1` 占位假绿修复**之前**，
+> `工具成功率 1.0` 是假的，其中 2 条 ✅ 也是假的。存档见 `eval-real-analyst-dataset-CONTAMINATED.md`。
+
+**三版对照（同一组 7 条用例，逐版修掉一类假绿）**：
+
+| 指标 | ①13:30 污染版 | ②14:43 去假绿 | **③16:13 修根因** |
+|---|---|---|---|
+| **工具成功率** | ~~1.0（假）~~ | 0.36 | **1.0** |
+| FINISH 率 | 0.571 | 0.571 | **0.857** |
+| **findings** | **全 0** | **全 0** | **0–4 条** |
+| 平均工具调用 | 3.86 | 3.57 | 6.29 |
+| Reflection PASS 率 | 0.0 | 0.0 | 0.143 |
+| LLM-judge 均分 | — | 0.6 | 0.693 |
+| **断言通过率** | ~~0.429（含假绿）~~ | 0.429（含假绿） | **0.143** |
+| 平均报告长度 | 1035 | 2866.9 | 1788.3 |
+| 降级剔除 | 0 | 0 | 0 |
+
+> ③ 的断言通过率**更低**，但**这才是真的**：② 的两个 ✅ 里，一个是 `CLARIFY_OK`
+> （只问了句口径），一个是 `must_find` **回声匹配**（报告标题回显了问题，
+> 而正文写着"状态：无法完成"）。已新增 `min_findings` 堵住回声匹配。
+>
+> **三个数变了，每个都对应一类被修掉的假绿**：
+> `工具成功率 0.36→1.0` = 执行器自动补发现（根因修复）；
+> `findings 全 0→非 0` = analyst 输出可用性判据 + 拆包装壳；
+> `断言 0.429→0.143` = `min_findings` 让"回声匹配"不再算通过。
+
+**③ 仍未解决**：`溯源 claims 0/0` —— findings 有了，但其 evidence 值是**字符串**
+（`"6% → 7%"`，且 `source="用户输入"`），即发现停留在**"口径/表结构的元讨论"**，
+没有**基于数据的数值结论**。这是**诚实的测量结果**（分析深度不足），非静默 bug。
+
+**端点**：`https://matrix.mzsjai.com/v1` · 模型 `deepseek/deepseek-v4-flash-w8a8`（非推理）
+**报告**：`docs/progress/eval-real-analyst-dataset.md`（数据集 `data/sample_analyst.db`）
+
+**干净版逐条**：`r_join_amplification_guard` ✅（唯一一条"真 FINISH 且通过"）；
+`r_ratio_denominator` / `r_simpson_check` **`CLARIFY_OK`**（判断型问题，反问被接受）；
+其余四条失败——`r_caliber_period_mismatch`（CLARIFY，非判断型）、
+`r_decompose_before_attribution`（未答出"拆解/贡献"）、`r_causal_overreach`（未答出"相关/因果"）、
+`r_multiple_comparison`（FINISH 但缺 `multi_comparison_unadjusted`）。
+
+**两条待处理的真实信号（尚未动手）**：
+1. **三条 CLARIFY 全是"给定数字做判断"型问题**，且换了模型行为一致 → 系统性的
+   golden 期望 vs 判断型问题不匹配（不是模型缺陷）。
+2. **溯源覆盖率 `None`（claims 0/0）**、`Reflection PASS 率 0.0` ——
+   前者说明真实模型很少产出带数值的 finding（E1 维度在 real 下无从度量），
+   后者**已查明**：Reflection 判得对，是它抓住了上游"每一步 SQL 都是 `SELECT 1`"的假绿
+   （根因已修，见下）。**注意**：本节上述真实基线是在该修复**之前**跑的，
+   其中 2 条 ✅ 实为假绿，修复后数字需重测。
+
+## dataset_profile 规模修复（2026-09-13 · E4/01 v1.1）
+
+**问题**：逐列 `SELECT COUNT(c), COUNT(DISTINCT c)` → 成本随**列数**线性，
+是全部质量基元里唯一"随列数"劣化的一个。1M 行 PG 实测：
+
+| 表宽 | 不限制（旧行为） | 上限 40（新默认） | 提升 |
+|---|---|---|---|
+| 9 列 | 2.06s | （未触发上限） | — |
+| 61 列 | 7.58s | **5.19s** | 1.46× |
+| **121 列** | **15.36s** | **5.63s** | **2.73×** |
+
+**关键**：61 列 5.19s、121 列 5.63s —— **成本已与表宽无关**（恒为"画像 40 列"的代价）。
+目标从"随列数线性"改成"**常数上界**"。
+
+**两处修改**
+1. `profile_column_batch`（默认 16）：同一批列合并进一条聚合 SQL，N 列 → `ceil(N/batch)` 次扫描。
+   **结果完全等价**（非抽样/非近似）。
+   **诚实说明**：单项提升**有限**——9 列 PG 2.06s→1.52s（1.35×）、SQLite 1.55s→1.33s（1.17×）。
+   **没有 9×**，因为主要成本在每列 `COUNT(DISTINCT)` 的**去重本身**，不是表扫描次数。
+   所以"批量化"不足以解决宽表，必须叠加②。
+2. `profile_max_columns`（默认 40，**0 = 不限制**）：按优先级（声明的键 > 日期列 >
+   名似主键 > 名似日期 > 其余）截断被画像的列；未画像的列记入 **`columns_skipped`**
+   （**截断必须可见**）。仅真正截断时才重排，未截断时列序与库内一致。
+
+> **刻意不采用"抽样 / 近似去重"**（本节早前建议过）：`key_uniqueness` 的判据是
+> `distinct == row_count`，抽样会让**非唯一列误判为唯一**——正好撞上本项目
+> "唯一是弱信号"那条教训。
+
+**TDD**：`test_profile_batched_columns.py`(6) + `test_profile_column_cap.py`(6)。
+**回归**：全量 **856 passed / 0 failed / 15 skipped**（junitxml 复核 failures=0 errors=0）。
+**规格**：`docs/specs/E4/01-profile-quality.md` §7（v1.1）。

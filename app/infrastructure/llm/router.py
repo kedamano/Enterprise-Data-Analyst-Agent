@@ -20,11 +20,14 @@ import json
 import logging
 import random
 import re
+import threading
 from datetime import datetime, timezone
-from typing import Any, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from ...config import Settings, get_settings
+from . import token_budget
 from .circuit_breaker import CircuitBreaker, CircuitOpenError
+from .token_budget import SessionTokenBudgetExceeded
 
 logger = logging.getLogger("da.llm")
 
@@ -38,7 +41,55 @@ _NON_RETRYABLE_HTTP = {400, 401, 402, 403, 404, 413, 422}
 _PROVIDER_ROUTING_HOSTS = ("openrouter.ai",)
 
 
+class LLMDeadlineExceeded(Exception):
+    """LLM 调用超出**墙钟**预算（与传输层 timeout 无关）。
+
+    存在的理由：httpx 的 **read timeout 会在每次收到数据块时重置**。上游只要周期性
+    吐 keep-alive 字节（网关/反代很常见），`timeout=` 就**永不触发**——
+    2026-09-14 实测：进程在 analyst 的 LLM 调用上挂了 **>3 小时**（CPU=0s，等 I/O），
+    而配置是 `LLM_TIMEOUT_S=300` + 5 次重试。
+
+    **不可重试**（见 `_non_retryable`）：重试一个已挂起的调用只会把 deadline 乘上次数。
+    """
+
+
+def _call_with_deadline(fn: Callable[[], Any], deadline_s: float) -> Any:
+    """在**墙钟**预算内执行 ``fn``；超时抛 :class:`LLMDeadlineExceeded`。
+
+    实现方式与 `rag/reranker` 的嵌入加载预算一致：daemon 线程 + ``join(deadline)``。
+    ``deadline_s <= 0`` → 关闭兜底（退回 SDK timeout 的旧行为，便于排障）。
+
+    ⚠️ **超时后工作线程仍在后台跑**（Python 无法强杀线程）。这是**有意的取舍**：
+    宁可漏一个线程 + 一条半开连接，也不能让整条流水线被永久占住。
+    """
+    value = deadline_s if deadline_s and deadline_s > 0 else 0.0
+    if value <= 0:
+        return fn()
+    holder: dict[str, Any] = {}
+
+    def _run() -> None:
+        try:
+            holder["v"] = fn()
+        except BaseException as exc:  # noqa: BLE001 - 原样带回主线程再抛
+            holder["e"] = exc
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(value)
+    if t.is_alive():
+        logger.error("LLM 调用超出墙钟预算 %.0fs，判定为挂起并放弃等待"
+                     "（工作线程仍在后台，可能持有一条半开连接）", value)
+        raise LLMDeadlineExceeded(f"LLM call exceeded wall-clock deadline {value:.0f}s")
+    if "e" in holder:
+        raise holder["e"]
+    return holder.get("v")
+
+
 def _non_retryable(exc: BaseException) -> bool:
+    if isinstance(exc, (LLMDeadlineExceeded, SessionTokenBudgetExceeded)):
+        # **都不重试**：挂起重试只会把墙钟预算乘上次数；
+        # token 熔断重试也不会让预算变多。
+        return True
     status = getattr(exc, "status_code", None)
     return isinstance(status, int) and status in _NON_RETRYABLE_HTTP
 
@@ -134,9 +185,23 @@ def provider_routing_body(settings: Settings) -> Optional[dict[str, Any]]:
 
 
 def _extra_body(settings: Settings) -> Optional[dict[str, Any]]:
-    """openai SDK 的 ``extra_body``：承载 provider 路由等非标准字段。"""
+    """openai SDK 的 ``extra_body``：承载 provider 路由等非标准字段。
+
+    - ``provider``：OpenRouter 专有，仅在 base_url 指向 openrouter.ai 时注入；
+    - ``reasoning_effort``：**推理模型**的思考预算（none/low/medium/high）。
+      实测（glm-5.3，8k prompt）：默认一次调用把 15352/16384 token 花在 reasoning 上、
+      正文被截断（`finish=length`）、单次 504s；设 `none` 后 reasoning 降到 ~41 token、
+      单次 10s。**推理预算是"能不能用"的开关，不是优化项**。
+      留空 = 不注入（默认行为不变，非推理模型不受影响）。
+    """
+    extra: dict[str, Any] = {}
     routing = provider_routing_body(settings)
-    return {"provider": routing} if routing else None
+    if routing:
+        extra["provider"] = routing
+    effort = (settings.llm_reasoning_effort or "").strip().lower()
+    if effort:
+        extra["reasoning_effort"] = effort
+    return extra or None
 
 
 def _rate_limit_wait_s(settings: Settings, exc: BaseException, attempt: int = 1) -> float:
@@ -216,6 +281,14 @@ def record_fallback(stage: Stage, error: Any) -> None:
         "ts": datetime.now(timezone.utc).isoformat(),
     })
     _llm_state["last_degraded"] = True
+    # D44：降级率是本项目最该盯的 SLI（"降级必须可见"的另一半是"可被大盘统计"）。
+    # 此前只有进程内 `fallback_events()`，多副本下不聚合、也不进 /metrics。
+    try:
+        from ..observability.metrics import metrics as _m
+
+        _m.inc("llm_fallbacks_total")
+    except Exception:
+        pass
 
 
 def record_llm_success() -> None:
@@ -323,11 +396,25 @@ class OpenAILLM(BaseLLM):
             )
             if extra_body:
                 kwargs["extra_body"] = extra_body
-            resp = self._client.chat.completions.create(**kwargs)
+            # D43：调用**之前**检查单会话 token 预算（拒绝下一次，而非事后报警）。
+            # 放在重试内部：每一轮重试都要重新过闸，否则重试风暴可以绕过熔断。
+            token_budget.check_and_reserve(self._settings.session_token_budget)
+            # D40：SDK 的 `timeout=` 兜不住"半开连接 + 周期性心跳"（read timeout 被重置），
+            # 故再套一层**与传输无关的墙钟**。见 `_call_with_deadline` 的说明。
+            resp = _call_with_deadline(
+                lambda: self._client.chat.completions.create(**kwargs),
+                deadline_s=self._settings.llm_hard_deadline_s)
             u = getattr(resp, "usage", None)
-            if u is not None and usage is not None:
-                usage["prompt"] = int(getattr(u, "prompt_tokens", 0) or 0)
-                usage["completion"] = int(getattr(u, "completion_tokens", 0) or 0)
+            if u is not None:
+                prompt_n = int(getattr(u, "prompt_tokens", 0) or 0)
+                completion_n = int(getattr(u, "completion_tokens", 0) or 0)
+                if usage is not None:
+                    usage["prompt"] = prompt_n
+                    usage["completion"] = completion_n
+                # D43：**记账不依赖调用方是否要 usage**。此前写在 `usage is not None` 里面，
+                # 于是不传 usage 的路径（如 judge）烧了 token 却从不计数 →
+                # 熔断永远不会触发。测试 `test_call_model_refuses_after_budget` 当场抓到。
+                token_budget.record(prompt_n + completion_n)
             return resp.choices[0].message.content or ""
 
         # Circuit breaker around the (internally-retried) call:

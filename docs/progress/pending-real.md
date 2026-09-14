@@ -290,3 +290,150 @@
 > `ORDER BY a, b` 里的逗号会被误判成多表连接。回归见 `tests/test_e4_quality_gate.py`
 > 新增 8 条（2 条正例 + 5 条"其它位置的逗号不得误判" + 1 条"逗号连接带正确条件不误报"），
 > 该文件 **36 passed**；11 条 `_has_join` 判定场景全对、零误伤。
+
+> #### D. TokenRouter 端点实测：**不能用于本项目的真实评测**（2026-09-12 续 3）
+>
+> 用户提供了新端点（`https://api.tokenrouter.com/v1`，模型 `z-ai/glm-5.3-free`），
+> 用于解除 OpenRouter 免费额度（50/日，重置 08:00）的阻塞。**探针 + 实跑结论：不可用。**
+>
+> **端点只有 1 个模型**（`GET /v1/models` 实测），无法换一个非推理模型：
+>
+> | 项 | 值 |
+> |---|---|
+> | 可用模型数 | **1**（仅 `z-ai/glm-5.3-free`） |
+> | 性质 | **重推理模型**，`thinking:{"type":"disabled"}` → **400**（"GLM-5.3 does not support disabling thinking"） |
+>
+> **决定性实测（8k tokens 的真实 analyst 级提示词）**：
+>
+> | 配置 | 耗时 | completion | reasoning | 正文长度 | finish |
+> |---|---|---|---|---|---|
+> | `max_tokens=4096` | — | — | 吃光预算 | **0（空串）** | — |
+> | `max_tokens=16384`（默认） | **504s** | 16384 | **15352** | 2375（截断） | `length` |
+> | `max_tokens=16384` + `reasoning_effort=none` | 404s | 16384 | **16384** | **0（空串）** | `length` |
+> | `max_tokens=32768` | — | — | — | — | **APIConnectionError**（端点拒绝） |
+>
+> **两个反直觉结论（值得记下）**：
+> 1. `reasoning_effort` 只在**小**提示词上显著降低 reasoning（873→41）；
+>    8k 提示词下**它仍把整个预算用在思考上**（reasoning=16384、正文为空）。
+>    所以它不能让重推理模型胜任大提示词调用——参数"被接受"≠"起作用"。
+> 2. 推理模型**吃光预算时返回空字符串而不是报错**。本项目 `_llm_model` 的
+>    `ok(model)` 可用性判据把这种情况正确判为「输出结构合法但内容不可用」→
+>    用例记为 `ERROR` 而非静默通过——**这正是 C.3 修的那层网在起作用**。
+>
+> **实跑观测（旧配置、未加 reasoning_effort 时）**：8 条中 2 条跑完（**均为 CLARIFY**）、
+> 1 条卡在 analyst 节点 35 分钟（超时→重试循环）。故**全量真实基线无法在该端点产出**。
+>
+> **本轮据此交付的代码改进（与端点可用性无关，独立成立）**：
+> - 新增 `LLM_REASONING_EFFORT` 配置 + `_extra_body` 接线（留空 = 不注入）；
+>   `tests/test_llm_reasoning_effort.py` **7 passed**。
+> - 新增 `must_not_have_quality_codes` 负向断言（修 `r_join_amplification_guard` 惩罚正确行为）；
+>   `tests/test_golden_assertion_direction.py` **9 passed**。
+> - `unit_mismatch` / `filter_mismatch` 确定性落地；`tests/test_caliber_unit_filter.py` **9 passed**。
+> - 成本折算区分"未知(None)"与"已知免费(0.0)"；`tests/test_eval_cost_units.py` **8 passed**。
+> - 补 `docs/specs/E6/01-real-eval-and-cost.md`（E6 此前是唯一空规格目录）。
+>
+> **建议**：换一个**非推理**或**可关闭思考**的模型（如 `gpt-4o-mini` 一类）再跑
+> `--mode real --only-real`；`.env` 已备份为 `.env.bak-tokenrouter-*`。
+> 两个已完成用例**均为 CLARIFY** 这一点，仍是"CLARIFY vs golden"（§C）的真实模型证据。
+>
+> #### E. 换回 OpenRouter 实跑：基线**仍不成立**，但"测谎"那一层当场兑现了（2026-09-13）
+>
+> 额度恢复后（`GET /v1/models` 列 19 个免费模型）逐个探针，选定
+> **`nvidia/nemotron-3-super-120b-a12b:free`**（8k 提示词：18.8s / `finish=stop`；
+> 同一提示词 glm-5.3 是 504s + 正文为空），跑全量 `--only-real`。
+>
+> **结果：7 条里只有 2 条计分，5 条被判 `DEGRADED` 剔除。**
+>
+> | 用例 | status | 说明 |
+> |---|---|---|
+> | `r_caliber_period_mismatch` | CLARIFY | 真实反问（该题本身期间不可比） |
+> | `r_ratio_denominator` | FINISH | 但断言失败：未命中"分母"、缺 `untested_comparison` |
+> | 其余 5 条 | **DEGRADED** | OpenRouter 免费档 **429 `openrouter_free_tier_daily`**（50/日已用尽）→ 熔断打开 → 后续零网络请求 → 全走 mock 模板 |
+>
+> **这一轮的价值不在数字，在于 C.4 修的那层网被真实触发了一次**：
+> 报告自己写出「⚠️ 本轮有 5 条用例发生 LLM 降级，已从真实基线剔除…请先解决额度问题再重跑」，
+> 并把 `scored_cases` 与 `degraded_excluded` 分开计数。按旧 runner，这 5 条 mock 模板
+> 会被当成真实成绩计入，产出一份"看起来正常"的假基线。
+> 报告已归档为 `eval-real-analyst-dataset-INCOMPLETE.md`（**不是** `eval-real-analyst-dataset.md`，避免被误引用）。
+>
+> **运营结论（新增待办）**：**免费档 50 次/日 < 跑一轮所需（约 70+ 次调用）**，
+> 即"额度恢复"也**不足以完成一轮真实基线**。可选：给账户加 10 credits
+> （错误信息称可解锁 1000 次/日）、拆成多天跑、或减少 `requires_real` 用例数。
+> 重置时间 **2026-09-14 08:00**。
+>
+> #### E.1 实跑又挖出一个真缺陷：**Reporter 把工具调用 JSON 当报告发出**（已修）
+>
+> 新模型下 `r_join_amplification_guard` 首跑 `findings=0`、**报告长度 36 字符**。
+> 查 checkpoint：`report` 字段的值是
+>
+> ```json
+> {"tool": "schema", "args": {}}
+> ```
+>
+> ——一段**工具调用 JSON** 被原样当成报告发给了用户。
+>
+> **根因**：`run_reporter` 的唯一守卫是 MockLLM 的 `__markdown__` 信号，
+> 即"**只防自己人**"；真实模型返回任何形状的 JSON 都被照单全收。
+> 这与 C.3 修的畸形 planner 输出同类——模型输出不可信，必须有**可用性判据**。
+>
+> **修复**（`nodes._sanitize_report_output`，`tests/test_reporter_output_sanitize.py` **6 passed**）：
+> 报告必须是 Markdown；JSON 对象一律不当报告——
+> ① MockLLM 信号 → 走模板（历史行为）；② Markdown 被包在 `report`/`markdown`/`content`/`text`
+> 字段里 → **取出内层**（不丢内容）；③ 其余（含工具调用）→ 走模板，
+> 并把原因记进 `metadata["reporter_fallback"]` + `logger.warning`（铁律 3：兜底不许静默）。
+>
+> **修复后复跑同一用例：报告 36 → 385 字符，断言全绿（judge 0.9）**——
+> 即 `must_not_have_quality_codes`（§一.1 新增的负向断言）+ reporter 净化，
+> 让这条 golden 从"必然失败"变成"能通过"。
+>
+> #### F. ✅ **有效真实基线首次产出**（Matrix 端点，2026-09-13 13:30）
+>
+> 端点：`https://matrix.mzsjai.com/v1`，模型 `deepseek/deepseek-v4-flash-w8a8`（**非推理**：
+> 小探针 1.3s / 8k 提示词 35.4s，`reasoning=None`）。**7 条全部计分，0 条降级。**
+>
+> 报告：`docs/progress/eval-real-analyst-dataset.md`
+>
+> | 指标 | 值（**修复后重跑 14:43**） |
+> |---|---|
+> | FINISH 率 | **0.571**（4/7） |
+> | 断言通过率 | **0.429**（3/7，其中 **2 条是 `CLARIFY_OK`**） |
+> | 工具成功率 | **0.36**（首跑曾报 1.0 —— **那是假的**，见下方说明） |
+> | 平均工具调用 / LLM 调用 | 3.57 / 6.71 |
+> | 平均报告长度 | 2866.9 字符 |
+> | 平均耗时 | 104.0s/用例；总 319k tokens |
+> | 成本 USD | **0.0**（已配单价） |
+> | 降级剔除 | **0** |
+>
+> | 用例 | status | 断言 | 说明（**修复后重跑 14:43**） |
+> |---|---|---|---|
+> | `r_join_amplification_guard` | FINISH | ✅ | **唯一一条"真 FINISH 且通过"**（§一.1 断言方向 + §E.1 reporter 净化） |
+> | `r_ratio_denominator` | **CLARIFY_OK** | ✅ | 判断型问题，反问被接受（`accept_clarify`） |
+> | `r_simpson_check` | **CLARIFY_OK** | ✅ | 同上 |
+> | `r_decompose_before_attribution` | FINISH | ❌ | 未答出"拆解/贡献" |
+> | `r_causal_overreach` | FINISH | ❌ | 未答出"相关/因果" |
+> | `r_multiple_comparison` | FINISH | ❌ | 缺 `multi_comparison_unadjusted`（比较了 8 渠道但未做校正声明） |
+> | `r_caliber_period_mismatch` | CLARIFY | ❌ | 反问 —— 但**非判断型**，不受 `accept_clarify` 保护 |
+>
+> **首跑（13:30）的 ✅ 有 2 条是假的**：`r_caliber_period_mismatch` 与
+> `r_decompose_before_attribution` 当时每一步 SQL 都是 `SELECT 1`（占位假绿，已修）。
+> 修复后前者转 CLARIFY、后者判失败。存档 `eval-real-analyst-dataset-CONTAMINATED.md`。
+>
+> **根因仍未修（下一条主线）**：planner **既不给 `input.sql`、也常漏排 `schema_search`**
+> → `_first_table` 无表可解析 → 占位。现在它**响亮失败**（`缺少 sql 参数` +
+> `依赖步骤未完成` 级联）而不是偷偷返回假数据，但"拿不到数据"本身还在。
+> 修法二选一：① planner 提示词要求 sql_query 步必须给 `input.sql`；
+> ② 执行器解析不出表时**自动补跑一次 `schema_search`**（把不可用变成可用，而非失败）。
+>
+> **§C「CLARIFY vs golden」现在有结论依据了（样本 2 个模型）**：
+> 三条 CLARIFY **全部**是"给定数字做判断"型问题（转化率显著吗 / 渠道切换是原因吗 /
+> 总转化率涨=优化成功吗）。**换了一个完全不同的模型（deepseek 而非 glm/nemotron），
+> 行为一致** → 说明这**不是某个模型爱反问**，而是系统性的：
+> 这类题目把数字**给在问题里**，要的是**统计判断**，不是从库里取数；
+> 而 `context.md` 的澄清策略遇到"库里没有对应数据"就倾向反问。
+> **即：模型的行为是对的，是 golden 的期望与"判断型问题"不匹配。**
+>
+> **另两个真实信号（值得记下，尚未处理）**：
+> - **溯源覆盖率 `None`、claims `0/0`**：7 条用例**没有任何数值 claim**（3 条 findings=0）。
+>   E1 的溯源维度在真实模型下**无从度量**——不是失效，是模型很少产出带数值的 finding。
+> - `Reflection PASS 率 0.0`：reflection 几乎总判 REPLAN（4/7 走到 REPLAN 后由 max_replans 截断）。
+>   需确认是"模型确实该改"还是"reflection 判据过严"。

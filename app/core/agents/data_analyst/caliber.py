@@ -41,6 +41,22 @@ _FIXED_PERIODS: tuple[tuple[re.Pattern, int], ...] = (
 _COMPARE_RE = re.compile(r"(环比|同比|相比|对比|较上|较去年|增长|下降|变化|趋势)", re.IGNORECASE)
 _PERIOD_TOLERANCE = 0.2  # 期间长度差异超过 20% 才算不可比
 
+# --- v1.2：单位混用（unit_mismatch） --------------------------------------- #
+# 长单位必须排在短单位前，否则 "1.2 亿元" 会被 "亿" 先匹配掉、丢掉 "元"。
+_AMOUNT_RE = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(百万元|亿元|千元|万元|亿|万)")
+# 指标名 = 金额紧邻前方的 2~8 个中文/字母（"营收 1.2 亿元" → "营收"）
+_METRIC_BEFORE_RE = re.compile(r"([一-龥A-Za-z]{2,8})\s*$")
+# 指标名前的期间修饰要剥掉，否则 "营收" 与 "上年同期营收" 会被当成两个指标而漏判
+_PERIOD_PREFIX_RE = re.compile(
+    r"^(上年|去年|本年|今年|上期|本期|同期|当期|上月|本月|当月|上季度|本季度|去年|同期|同比|环比)+")
+
+# --- v1.2：限定词极性冲突（filter_mismatch） -------------------------------- #
+# 交替顺序即优先级：`不含` 必须排在 `含` 前，否则 "不含退款" 会被当成"含退款"。
+_QUALIFIER_RE = re.compile(
+    r"(?P<pol>不含|不包含|不包括|剔除|排除|扣除|去除|包含|包括|仅含|只含|含)"
+    r"\s*(?P<obj>退款|退货|税|运费|赠品|内部|测试|异常|停用)")
+_EXCLUDE_WORDS = frozenset({"不含", "不包含", "不包括", "剔除", "排除", "扣除", "去除"})
+
 
 def parse_period_days(text: str) -> Optional[int]:
     """把常见期间写法解析成天数；解析不出 → None（宁缺勿滥）。"""
@@ -85,6 +101,24 @@ def _metrics_of(analysis: Any, context: Any) -> list[str]:
     return seen
 
 
+def _amounts_by_metric(text: str) -> list[tuple[str, str]]:
+    """从自由文本抽出 ``(指标名, 数量级单位)``（v1.2）。
+
+    指标名取金额**紧邻前方**的 2~8 个中文/字母，并剥掉期间修饰
+    （``上年同期营收`` → ``营收``）——否则同一指标的两次取值会被当成两个指标而漏判。
+    抽不出指标名的金额**直接跳过**：宁可漏判，不可把"两个不相干数字"凑成口径问题。
+    """
+    out: list[tuple[str, str]] = []
+    for m in _AMOUNT_RE.finditer(text or ""):
+        mm = _METRIC_BEFORE_RE.search((text or "")[:m.start()])
+        if not mm:
+            continue
+        name = _PERIOD_PREFIX_RE.sub("", mm.group(1))
+        if len(name) >= 2:
+            out.append((name, m.group(2)))
+    return out
+
+
 def caliber_check(analysis: Any, context: Any = None, *, iteration: Any = None,
                   report: str = "") -> CaliberCheck:
     """确定性口径可比性检查。只报结构性问题，语义判读留给 LLM 维度（标待验）。"""
@@ -125,6 +159,35 @@ def caliber_check(analysis: Any, context: Any = None, *, iteration: Any = None,
             detail=(f"本轮为增量迭代（{kind}），口径已变更，"
                     "与上一轮结果直接做环比/同比不成立，需在同一口径下重算基期"),
             metric=metrics[0] if metrics else None))
+
+    # ④ 同一指标混用不同数量级单位（v1.2）
+    #    **只判同一指标**——不同指标用不同量级单位是正常写法（营收 1.2 亿 / 成本 3000 万），
+    #    全文见两种单位就报会把正常报告全部点亮。
+    by_metric: dict[str, set[str]] = {}
+    for metric_name, unit in _amounts_by_metric(text):
+        by_metric.setdefault(metric_name, set()).add(unit)
+    mixed = {m: us for m, us in by_metric.items() if len(us) > 1}
+    if mixed:
+        name, units = next(iter(mixed.items()))
+        issues.append(CaliberIssue(
+            kind="unit_mismatch",
+            detail=(f"同一指标「{name}」混用了不同数量级单位（{'、'.join(sorted(units))}），"
+                    "跨单位比较前须统一换算，否则倍数是错的"),
+            metric=name))
+
+    # ⑤ 限定词极性冲突（v1.2）
+    #    **只判"同一对象出现相反极性"**（含退款 vs 不含退款）。单侧过滤判据不足 → 不判（规格 §7.2）。
+    pol_by_obj: dict[str, set[str]] = {}
+    for m in _QUALIFIER_RE.finditer(text):
+        pol = "exclude" if m.group("pol") in _EXCLUDE_WORDS else "include"
+        pol_by_obj.setdefault(m.group("obj"), set()).add(pol)
+    conflicts = [o for o, ps in pol_by_obj.items() if len(ps) > 1]
+    if conflicts:
+        issues.append(CaliberIssue(
+            kind="filter_mismatch",
+            detail=(f"同一份报告里「{'、'.join(conflicts)}」出现了相反的限定口径"
+                    "（含/不含并存），两侧数字不可直接比较"),
+            metric=None))
 
     return CaliberCheck(comparable=not issues, checked_metrics=metrics, issues=issues)
 

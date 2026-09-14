@@ -119,9 +119,10 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:5173
           CI: "true"
-        # web/playwright.config.ts 只配了 list reporter → 不会生成 playwright-report/。
-        # 这里显式加 html，否则下面的 artifact 步骤永远上传不到东西（静默失效）。
-        run: npx playwright test --reporter=list,html
+        # reporter 由 playwright.config.ts 决定：CI 下出 list + html
+        # （此前 config 只配 list，这里不得不 `--reporter=list,html` 绕开，
+        #  否则下面的 artifact 步骤**上传空目录且静默成功**；配置已修，绕开取消）
+        run: npx playwright test
 
       - name: Backend log (on failure)
         if: failure()

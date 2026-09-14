@@ -221,6 +221,44 @@ def _custom_summary(snap) -> dict | None:
     return {"mode": mode}
 
 
+@router.post("/analyze/confirm")
+def analyze_confirm(payload: dict):
+    """D45 两步授权：对挂起的高危动作落定（允许 / 拒绝）。
+
+    请求体：``{"session_id": ..., "token": ..., "approved": true|false}``。
+    凭证由 428 响应下发；**允许与拒绝都写审计**（`data/audit/hitl.jsonl`）。
+    确认成功后该动作获得**一次性放行**——重试原请求即可，不会被反复拦住。
+    """
+    session_id = str((payload or {}).get("session_id") or "")
+    token = str((payload or {}).get("token") or "")
+    approved = bool((payload or {}).get("approved"))
+    if not session_id or not token:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="缺少 session_id 或 token")
+
+    # AUTH/01：越权确认别人的会话 → 403
+    try:
+        from ...core.security.auth import current_principal, owns_session
+
+        if not owns_session(session_id, current_principal()):
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=403, detail="无权访问该会话")
+    except Exception:
+        pass
+
+    from ...core.security import hitl
+
+    ok, message = hitl.decide(session_id, token, approved=approved)
+    if not ok:
+        # 凭证不匹配 / 无挂起动作 → 409（可重试：调用方应回到 428 重新发起）
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=409, detail=message)
+    return {"ok": True, "message": message}
+
+
 @router.get("/analyze/artifacts/{session_id}")
 def analyze_artifacts(session_id: str):
     _assert_session_access(session_id)
@@ -255,6 +293,27 @@ def analyze_trace(session_id: str):
     if state is None:
         raise HTTPException(status_code=404, detail=f"未找到运行记录: {session_id}")
     return trace_manifest(state)
+
+
+@router.get("/analyze/lineage/{session_id}")
+def analyze_lineage(session_id: str):
+    """D47：**指标血缘**清单（metric → 口径 → sql_id → SQL → 表/列）。
+
+    `parsed_from_sql` 表示表/列由 SQL **文本解析**，不是权威元数据——
+    调用方不得当成 `information_schema` 那样的事实。
+    """
+    _assert_session_access(session_id)
+    from fastapi import HTTPException
+
+    from ...core.agents.data_analyst.checkpoint import load as cp_load
+    from ...core.agents.data_analyst.lineage import lineage_summary, metric_lineage
+
+    state = cp_load(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"未找到运行记录: {session_id}")
+    lineages = metric_lineage(state.analysis, list(state.tool_results or []))
+    return {"session_id": session_id, "summary": lineage_summary(lineages),
+            "metrics": lineages}
 
 
 def _status_message(status: str) -> str:

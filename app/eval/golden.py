@@ -25,15 +25,41 @@ class GoldenCase:
     # --- E6/01 分析师能力断言（结构化，读 state 而非字符串匹配） ---
     # 本轮必须出现的质量门禁 code（如 dq_override_silent / join_amplified_used）
     expect_quality_codes: tuple[str, ...] = ()
+    # 本轮**绝不允许**出现的质量门禁 code（负向断言）。
+    # 有些 code 只在 Agent **写错**时才产生——例如 `join_amplified_used` 要求
+    # "结果行数 ≥1.5×最大输入表 **且** 该结果被引用进结论"（gate.profile_gate）。
+    # 正向索取这类 code 会变成"只有犯错的实现才能通过"，即**惩罚正确行为**；
+    # 表达"正确行为不得报警"必须用本字段。
+    must_not_have_quality_codes: tuple[str, ...] = ()
     # 本轮必须出现的口径问题 kind（period_mismatch / denominator_missing / iteration_drift）
     expect_caliber_kinds: tuple[str, ...] = ()
     # 用户下"忽略数据质量"指令时必须**不静默**（有质量声明）
     expect_refusal: bool = False
     # 报告必须带 limitations/quality_notes（"有局限就要写出来"）
     must_have_limitations: bool = False
+    # 本轮必须**真的产出**多少条 findings。
+    # 存在的理由：`must_find` 是子串命中，而报告天然**回显问题**（标题/目标段），
+    # 于是"问题里出现过的词"会让断言恒真——哪怕分析 0 条 findings、正文写"无法完成"。
+    # 真实基线里 `r_join_amplification_guard` 就是这么被误判为 ✅ 的。
+    # 断言业务内容的用例设 ≥1；反问型（accept_clarify）不设。
+    min_findings: int = 0
+    # 本轮至少要产出多少条**可溯源数值结论**（E1 维度）。
+    #
+    # 存在的理由：E1 现有断言是"**每个**数值 claim 都要能溯源"——当数值 claim
+    # **一个都没有**时它**恒真**（vacuous truth）。D38 真实基线正是如此：
+    # `溯源 0/0` 却全程判过，于是"分析没给出任何数据结论"这件事**测不出来**。
+    # 数据类用例设 ≥1，把"零数值结论"从"通过"变成"失败"。
+    min_numeric_claims: int = 0
     # 需要真实模型才能验证的用例：mock 模式下**跳过并显式计数**，
     # 绝不把"没跑"混进通过率（铁律 6：无 key 前不得声称已达标）
     requires_real: bool = False
+    # **判断型问题**：数字给在题面里、要的是统计判断而非取数 → **反问澄清是可接受的终态**。
+    # 证据：`r_ratio_denominator` / `r_causal_overreach` / `r_simpson_check` 在
+    # glm-5.3 与 deepseek-v4-flash 两个完全不同的模型上都稳定返回 CLARIFY
+    # ——换模型行为不变 ⇒ 系统性的"golden 期望 vs 判断型问题"不匹配，不是模型缺陷。
+    # 语义：命中时终态记 `CLARIFY_OK`，**单独计数 `clarify_accepted`，不进 FINISH 率**
+    # （避免把"没做分析"混进"做对了"）。
+    accept_clarify: bool = False
     # LLM-judge（docs 对标 Gap §七）：评判「答案对不对」，而非仅字段命中。
     # 0.0 = 不要求 judge；>0 = 要求 judge_case().score >= 该阈值（离线 rubric 或真 LLM）。
     judge_min_score: float = 0.0
@@ -123,6 +149,7 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
         id="r_caliber_period_mismatch",
         query="本月营收环比上季度增长 12%，说明增长强劲吗？",
         expect_caliber_kinds=("period_mismatch",),
+        min_findings=1,   # 答出业务内容的前提：真的产出了发现（回显问题不算）
         requires_real=True,
         judge_min_score=0.3,   # #5：真实 LLM 语义评分阈值（真 LLM 下断言"答案对不对"）
         tags=("caliber",),
@@ -133,19 +160,30 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
         expect_quality_codes=("untested_comparison",),
         must_find=("分母",),
         requires_real=True,
+        # 判断题：数字在题面里，"显著吗"要的是统计判断 → 反问口径可接受
+        accept_clarify=True,
         tags=("stats", "caliber"),
+        min_numeric_claims=1,   # 数据类用例：至少要有一条可溯源数值结论（否则 E1 恒真）
     ),
     GoldenCase(
         id="r_decompose_before_attribution",
         query="8 月 GMV 同比下降 12%，帮我找主要原因",
         must_find=("拆解", "贡献"),
+        min_findings=1,   # 答出业务内容的前提：真的产出了发现（回显问题不算）
         requires_real=True,
         tags=("diagnostic", "decomposition"),
+        min_numeric_claims=1,   # 数据类用例：至少要有一条可溯源数值结论（否则 E1 恒真）
     ),
     GoldenCase(
         id="r_join_amplification_guard",
         query="把订单表和商品表关联后统计各品类营收",
-        expect_quality_codes=("join_amplified_used",),
+        # 负向断言：正确 join（N:1 维表 + 聚合到品类，4 行）本就不该产生放大告警。
+        # 早期此处是正向 `expect_quality_codes=("join_amplified_used",)` —— 该 code 只在
+        # **写错**时产生（笛卡尔放大且结果进结论），正确实现 factor≈0.0002 永远触发不了，
+        # 于是这条 golden 变成"只有犯错才通过"。详见 tests/test_golden_assertion_direction.py。
+        must_not_have_quality_codes=("join_amplified_used",),
+        min_findings=1,   # 答出业务内容的前提：真的产出了发现（回显问题不算）
+        must_find=("品类",),
         requires_real=True,
         tags=("join",),
     ),
@@ -153,21 +191,29 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
         id="r_causal_overreach",
         query="渠道切换是不是导致营收下降的原因？",
         must_find=("相关", "因果"),
+        min_findings=1,   # 答出业务内容的前提：真的产出了发现（回显问题不算）
         requires_real=True,
+        # 判断题："是不是原因"要的是因果判断（相关≠因果）→ 反问口径可接受
+        accept_clarify=True,
         tags=("stats", "causal"),
     ),
     GoldenCase(
         id="r_multiple_comparison",
         query="逐个比较 8 个渠道的转化率，哪些渠道明显更好？",
         expect_quality_codes=("multi_comparison_unadjusted",),
+        min_findings=1,   # 答出业务内容的前提：真的产出了发现（回显问题不算）
         requires_real=True,
         tags=("stats",),
+        min_numeric_claims=1,   # 数据类用例：至少要有一条可溯源数值结论（否则 E1 恒真）
     ),
     GoldenCase(
         id="r_simpson_check",
         query="总转化率从 6% 涨到 7%，说明优化成功吗？",
         must_find=("分群", "分层"),
         requires_real=True,
+        # 判断题：辛普森悖论题，数字在题面里 → 反问口径可接受
+        accept_clarify=True,
+        min_numeric_claims=1,   # 数据类用例：至少要有一条可溯源数值结论（否则 E1 恒真）
         judge_min_score=0.3,
         tags=("stats", "simpson"),
     ),

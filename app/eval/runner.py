@@ -75,6 +75,106 @@ class CaseOutcome:
         return d
 
 
+def compute_cost_usd(cost_in: float | None, cost_out: float | None,
+                     prompt_tokens: int, completion_tokens: int) -> float | None:
+    """token 数 + 单价 → USD；**单价未知（None）→ 返回 None**（纯函数，便于离线测试）。
+
+    语义（与 `config.py` 的 `cost_*_per_mtok` 对齐）：
+    - 单价 **None**（压根没配）→ `None`，表示"不知道花了多少钱"；
+    - 单价 **显式 0**（免费档，如 `-free` 模型）→ `0.0`，表示"确实不花钱"，**要报出来**。
+
+    这两件事以前用同一个 `0.0` 兼表，于是成本列**恒为 None**：
+    免费模型的真实成本 0 与"没配单价"在报告里长得一模一样。
+    """
+    if cost_in is None and cost_out is None:
+        return None
+    if not (prompt_tokens or completion_tokens):
+        return None
+    return round(prompt_tokens / 1e6 * (cost_in or 0.0)
+                 + completion_tokens / 1e6 * (cost_out or 0.0), 6)
+
+
+def hallucination_rate(numeric_claims: int, traced_claims: int) -> float | None:
+    """**疑似幻觉率** = 1 − 溯源覆盖率。
+
+    定义沿用 E1：数值结论若拿不到对应 SQL 步骤，即计为疑似编造的数字。
+
+    **零 claim → `None`（未定义），不是 0.0。**
+    把"没测到"报成"0 幻觉"是最典型的自欺——D38 的 `溯源 0/0` 就是这样全程判过的
+    （也正因如此才有 `min_numeric_claims` 去要求"至少有一条数值结论"）。
+    """
+    if not numeric_claims:
+        return None
+    return round(1 - traced_claims / numeric_claims, 4)
+
+
+def numeric_claim_violations(case: GoldenCase, claims: int) -> list[str]:
+    """`min_numeric_claims` 判定（纯函数）。
+
+    **补的是 E1 的一个 vacuous 漏洞**：现有断言是"每个数值 claim 都要可溯源"，
+    当数值 claim **一个都没有**时它**恒真**——D38 真实基线 `溯源 0/0` 全程判过，
+    于是"分析停留在元讨论、没给出任何数据结论"这件事**测不出来**。
+    """
+    if claims < case.min_numeric_claims:
+        return [f"本轮仅 {claims} 条可溯源数值结论，少于要求的 {case.min_numeric_claims} 条"
+                "（分析未产出数据结论——E1 的「每个都要可溯源」在零 claim 时恒真）"]
+    return []
+
+
+def findings_violations(case: GoldenCase, findings_count: int) -> list[str]:
+    """`min_findings` 判定（纯函数，便于离线测试）。
+
+    为什么需要它：`must_find` 是**子串命中**，而报告天然**回显问题**（标题/目标段）。
+    于是"问题里出现过的词"会让断言恒真——哪怕本轮 0 条 findings、正文写"无法完成"。
+    真实基线里 `r_join_amplification_guard` 正是这么被误判成 ✅ 的。
+
+    注意与 `accept_clarify` 的关系：反问（`CLARIFY_OK`）在本函数之前就早退了，
+    所以两者不冲突——**反问可不产出发现；但一旦选择作答，就必须真有发现**。
+    """
+    if findings_count < case.min_findings:
+        return [f"本轮仅产出 {findings_count} 条发现，少于要求的 {case.min_findings} 条"
+                f"（报告回显了问题、但分析并未产出结论）"]
+    return []
+
+
+def resolve_terminal(case: GoldenCase, status: str, error: str | None) -> tuple[str, list[str]]:
+    """终态归一 → ``(有效状态, 失败断言)``（纯函数，便于离线测试）。
+
+    - ``FINISH`` → 原样通过；
+    - ``CLARIFY`` 且 `case.accept_clarify` → 归一为 **``CLARIFY_OK``**（可接受终态，不算失败）；
+    - 其它 → 沿用 ``expect_finish`` 判定。
+
+    ``CLARIFY_OK`` 与 ``FINISH`` **刻意区分**：判断型问题反问是对的，但它是"没做分析"，
+    不能混进 FINISH 率——metrics 里单独计数 ``clarify_accepted``。
+    """
+    if status == "CLARIFY" and case.accept_clarify:
+        return "CLARIFY_OK", []
+    failures: list[str] = []
+    if case.expect_finish and status != "FINISH":
+        failures.append(f"期望 FINISH，实际 {status}: {error}")
+    return status, failures
+
+
+def quality_code_violations(case: GoldenCase, codes: list[str]) -> list[str]:
+    """质量门禁 code 的正/负向断言 → 失败信息清单（纯函数，便于离线测试）。
+
+    - ``expect_quality_codes``：必须出现，缺失即失败；
+    - ``must_not_have_quality_codes``：必须**不**出现，出现即失败。
+
+    负向断言的存在理由：有些 code 只在 Agent **写错**时才产生
+    （如 ``join_amplified_used`` 要求笛卡尔放大且结果进结论），
+    正向索取会变成"只有犯错的实现才通过"，即惩罚正确行为。
+    """
+    problems: list[str] = []
+    for code in case.expect_quality_codes:
+        if code not in codes:
+            problems.append(f"缺少质量门禁 code: {code}（实际 {codes}）")
+    for code in case.must_not_have_quality_codes:
+        if code in codes:
+            problems.append(f"出现不应有的质量门禁 code: {code}（实际 {codes}）")
+    return problems
+
+
 def evaluate_case(case: GoldenCase, mode: str, session_id: str,
                   trace_dir) -> CaseOutcome:
     from app.core.agents.data_analyst.graph import run_analysis
@@ -119,9 +219,14 @@ def evaluate_case(case: GoldenCase, mode: str, session_id: str,
 
     # 确定性断言
     out.assertions_ok = True
-    if case.expect_finish and state.status != "FINISH":
+    out.status, _terminal_failures = resolve_terminal(case, state.status, state.error)
+    if _terminal_failures:
         out.assertions_ok = False
-        out.failed_assertions.append(f"期望 FINISH，实际 {state.status}: {state.error}")
+        out.failed_assertions.extend(_terminal_failures)
+    # 被接受的反问终态：report/findings 都是空的，内容断言必然假红 → 早退跳过。
+    if out.status == "CLARIFY_OK":
+        out.skipped_reason = "判断型问题：反问澄清属可接受终态（accept_clarify）"
+        return out
     findings = state.analysis.findings if state.analysis else []
     analysis = state.analysis
     # E6/01：haystack 必须包含**披露字段**。此前只看 report+findings →
@@ -152,10 +257,9 @@ def evaluate_case(case: GoldenCase, mode: str, session_id: str,
     out.refused = bool(getattr(adversarial, "refused", False)) or bool(
         getattr(analysis, "quality_notes", None))
 
-    for code in case.expect_quality_codes:
-        if code not in out.quality_codes:
-            out.assertions_ok = False
-            out.failed_assertions.append(f"缺少质量门禁 code: {code}（实际 {out.quality_codes}）")
+    for msg in quality_code_violations(case, out.quality_codes):
+        out.assertions_ok = False
+        out.failed_assertions.append(msg)
     for kind in case.expect_caliber_kinds:
         if kind not in out.caliber_kinds:
             out.assertions_ok = False
@@ -167,6 +271,9 @@ def evaluate_case(case: GoldenCase, mode: str, session_id: str,
             getattr(analysis, "limitations", None) or getattr(analysis, "quality_notes", None)):
         out.assertions_ok = False
         out.failed_assertions.append("报告缺少 limitations / 质量说明")
+    for msg in findings_violations(case, len(findings)):
+        out.assertions_ok = False
+        out.failed_assertions.append(msg)
     # --- #5 LLM-judge：评判「答案对不对」（语义层），而非仅字段命中 ---
     # 离线 rubric（结构性代理）默认即可跑；`JUDGE_USE_LLM=1` 且配 key 时走真 LLM 语义评分。
     try:
@@ -190,6 +297,12 @@ def evaluate_case(case: GoldenCase, mode: str, session_id: str,
         out.numeric_claims, out.traced_claims = trace_counts(findings, list(state.tool_results or []))
         issues = unresolved_numeric_claims(findings, list(state.tool_results or []))
         for msg in issues[:5]:
+            out.assertions_ok = False
+            out.failed_assertions.append(msg)
+        # **补 E1 的 vacuous 漏洞**：`unresolved_numeric_claims` 是"每个数值 claim 都要可溯源"，
+        # 当 claim **一个都没有**时它恒真。D38 真实基线 `溯源 0/0` 却全程判过，
+        # 于是"分析没给出任何数据结论"这件事测不出来。见 min_numeric_claims 的说明。
+        for msg in numeric_claim_violations(case, out.numeric_claims):
             out.assertions_ok = False
             out.failed_assertions.append(msg)
     except Exception:
@@ -223,7 +336,8 @@ def evaluate_case(case: GoldenCase, mode: str, session_id: str,
 
 
 def evaluate(mode: str = "mock", trace_dir=None, *,
-             only_real: bool = False, ids: list[str] | None = None) -> dict[str, Any]:
+             only_real: bool = False, ids: list[str] | None = None,
+             badcase_dir=None) -> dict[str, Any]:
     """Run every golden case; return aggregated report dict.
 
     ``only_real``：只跑 `requires_real=True` 的用例（真实模型下跑全量很贵很慢——
@@ -284,9 +398,7 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
     completion_tokens = sum(o.completion_tokens for o in outcomes)
     st = get_settings()
     pi, po = st.cost_input_per_mtok, st.cost_output_per_mtok
-    cost_usd = None
-    if (pi > 0 or po > 0) and (prompt_tokens or completion_tokens):
-        cost_usd = round(prompt_tokens / 1e6 * pi + completion_tokens / 1e6 * po, 6)
+    cost_usd = compute_cost_usd(pi, po, prompt_tokens, completion_tokens)
 
     report = {
         "mode": mode,
@@ -298,6 +410,9 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
             "skipped_requires_real": len(skipped),
             "degraded_excluded": len(degraded_cases),
             "scored_cases": len(scored),
+            # 判断型问题的"反问澄清"是**可接受终态**，但它是"没做分析"：
+            # 单独计数，绝不混进 FINISH 率（否则会虚高）。
+            "clarify_accepted": sum(1 for o in scored if o.status == "CLARIFY_OK"),
             "tool_calls_total": tool_calls,
             "avg_tool_calls": round(tool_calls / len(scored), 2) if scored else 0.0,
             "tool_success_rate": round(tool_success_n / (tool_success_n + tool_fail_n), 3)
@@ -306,6 +421,9 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
             "traced_claims_total": traced_claims_n,
             "traceability_rate": round(traced_claims_n / numeric_claims_n, 3)
             if numeric_claims_n else None,
+            # D41 幻觉率监控：与 traceability_rate **同源**（1 − 覆盖率）。
+            # 零 claim → None（未定义），绝不报成"0 幻觉"。
+            "hallucination_rate": hallucination_rate(numeric_claims_n, traced_claims_n),
             "llm_calls_total": llm_calls,
             "avg_llm_calls": round(llm_calls / len(scored), 2) if scored else 0.0,
             "prompt_tokens_total": prompt_tokens,
@@ -322,6 +440,15 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
         "cases_detail": [o.to_dict() for o in outcomes],
         "cost_note": "tokens 由网关 usage 真实上报；cost 需在 config 配置 cost_input/output_per_mtok。",
     }
+    if badcase_dir:
+        # D39：把本轮失败的用例落盘，供 `python -m app.eval.badcase --replay` 复跑。
+        # 只记"该记的"（SKIPPED / DEGRADED 不算）——见 badcase._is_badcase。
+        try:
+            from .badcase import record_from_report
+
+            record_from_report(report, badcase_dir)
+        except Exception:  # 落盘失败不得影响评测本身
+            pass
     return report
 
 
@@ -349,10 +476,14 @@ def render_markdown(report: dict[str, Any]) -> str:
         ("completion tokens", m["completion_tokens_total"]),
         ("总 tokens", m["tokens_total"]), ("成本 USD", m["cost_estimate_usd"]),
         ("溯源覆盖率", m["traceability_rate"]), ("溯源 claims", f"{m['traced_claims_total']}/{m['numeric_claims_total']}"),
+        # D41：疑似幻觉率 = 1 − 覆盖率。**None = 未定义（零数值结论）**，不是 0。
+        ("**疑似幻觉率**（数值无源占比）", m.get("hallucination_rate")),
         # 跳过项必须显式可见：否则"没跑"会被误读成"通过"
         ("跳过（需真实模型）", m.get("skipped_requires_real", 0)),
         # 降级项同理，且更危险：它是"拿 mock 冒充真模型"，不发出来就会被当真实成绩
         ("**降级剔除（非真实模型产出）**", m.get("degraded_excluded", 0)),
+        # 判断型问题的反问是可接受终态，但**不是"做对了"** → 单独可见
+        ("其中：判断型问题被接受的澄清", m.get("clarify_accepted", 0)),
         ("实际计分用例数", m.get("scored_cases", report["cases"])),
     ]
     for name, val in rows:
@@ -388,10 +519,13 @@ def main() -> None:
     ap.add_argument("--only-real", action="store_true",
                     help="只跑 requires_real 用例（真实模型下省时间/成本）")
     ap.add_argument("--ids", default="", help="只跑指定用例 id（逗号分隔）")
+    ap.add_argument("--badcases", default=None,
+                    help="把失败用例落盘到此目录（D39；默认不落盘）")
     args = ap.parse_args()
 
     ids = [x.strip() for x in args.ids.split(",") if x.strip()]
-    report = evaluate(args.mode, only_real=args.only_real, ids=ids or None)
+    report = evaluate(args.mode, only_real=args.only_real, ids=ids or None,
+                      badcase_dir=args.badcases)
     md = render_markdown(report)
     print(md)
     if args.out:

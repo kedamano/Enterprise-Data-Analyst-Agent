@@ -174,12 +174,13 @@ def mask_structured(output: dict, *, level: str,
 def _audit(session_id: str, tool: str, step_id: str, columns: list[str], level: str) -> None:
     """审计留痕（含"显式关闭脱敏"这一事实）。"""
     try:
-        MASKING_AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        from .audit_store import record as _store_record
+
         record = {"ts": datetime.now(timezone.utc).isoformat(), "session_id": session_id,
                   "tool": tool, "step_id": step_id, "level": level,
                   "columns_masked": columns}
-        with MASKING_AUDIT_LOG.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        # D46：统一经审计存储（默认仍写 masking.jsonl；可切 sqlite/postgres）
+        _store_record("masking", record, path=MASKING_AUDIT_LOG)
     except Exception:
         pass  # 审计失败绝不打断工具调用
 

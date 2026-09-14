@@ -23,6 +23,8 @@ from typing import Any, Callable, Iterator, Optional
 
 try:
     from loguru import logger as _log  # type: ignore
+
+    from .sampling import should_log_span
 except Exception:  # pragma: no cover
     _log = logging.getLogger("da")  # type: ignore
 
@@ -100,8 +102,10 @@ class Tracer:
 
     def end(self, span: Span, ok: bool = True, error: Optional[BaseException] = None) -> None:
         data = span.finish(ok, error)
-        _log.info(f"[span] {span.stage:<10} {span.status:<7} "
-                  f"{span.duration_ms}ms  run={span.trace_id}")
+        # D44：日志采样——**只采"正常"，失败永不采样**（采掉失败=故障自愈）。
+        if should_log_span(ok=span.status == "SUCCESS"):
+            _log.info(f"[span] {span.stage:<10} {span.status:<7} "
+                      f"{span.duration_ms}ms  run={span.trace_id}")
         _RECENT.append(data)
         if self._active is span:
             self._active = None

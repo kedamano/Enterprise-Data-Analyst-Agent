@@ -117,8 +117,10 @@ def _audit(step_id: str, tool: str, session_id: str, result: ToolResult | None =
             "execution_time_ms": result.execution_time_ms if result else None,
             "attempts": result.attempts if result else None,
         }
-        with AUDIT_LOG.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        # D46：统一经审计存储（默认仍写同一个 JSONL 文件；可切 sqlite/postgres）
+        from ...core.security.audit_store import record as _store_record
+
+        _store_record("tool", record, path=AUDIT_LOG)
     except Exception:  # 审计绝不能打断工具调用
         return
 
