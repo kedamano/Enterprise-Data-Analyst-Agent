@@ -93,7 +93,7 @@ def _csv_artifacts(state, workdir: Path) -> tuple[list[tuple[str, Path]], list[s
 
 
 def _readme(state, csvs: list[tuple[str, Path]], skipped: list[str],
-            is_blocked: bool = False) -> str:
+            is_blocked: bool = False, masked: bool = False) -> str:
     lines = [
         "== 分析交付包 ==",
         f"会话 session_id：{state.session_id}",
@@ -106,13 +106,25 @@ def _readme(state, csvs: list[tuple[str, Path]], skipped: list[str],
         "queries.sql    本次运行的全部只读查询（按执行顺序，含 step_id）",
         "trace.json     溯源清单（结论 → sql_id → SQL → 行样本）",
         "data/*.csv     数据产物",
-        "",
-        "-- 重要：这些文件**不做脱敏** --",
-        "data/*.csv 与 queries.sql 保留**原始值**（分析师本机产物需可用）。",
-        "只有「进 LLM 上下文」的那份样本会被脱敏（见 E4/02）；导出物不受影响，",
-        "因此**对外分享前请自行确认是否含敏感数据**。",
+        "WATERMARK.txt  导出水印（DLP，可验证）",
         "",
     ]
+    if masked:
+        lines += [
+            "-- 本交付包已按 DLP 策略脱敏 --",
+            "data/*.csv 按调用方角色的策略处理：strict 列**整列剔除**（含表头），",
+            "sample 列按值掩码，none 列原样。水印见 WATERMARK.txt 与响应头 X-Dlp-Watermark。",
+            "需要原始值请用 masked=0 重新导出（走两步授权）。",
+            "",
+        ]
+    else:
+        lines += [
+            "-- 重要：这些文件**不做脱敏** --",
+            "data/*.csv 与 queries.sql 保留**原始值**（分析师本机产物需可用）。",
+            "只有「进 LLM 上下文」的那份样本会被脱敏（见 E4/02）；导出物不受影响，",
+            "因此**对外分享前请自行确认是否含敏感数据**。",
+            "",
+        ]
     if not csvs:
         lines.append("本次运行**无数据产物**（未执行取数步骤，或结果为空）。")
     if skipped:
@@ -145,38 +157,59 @@ def _zip_bytes(items: dict[str, bytes]) -> bytes:
 
 @router.get("/analyze/export/{session_id}")
 def analyze_export(session_id: str,
-                   format: str = Query("zip", pattern="^(zip|sql|report|csv)$")):
-    """导出本次分析的交付物。``format``：zip（默认）/ sql / report / csv。"""
-    # AUTH/01：越权读别人的会话 → 403
-    try:
-        from ...core.security.auth import current_principal, owns_session
+                   format: str = Query("zip", pattern="^(zip|sql|report|csv)$"),
+                   masked: str = Query("", pattern="^(|0|1)$")):
+    """导出本次分析的交付物。
 
-        if not owns_session(session_id, current_principal()):
+    ``format``：zip（默认）/ sql / report / csv。
+    ``masked``：``1``=按调用方角色的 DLP 策略脱敏（**安全路径**，无需审批）；
+    ``0``=原始值（走 D45 HITL 两步授权）；缺省按策略是否激活决定
+    （策略未激活时缺省=0，保持既有行为一字不变）。
+    """
+    from ...config import get_settings as _settings
+
+    from ...core.security import dlp as _dlp, watermark as _wm
+    from ...core.security.auth import current_principal, owns_session
+
+    # AUTH/01：越权读别人的会话 → 403
+    principal = None
+    try:
+        principal = current_principal()
+        if not owns_session(session_id, principal):
             raise HTTPException(status_code=403, detail="无权访问该会话")
     except HTTPException:
         raise
     except Exception:
         pass
 
-    # D45 两步授权：导出物**保留未脱敏原始值**（E4/02 只约束进 LLM 上下文的那份），
-    # 属合规上的高危动作。默认关（HITL_ENABLED=false）→ 这段不生效。
-    try:
-        from ...core.security import hitl
+    # D49：脱敏版是安全默认；只有**原始值**导出才需要审批
+    if masked == "1":
+        want_masked = True
+    elif masked == "0":
+        want_masked = False
+    else:
+        want_masked = _dlp.policy_active()
 
-        if not hitl.take_grant(session_id, "export_raw"):
-            risk = hitl.requires_confirmation("export_raw", {"format": format})
-            if risk is not None:
-                pending = hitl.begin(session_id, risk.action, risk.detail)
-                raise HTTPException(status_code=428, detail={
-                    "message": "该导出需要人工确认（两步授权）",
-                    "action": risk.action, "reason": risk.reason,
-                    "token": pending["token"],
-                    "howto": "POST /api/v1/chat/analyze/confirm {session_id, token, approved}",
-                })
-    except HTTPException:
-        raise
-    except Exception:
-        pass  # 策略层故障不得让导出直接崩（fail-closed 由 requires_confirmation 内部保证）
+    # D45 两步授权：原始导出**保留未脱敏原始值**，属合规上的高危动作。
+    # 默认关（HITL_ENABLED=false）→ 这段不生效。
+    if not want_masked:
+        try:
+            from ...core.security import hitl
+
+            if not hitl.take_grant(session_id, "export_raw"):
+                risk = hitl.requires_confirmation("export_raw", {"format": format})
+                if risk is not None:
+                    pending = hitl.begin(session_id, risk.action, risk.detail)
+                    raise HTTPException(status_code=428, detail={
+                        "message": "该导出需要人工确认（两步授权）",
+                        "action": risk.action, "reason": risk.reason,
+                        "token": pending["token"],
+                        "howto": "POST /api/v1/chat/analyze/confirm {session_id, token, approved}",
+                    })
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # 策略层故障不得让导出直接崩（fail-closed 由 requires_confirmation 内部保证）
 
     state = _load_state(session_id)
     workdir = _session_workdir(session_id)
@@ -188,19 +221,42 @@ def analyze_export(session_id: str,
         return Response(state.report or "（本次运行没有产出报告）",
                         media_type="text/markdown; charset=utf-8")
 
+    # D49：按角色策略逐列处理 CSV（strict 整列剔除 / sample 按值掩码 / none 原样）
+    resolver = _dlp.make_resolver(principal) if want_masked else None
     items: dict[str, bytes] = {
-        "README.txt": _readme(state, csvs, skipped).encode("utf-8"),
+        "README.txt": _readme(state, csvs, skipped, masked=bool(want_masked)).encode("utf-8"),
         "report.md": (state.report or "（本次运行没有产出报告）").encode("utf-8"),
         "queries.sql": _queries_sql(state).encode("utf-8"),
         "trace.json": _trace_json(state).encode("utf-8"),
     }
     for name, path in csvs:
         try:
-            items[name] = path.read_bytes()
+            raw = path.read_bytes()
+            if resolver is not None:
+                raw = _dlp.mask_csv_text(raw.decode("utf-8", errors="replace"),
+                                         resolver).encode("utf-8")
+            items[name] = raw
         except Exception:
             skipped.append(str(path))
     if format == "csv":
         items = {k: v for k, v in items.items() if k.startswith("data/") or k == "README.txt"}
-    return Response(_zip_bytes(items), media_type="application/zip",
-                    headers={"Content-Disposition":
-                             f'attachment; filename="analysis-{session_id}.zip"'})
+
+    headers: dict[str, str] = {"Content-Disposition":
+                               f'attachment; filename="analysis-{session_id}.zip"'}
+    if want_masked:
+        headers["masked"] = "1"
+
+    # D49 水印：**附加**（新文件 + 响应头），不改动任何既有产物字节
+    secret = getattr(_settings(), "dlp_watermark_secret", "") or ""
+    if secret:
+        user_id = str(getattr(principal, "user_id", "") or "")
+        exported_at = datetime.now(timezone.utc).isoformat()
+        tok = _wm.issue_watermark(user_id=user_id, session_id=session_id,
+                                  exported_at=exported_at, secret=secret)
+        if tok:
+            items["WATERMARK.txt"] = _wm.watermark_lines(
+                tok, user_id=user_id, session_id=session_id,
+                exported_at=exported_at).encode("utf-8")
+            headers["X-Dlp-Watermark"] = tok
+
+    return Response(_zip_bytes(items), media_type="application/zip", headers=headers)

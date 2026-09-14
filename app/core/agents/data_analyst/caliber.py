@@ -11,10 +11,15 @@ Spec: docs/specs/E4/03-caliber-comparability.md
 """
 from __future__ import annotations
 
+import calendar
+import logging
 import re
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 from .state import CaliberCheck, CaliberIssue, ReflectionDecision, ReflectionResult
+
+logger = logging.getLogger("da.caliber")
 
 # 比率类指标：必须声明分子/分母，否则只是"看起来像个比例"
 _RATIO_RE = re.compile(r"(率|占比|比例|rate|ratio|转化|复购|留存|渗透)", re.IGNORECASE)
@@ -74,6 +79,89 @@ def parse_period_days(text: str) -> Optional[int]:
         if pattern.search(t):
             return days
     return None
+
+
+def _parse_iso_date(s: Any) -> Optional[date]:
+    """ISO ``YYYY-MM-DD`` / ``YYYY/MM/DD`` → date；解析不出 → None（不猜）。"""
+    if not s:
+        return None
+    t = str(s).strip()
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(t, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _last_day_of_month(y: int, m: int) -> int:
+    return calendar.monthrange(y, m)[1]
+
+
+def _whole_month(start: date, end: date) -> bool:
+    """start..end 是否一个完整自然月（首日=1、末日=月末）。"""
+    if start.day != 1:
+        return False
+    return (end.year == start.year and end.month == start.month
+            and end.day == _last_day_of_month(start.year, start.month))
+
+
+# 环比/同比识别（顺序无关——用子串而非精确匹配，容下"环比增长"等写法）
+def _is_mom(ct: str) -> bool:
+    return "环比" in ct
+
+
+def _is_yoy(ct: str) -> bool:
+    return "同比" in ct or "去年" in ct or ct.lower() == "yoy"
+
+
+def infer_baseline_period(current_start: Any, current_end: Any,
+                          comparison_type: Any
+                          ) -> Optional[tuple[date, date, str, int]]:
+    """D48：由本期 + 对比类型**确定性推断**基线期间。
+
+    返回 ``(baseline_start, baseline_end, label, days)``；解析不出 → None。
+    - 环比 + 完整自然月 → 上一完整自然月；否则按 (end-start) 等宽回平移。
+    - 同比 + 完整自然月 → 去年同月；否则取去年同日期（2/29 → 2/28）。
+    - start/end 非日期、type 非环比同比 → None（宁缺勿滥）。
+    """
+    s = _parse_iso_date(current_start)
+    e = _parse_iso_date(current_end)
+    if s is None or e is None or e < s:
+        return None
+    ct = str(comparison_type or "").strip()
+    if not ct:
+        return None
+    mom, yoy = _is_mom(ct), _is_yoy(ct)
+    if not (mom or yoy):
+        return None
+
+    if mom:
+        if _whole_month(s, e):
+            y, m = (s.year - 1, 12) if s.month == 1 else (s.year, s.month - 1)
+            bs = date(y, m, 1)
+            be = date(y, m, _last_day_of_month(y, m))
+            return (bs, be, f"{y}年{m}月", be.day)
+        width = (e - s).days
+        be = s - timedelta(days=1)
+        bs = be - timedelta(days=width)
+        return (bs, be, f"近{width + 1}天的前一段", width + 1)
+
+    # yoy
+    if _whole_month(s, e):
+        by, bm = s.year - 1, s.month
+        bs = date(by, bm, 1)
+        be = date(by, bm, _last_day_of_month(by, bm))
+        return (bs, be, f"{by}年{bm}月", be.day)
+    try:
+        bs = s.replace(year=s.year - 1)
+    except ValueError:  # 2/29 在去年不存在
+        bs = date(s.year - 1, s.month, 28)
+    try:
+        be = e.replace(year=e.year - 1)
+    except ValueError:
+        be = date(e.year - 1, e.month, 28)
+    return (bs, be, f"去年同期的近{(be - bs).days + 1}天", (be - bs).days + 1)
 
 
 def _text_of(analysis: Any, report: str = "") -> str:
@@ -188,6 +276,71 @@ def caliber_check(analysis: Any, context: Any = None, *, iteration: Any = None,
             detail=(f"同一份报告里「{'、'.join(conflicts)}」出现了相反的限定口径"
                     "（含/不含并存），两侧数字不可直接比较"),
             metric=None))
+
+    # ⑥ 同环比基线缺/错（D48）：声明了环比/同比但基线期间未声明或与推断不符
+    #    与 ① period_mismatch 互补——① 判"两期都给了但长度不等"，
+    #    ⑥ 判"声明了对比类型但基线缺/错"。current 是 ISO 日期时 ① 解析不出，由 ⑥ 接管。
+    cmp_type = str(getattr(cmp_, "type", None) or "")
+    if cmp_type:
+        inferred = infer_baseline_period(getattr(tr, "start", None),
+                                         getattr(tr, "end", None), cmp_type)
+        if inferred:
+            _, _, blabel, bdays = inferred
+            cperiod = str(getattr(cmp_, "period", None) or "")
+            actual_days = parse_period_days(cperiod) if cperiod else None
+            if not cperiod:
+                issues.append(CaliberIssue(
+                    kind="baseline_mismatch",
+                    detail=(f"声明了 {cmp_type} 但未给出基线期间，"
+                            f"{cmp_type} 基期应约为 {blabel}（约 {bdays} 天）"),
+                    metric=metrics[0] if metrics else None))
+            elif actual_days and abs(actual_days - bdays) / max(actual_days, bdays) > _PERIOD_TOLERANCE:
+                issues.append(CaliberIssue(
+                    kind="baseline_mismatch",
+                    detail=(f"基线期间约 {actual_days} 天，{cmp_type} 应约为 {blabel}"
+                            f"（约 {bdays} 天），直接比较会失真"),
+                    metric=metrics[0] if metrics else None))
+            # actual_days 解析不出 → 不判（宁缺勿滥）
+
+    # ⑦ 报告口径与登记口径冲突（D48）：单位数量级不同 / 限定词极性相反
+    #    读注册表故障绝不打断 caliber_check（与 gate 同纪律）。
+    try:
+        from . import caliber_registry as _crmod
+        reg = _crmod._default_registry()
+        for spec in reg.list_all():
+            if not spec.metric or spec.metric not in text:
+                continue
+            # 单位冲突：报告里该指标的金额单位 ≠ 登记单位
+            if spec.unit:
+                for name, unit in _amounts_by_metric(text):
+                    if name == spec.metric and unit != spec.unit:
+                        issues.append(CaliberIssue(
+                            kind="caliber_deviation",
+                            detail=(f"指标「{spec.metric}」报告用 {unit}，"
+                                    f"但登记口径为 {spec.unit}，单位不一致"),
+                            metric=spec.metric))
+                        break
+            # 限定词极性冲突：报告限定词与登记 filters 极性相反
+            reg_pols: dict[str, str] = {}
+            for f in spec.filters:
+                m = _QUALIFIER_RE.search(f)
+                if m:
+                    reg_pols[m.group("obj")] = ("exclude"
+                                                if m.group("pol") in _EXCLUDE_WORDS
+                                                else "include")
+            for m in _QUALIFIER_RE.finditer(text):
+                pol = "exclude" if m.group("pol") in _EXCLUDE_WORDS else "include"
+                obj = m.group("obj")
+                if obj in reg_pols and reg_pols[obj] != pol:
+                    issues.append(CaliberIssue(
+                        kind="caliber_deviation",
+                        detail=(f"指标「{spec.metric}」报告限定词"
+                                f"「{m.group('pol')}{obj}」与登记口径"
+                                f"（{'、'.join(spec.filters)}）极性相反"),
+                        metric=spec.metric))
+                    break
+    except Exception:  # noqa: BLE001
+        logger.warning("caliber_deviation 检查跳过（注册表不可达）", exc_info=True)
 
     return CaliberCheck(comparable=not issues, checked_metrics=metrics, issues=issues)
 

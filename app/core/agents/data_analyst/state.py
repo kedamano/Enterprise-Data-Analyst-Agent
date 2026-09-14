@@ -394,7 +394,8 @@ class CaliberIssue(BaseModel):
     """E4/03 口径问题（结构化，供 eval 断言——不塞进 ReflectionDimension 的字符串列表）。"""
 
     kind: Literal["period_mismatch", "filter_mismatch", "denominator_missing",
-                  "iteration_drift", "unit_mismatch"] = "period_mismatch"
+                  "iteration_drift", "unit_mismatch",
+                  "baseline_mismatch", "caliber_deviation"] = "period_mismatch"
     detail: str = ""
     metric: Optional[str] = None
 

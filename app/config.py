@@ -250,6 +250,17 @@ class Settings(BaseSettings):
     mask_pii_enabled: bool = True
     mask_level: str = "sample"        # none | sample | strict
     mask_pii_columns: str = ""        # 额外敏感列（逗号分隔，列名未命中模式表时用）
+    # E4/06 DLP 细粒度：按角色/字段级策略（JSON：{role: {default_level, column_levels, deny_columns}}）
+    # 空 = 不激活策略，导出行为与 E4/02 一字不变（默认零影响）
+    dlp_policy: str = ""
+    # 导出水印密钥（HMAC）。空 = 不出水印（默认零影响）
+    dlp_watermark_secret: str = ""
+    # D50 MCP 接入层：**默认关**。把只读工具按 MCP 协议暴露给外部 Agent（Claude Desktop /
+    # Cursor）。开启后 `/api/v1/mcp/*` 生效；关闭时两端点返回 503（不静默空跑）。
+    # 接入层只做编排，鉴权/限流/守卫/审计全部委托 execute_tool（不重写安全）。
+    mcp_enabled: bool = False
+    # MCP 调用的归集 session_id（供限流/审计）。不伪造真实会话，默认 "mcp"。
+    mcp_session_id: str = "mcp"
     # SEMANTIC/01 业务语义层：维表枚举采集上限与缓存时长
     profile_enum_max_cardinality: int = 20   # > 此基数的列不采枚举（避免高基数列）
     profile_enum_max_values: int = 20        # 每个维表最多取多少个取值

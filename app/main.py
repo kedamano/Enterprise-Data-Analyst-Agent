@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
-from .api.routes import attachments, chat, debug, document, export, health, ui
+from .api.routes import attachments, caliber, chat, debug, document, export, health, mcp, ui
 from .config import get_settings
 from .infrastructure.observability.tracing import setup_logging
 
@@ -89,6 +89,8 @@ app.include_router(document.router, prefix=settings.api_prefix)
 app.include_router(debug.router, prefix=settings.api_prefix)
 app.include_router(attachments.router, prefix=settings.api_prefix)
 app.include_router(export.router, prefix=settings.api_prefix)
+app.include_router(caliber.router, prefix=settings.api_prefix)
+app.include_router(mcp.router, prefix=settings.api_prefix)
 app.include_router(ui.router)
 
 # 托管前端构建产物（web/dist）的静态资源

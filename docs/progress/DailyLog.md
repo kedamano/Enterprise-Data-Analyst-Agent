@@ -2155,3 +2155,146 @@ D47 把链子补到列级：`metric → 口径说明 → sql_id → SQL → 表/
 ### 六、下一天（D48）
 
 按排期表：**口径注册表 + 同环比基线自动判定**（C-4 第二件，与 `caliber.py` 联动）。
+
+---
+
+## D48（2026-09-14）· 口径注册表 + 同环比基线自动判定
+
+### 一、断在哪：口径检查只会"两期都给了才比"，基线缺失时静默放过
+
+E4/03 `caliber.py` 的 `period_mismatch` 是双条件：**两期都解析得出**且长度差 >20% 才报。
+但实际报告里 `comparison.period` **经常是空的**——分析师写了"环比增长 10%"却没说基期，
+`period_mismatch` 反而**静默放过**。同时"这个指标口径**应该**是什么"没有登记基准，
+"偏离了"无从谈起。D48 补这两件。
+
+### 二、口径注册表 `caliber_registry.py`（CRUD · JSON 文件后端）
+
+- `CaliberSpec`：`metric / filters / unit / period_type / denominator / grain / notes`。
+- `CaliberRegistry`：`register / get / list_all / remove`，按 `metric` 主键幂等（同名覆盖）。
+- **后端选择**：JSON 文件 + 原子写（tmp→rename），**不是** JSONL——注册表是小而少写的
+  **参照数据**（要覆盖/删除），JSONL 不适合 CRUD。与 D46 审计落库同纪律："不做双写"。
+- **故障纪律**：读故障绝不打断 `caliber_check`（try/except + `logger.warning`）；
+  CRUD 写故障对调用方抛（显式管理动作不该吞）。
+- `GET/POST/DELETE /api/v1/chat/analyze/caliber` CRUD 端点（路由走 `_default_registry()`，
+  与 `caliber_check` 同口径——测试 monkeypatch 一处即隔离）。
+
+### 三、`infer_baseline_period` — 确定性日期算术（不调 LLM）
+
+返回 `(baseline_start, baseline_end, label, days)` 或 `None`：
+- **环比 + 完整自然月** → 上一完整自然月（`2024-03-01~03-31` → `2024-02-01~02-29`）；
+- **环比 + 不规则** → 按 `(end-start)` 等宽回平移（`2024-01-15~03-15` → 前一段 60 天）；
+- **同比 + 完整自然月** → 去年同月；**同比 + 不规则** → 去年同日期（`2/29 → 2/28`）；
+- start/end 非日期、type 非环比同比 → `None`（宁缺勿滥，不猜基线）。
+
+> 设计选择：完整自然月用"上一自然月"而非"等宽 30 天回平移"——
+> 前者是"环比"的业务语义，后者会把 `2024-03-01~03-31` 推到 `2024-01-30~02-29`（跨月、错位）。
+> 两者**测试都写了**，靠 `_whole_month()` 检测分流；不规则期间才退化为等宽回平移。
+
+### 四、两个新 issue kind（均**披露级**，不改 Reflection 决策）
+
+`CaliberIssue.kind` 扩两个：`baseline_mismatch` / `caliber_deviation`。
+
+1. **`baseline_mismatch`**：`comparison.type` 命中环比/同比，**且**
+   `period` 空 → "声明了 X 但未给基线"；或 `period` 与推断基线天数差 >20% → "基线约 N 天，应约…"。
+   - 与 `period_mismatch` **互补**：① 判"两期都给了但不等"，⑥ 判"声明了类型但基线缺/错"。
+     current 是 ISO 日期时 ① 的 `parse_period_days` 解析不出，由 ⑥ 接管——**无重叠**。
+2. **`caliber_deviation`**：报告口径与登记口径冲突——单位数量级不同 / 限定词极性相反。
+   复用既有 `_amounts_by_metric` / `_QUALIFIER_RE`，**确定性子集**；
+   注册表不可达 / 指标未登记 → 跳过。
+
+> 仍是 `iteration_drift` **唯一抬 REPLAN**；两个新检查只让人看见，不推翻结论
+> （基线漏写 ≠ 结论错，与 `period_mismatch`/`denominator_missing` 同级）。
+
+### 五、写测试时自己逼出的设计
+
+- `test_remove_then_absent` 原签名用了 `CalibleRegistry := None` 这种无效默认——
+  告诉我"registry fixture 不该和 tmp_path 混在一个签名里"，改回显式 `tmp_path`。
+- 写 `infer_baseline_period` 时发现"等宽回平移"与"上一自然月"对 3 月这组输入给出**不同结果**，
+  要么放弃一个、要么分流——选了 `_whole_month()` 分流（业务语义优先）。
+- `_default_registry` 必须在 `caliber_check` 里**走模块属性**（`from . import caliber_registry as _crmod`），
+  不能 `from .caliber_registry import _default_registry`——后者会把函数绑死，
+  测试 monkeypatch 失效。这是 monkeypatch 与 `from import` 的老坑。
+
+### 六、门禁
+
+- **全量回归 1017 passed / 0 failed / 23 skipped**（344s；D48 新增 27 用例全绿，无回退）；
+- **eval mock 基线不变**：FINISH 1.0 / 断言 1.0 / 溯源 1.0（13/13）/ 幻觉率 0.0 / 4.425s；
+- `tests/test_caliber_registry.py` **10**（CRUD 7 + 故障不打断 1 + API 2）；
+- `tests/test_caliber_baseline.py` **17**（基线推断 8 + baseline_mismatch 联动 4 + caliber_deviation 联动 4 + 畸形不抛 1）。
+
+### 七、下一天（D49）
+
+按排期表：**DLP 细粒度脱敏**——按角色/字段级策略 + 水印 + 导出审批流（可与 D44 HITL 复用）。
+
+---
+
+## D49（2026-09-14）· DLP 细粒度脱敏：角色×字段策略 + 可验证水印 + 导出审批流
+
+### 一、断在哪：脱敏是"全局一档"，导出是"全有全无"
+
+E4/02 的 `mask_level` 是**一个值管所有人**，且只约束"进 LLM 上下文"的那一份。
+导出物只有两条路：**带原始值**（`export_raw` 走 D45 HITL）或**不给**。
+而"不同角色对同一列看到不同级别"这件事，`Principal.denied_columns` 有字段但**没接到脱敏**。
+
+D49 三件（都围绕**导出**这个数据出口）：角色×字段策略 / 可验证水印 / 导出审批流。
+
+### 二、`security/dlp.py` — 角色×字段级别解析
+
+`resolve_level(principal, column)`，**从高到低先命中先返回**：
+
+1. `Principal.denied_columns` → `strict`（**权威**：权限模型已声明不可见，策略不得放宽）；
+2. 角色 `deny_columns` → `strict`；
+3. 角色 `column_levels`（**最长 key 优先**——`customer_phone` 胜过 `phone`）；
+4. 角色 `default_level`；
+5. 回退全局 `mask_level`。
+
+`mask_csv_text(text, resolve)`：`strict` **整列剔除（连表头都不出现）**、`sample` 按值掩码、`none` 原样。
+
+**两条纪律**：权限高于策略；`DLP_POLICY` 空 → 回退全局（默认零影响）。
+解析异常**一律回退全局**（不猜、不 fail-open）+ warning。
+
+### 三、`security/watermark.py` — 可验证，不是断言
+
+`v1.<base64(payload)>.<hex hmac>`，`HMAC-SHA256(secret, payload)`——
+**只有持有 secret 才签得出**，故接收方**验得出真伪**，而不是一行"本文件由 X 导出"的自述。
+`verify_watermark` 用 `hmac.compare_digest` 常量时间比较（避免时序侧信道）。
+
+纪律：secret 为空 → **不签发**（零影响）；secret 不进 token 本身、不落审计明文；
+水印是**附加**（新 `WATERMARK.txt` + `X-Dlp-Watermark` 响应头），**不改任何既有产物字节**
+——避免破坏既有断言与可复现性。
+
+### 四、导出审批流：脱敏版是安全默认
+
+| `masked` | 行为 | 审批 |
+|---|---|---|
+| `1`（策略激活时的缺省） | 按角色策略脱敏后导出 | **无需审批**（安全路径） |
+| `0` | 原始值 | **需 HITL `export_raw`**（D45，428 + token + 一次性放行） |
+
+策略未激活时 `masked` 缺省=0 → **与 D48 收口时一字不变**。
+
+### 五、写测试时自己逼出的坑
+
+**`pii_session` fixture 404**：4 个导出用例共用 `session_id="dlp-pii"`，第二个起必然
+`未找到运行记录`。根因是 `run_analysis` 有**请求级响应缓存**——
+同 `(session_id, query)` 第二次调用**直接返回缓存而不落 checkpoint**。
+修法：fixture 用 `request.node.name` 派生**每用例唯一** session_id（与 `test_export.py` 同范式），
+并在 fixture 里 `assert cp_load(sid) is not None` 把"缓存假绿"变成响亮失败。
+
+> 这是一个**离线测不出来**的假绿形态：用例各自都过，只有**合跑**才暴露。
+
+### 六、门禁
+
+- **全量回归 1036 passed / 0 failed / 23 skipped**（388s；1017 + D49 新增 19 个用例）；
+- **eval mock 基线不变**：FINISH 1.0 / 断言 1.0 / 溯源 1.0（13/13）/ 幻觉率 0.0；
+- **既有 56 个导出/HITL/鉴权/脱敏用例全绿**（零影响实证）；
+- `tests/test_dlp.py` **19**：策略解析 8 + CSV 按列 2 + 水印 5 + 导出集成 4。
+
+### 七、残留（如实记录）
+
+- 水印在**真实接收方**校验链路（邮件网关/文档平台）未验 —— `[待真实验证]`；
+- 策略的列名模式需按客户数据字典定制（`DLP_POLICY` 可追加）。
+
+### 八、下一天（D50）
+
+按排期表：**MCP 接入层**——把只读工具按 MCP 协议暴露（可发现/可授权/可观测），
+权限沿用 AUTH/01。

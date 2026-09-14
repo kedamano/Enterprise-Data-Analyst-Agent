@@ -26,6 +26,9 @@ dependencies = [
 [project.optional-dependencies]
 rag = ["pymilvus>=2.4", "redis>=5.0", "sentence-transformers>=2.7", "pypdf>=4.0", "unstructured>=0.13"]
 pg = ["psycopg2-binary>=2.9"]
+# D50：MCP 接入层（只读工具对外暴露）。默认关（mcp_enabled=false），
+# 不需要时不必安装——`pip install .[mcp]`
+mcp = ["mcp>=2.0"]
 
 [tool.setuptools]
 packages = ["app"]
