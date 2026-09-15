@@ -27,18 +27,16 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
     lines.append("")
 
     lines.append("## Key Metrics\n")
-    if analysis.metrics:
+    # D51：指标归一化只有一份实现（`metric_cards`）——报告表格与 UI 卡片同源。
+    # 此前这里自己判一遍 name/text/metric 优先级，前端若再判一遍就是两处口径。
+    from ..agents.data_analyst.metric_cards import normalize_metrics
+
+    metrics = normalize_metrics(analysis.metrics)
+    if metrics:
         lines.append("| 指标 | 值 | 对比 |")
         lines.append("| --- | --- | --- |")
-        for m in analysis.metrics:
-            # 结构化 {name, value, comparison} 或 coerce 后的 {text: "..."} 皆可渲染
-            name = m.get("name") or m.get("text") or m.get("metric") or ""
-            value = m.get("value", "")
-            comparison = m.get("comparison", "")
-            if not m.get("name") and m.get("text"):
-                # 纯文本指标：整句放入指标列，避免内容丢失
-                name, value, comparison = m["text"], "", ""
-            lines.append(f"| {name} | {value} | {comparison} |")
+        for m in metrics:
+            lines.append(f"| {m['name']} | {m['value']} | {m['comparison']} |")
     else:
         lines.append("_未显式计算指标，详见发现。_")
     lines.append("")

@@ -12,7 +12,10 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
+import sys
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -54,6 +57,8 @@ class CaseOutcome:
     executed_tools: list[str] = field(default_factory=list)
     tool_success: int = 0
     tool_fail: int = 0
+    # E6/03：因**上游未完成**而根本没进执行器的调用数（不算失败，也不算成功）
+    tool_skipped: int = 0
     numeric_claims: int = 0
     traced_claims: int = 0
     # E6/01：结构化断言结果（读 state，不靠字符串匹配）
@@ -69,6 +74,8 @@ class CaseOutcome:
     # real 模式下这种用例的分数**不是真实模型的表现**，必须剔除而不是计分。
     degraded: bool = False
     degraded_stages: list[str] = field(default_factory=list)
+    # E6/02：报告正文里**在全部证据中都找不到出处**的大额数值（疑似编造）。
+    ungrounded_numbers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d = {k: v for k, v in self.__dict__.items() if k != "report_text"}
@@ -121,6 +128,132 @@ def numeric_claim_violations(case: GoldenCase, claims: int) -> list[str]:
     return []
 
 
+def _number_tokens(text: str) -> list[str]:
+    """文本里的数值字面量（保序、含千分位）。"""
+    return re.findall(r"\d[\d,]*\.?\d*", text or "")
+
+
+def _as_float(token: str) -> float | None:
+    try:
+        return float(token.replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def _ground_numbers(tool_results, findings) -> list[float]:
+    """「出处」数值集合：**成功工具结果的输出** + **经核对的** finding evidence 取值。
+
+    只认**成功**的工具结果。失败结果的 output 不是证据——否则一条报错的查询
+    会成为编造数字的挡箭牌。
+
+    **`evidence.value` 不是无条件算数**（D54 用真实产物复现出来的洞）：
+    在 `data/checkpoints/eval_q_region_top_0b7e93.json` 上，报告里那张编造的
+    区域营收表（华东 1,245,000 / 华南 890,000 / 西部 320,000…）**同时**出现在
+    `findings[].evidence[].value` 里，且每条都写着 `sql_id: "step_5"`、
+    `row_sample: "[]"`——而 `step_5` 实际执行的是一条 3 行维表的查询，
+    **输出里根本没有这些数字**。
+
+    无条件采信 `evidence.value` 就等于**让模型的自我声明给自己作证**：
+    编一个数、把它写进 evidence、报告里再写一遍 → 全部"有出处"。
+    所以加一道核对：evidence 的 `value` 只有在**它声称的那条 SQL 步骤的输出里
+    真能找到同一个数**时才算出处。
+
+    - `sql_id` 缺失 / 悬空 / 对应步骤不是 SUCCESS → **不算出处**
+      （与 `lineage.py` 的"无 `sql_id` → `traced=False`，绝不借来源"同一纪律）；
+    - 数值是否"找得到"用同一套 `rel_tol` 容差（四舍五入/单位换算后的呈现）。
+    """
+    out: list[float] = []
+    by_step: dict[str, list[float]] = {}
+    for r in (tool_results or []):
+        if getattr(r, "status", "") != "SUCCESS":
+            continue
+        blob = json.dumps(getattr(r, "output", None) or {}, ensure_ascii=False, default=str)
+        nums = [v for v in (_as_float(t) for t in _number_tokens(blob)) if v is not None]
+        out.extend(nums)
+        sid = str(getattr(r, "step_id", "") or "")
+        if sid:
+            by_step.setdefault(sid, []).extend(nums)
+    for f in (findings or []):
+        for ev in (getattr(f, "evidence", None) or []):
+            v = _as_float(str(getattr(ev, "value", "")))
+            if v is None:
+                continue
+            sid = str(getattr(ev, "sql_id", "") or "")
+            if not sid or sid not in by_step:
+                continue
+            if any(abs(t - v) <= max(1e-6, 0.01 * abs(v)) for t in by_step[sid]):
+                out.append(v)
+    return out
+
+
+def _is_year_like(token: str) -> bool:
+    """四位整数且落在 1900–2100：报告里的**年份**，不是业务量。
+
+    为什么必须显式排除（而不是指望 `min_abs`）：`2024 >= 1000`，
+    阈值拦不住它，而"2024 年 Q3"这种写法**每份按时段分析的报告都有**——
+    一次系统性假红会让门禁被直接关掉（狼来了）。代价是"年份区间内的编造值"
+    会漏，这是**有意的、有界的**取舍：`min_abs` 已经声明本门禁不追小额数字。
+    """
+    if not re.fullmatch(r"\d{4}", token):
+        return False
+    return 1900 <= int(token) <= 2100
+
+
+def ungrounded_numbers(report_text, tool_results, findings, *,
+                       min_abs: float = 1000.0, rel_tol: float = 0.01,
+                       limit: int = 20) -> list[str]:
+    """报告正文里**在全部证据中都找不到出处**的大额数值（去重、保序、限量）。
+
+    补的是 E1 的一处结构性缺口：`unresolved_numeric_claims` 只遍历
+    **`findings[].evidence[].value`**，**报告正文的数值从来不检查**。
+    于是真实基线里 `q_region_top` 能在只跑了一条 `SELECT * FROM dim_channel`
+    的情况下，**凭空写出一整张区域营收表**（华东 1,245,000 / +18.5% / 占比 32%）
+    —— findings 是干净的，正文是编的 —— **却判 ✅**。
+
+    参数选择的两条理由：
+
+    - `min_abs=1000`：报告天然有大量结构性小数（`+18.5%`、`TOP 10`、`3 个渠道`）。
+      全都要溯源会把**正确**的报告判红（假红）；
+      **大额数字编不出来才是幻觉的特征**。
+    - **年份另行排除**（`_is_year_like`）：`2024 >= 1000`，阈值拦不住 `2024-09`、
+      `2024 年 Q3`，而按时段分析的报告**每份都有**——见该函数的说明。
+    - `rel_tol=0.01`：报告写 `1,244,893`、SQL 返回 `1245000.0` 是同一件事的
+      两种呈现（四舍五入/单位换算）。绝对容差会让大额数字必然假红。
+    """
+    if not report_text:
+        return []
+    ground = _ground_numbers(tool_results, findings)
+    seen: set[str] = set()
+    bad: list[str] = []
+    for tok in _number_tokens(str(report_text)):
+        v = _as_float(tok)
+        if v is None or abs(v) < min_abs or _is_year_like(tok):
+            continue
+        if any(abs(g - v) <= max(1e-6, rel_tol * abs(v)) for g in ground):
+            continue
+        if tok in seen:
+            continue
+        seen.add(tok)
+        bad.append(tok)
+        if len(bad) >= limit:
+            break
+    return bad
+
+
+def grounding_violations(case: GoldenCase, bad: list[str]) -> list[str]:
+    """`max_ungrounded_numbers` 判定（纯函数，便于离线测试）。
+
+    `-1`（默认）= 本用例不检查——mock 模式报告由模板渲染，
+    无条件打开会把"流水线跑通"的既有基线判红。只在**确实可能编数字**的用例上开。
+    """
+    if case.max_ungrounded_numbers < 0 or len(bad) <= case.max_ungrounded_numbers:
+        return []
+    return [f"报告正文有 {len(bad)} 个大额数值在全部工具结果/证据中都找不到出处"
+            f"（允许 {case.max_ungrounded_numbers} 条）："
+            f"{'、'.join(bad[:5])}{' …' if len(bad) > 5 else ''}"
+            "——数值必须来自真实查询，不得凭空给出"]
+
+
 def findings_violations(case: GoldenCase, findings_count: int) -> list[str]:
     """`min_findings` 判定（纯函数，便于离线测试）。
 
@@ -135,6 +268,46 @@ def findings_violations(case: GoldenCase, findings_count: int) -> list[str]:
         return [f"本轮仅产出 {findings_count} 条发现，少于要求的 {case.min_findings} 条"
                 f"（报告回显了问题、但分析并未产出结论）"]
     return []
+
+
+def compute_gates(metrics: dict[str, Any], ungrounded_total: int, *,
+                  mode: str = "real") -> dict[str, Any]:
+    """运行级门禁（纯函数，便于离线测试与报告渲染）。
+
+    E6/02：把"幻觉率"从**一行指标**升级成**能否决的判据**。真实基线里
+    `疑似幻觉率 0.667` 对 ✅/❌ 毫无影响，`q_region_top` 编了一整张表照样通过。
+
+    | 门禁 | 失败条件 | 理由 |
+    |---|---|---|
+    | `hallucination` | `hallucination_rate > 0` | 有数值结论就必须有出处。**`None`（零 claim）视为"未定义"→ 不否决**：那是"没测到"，不是"有幻觉" |
+    | `grounded_numbers` | 全部用例的无源大额数值合计 > 0 | 唯一抓得住"编表"的一条 |
+    | `evidence` | `degraded_excluded > 0`，或 **`real` 模式下** `skipped_requires_real > 0` | 铁律 6：跳过/降级不得混进"通过" |
+
+    **为什么 `skipped` 只在 `real` 模式否决**：`requires_real` 用例在 mock 下
+    **按设计跳过**——那是这个模式的定义，不是缺陷。若不计模式地否决，
+    `--mode mock --strict` 将**永远**退出 2，门禁立刻沦为噪音并被绕过。
+    `degraded_excluded` 则两种模式都否决：它代表"本该是真实模型产出、
+    实际是 Mock 模板"，是真缺陷。
+    """
+    rate = metrics.get("hallucination_rate")
+    hall = {
+        "value": rate,
+        "threshold": 0.0,
+        "passed": rate is None or rate <= 0.0,
+    }
+    ground = {"violations": int(ungrounded_total), "passed": int(ungrounded_total) <= 0}
+    skipped = int(metrics.get("skipped_requires_real") or 0)
+    degraded = int(metrics.get("degraded_excluded") or 0)
+    evidence = {"skipped": skipped, "degraded": degraded,
+                "skipped_counts": mode == "real",
+                "passed": degraded == 0 and not (mode == "real" and skipped > 0)}
+    return {
+        "mode": mode,
+        "hallucination": hall,
+        "grounded_numbers": ground,
+        "evidence": evidence,
+        "passed": hall["passed"] and ground["passed"] and evidence["passed"],
+    }
 
 
 def resolve_terminal(case: GoldenCase, status: str, error: str | None) -> tuple[str, list[str]]:
@@ -215,7 +388,12 @@ def evaluate_case(case: GoldenCase, mode: str, session_id: str,
     executed = list(state.tool_results or [])
     out.executed_tools = sorted({getattr(r, "tool", "") for r in executed} - {""})
     out.tool_success = sum(1 for r in executed if getattr(r, "status", "") == "SUCCESS")
-    out.tool_fail = sum(1 for r in executed if getattr(r, "status", "") in ("FAILED", "PARTIAL"))
+    # E6/03：**未执行**（`skipped`）必须从"失败"里摘出来。否则 D54 那版基线
+    # 44/61 条"依赖步骤未完成"会把工具成功率压到 0.228 —— 那个数不是质量。
+    out.tool_skipped = sum(1 for r in executed if getattr(r, "skipped", False))
+    out.tool_fail = sum(1 for r in executed
+                        if getattr(r, "status", "") in ("FAILED", "PARTIAL")
+                        and not getattr(r, "skipped", False))
 
     # 确定性断言
     out.assertions_ok = True
@@ -272,6 +450,13 @@ def evaluate_case(case: GoldenCase, mode: str, session_id: str,
         out.assertions_ok = False
         out.failed_assertions.append("报告缺少 limitations / 质量说明")
     for msg in findings_violations(case, len(findings)):
+        out.assertions_ok = False
+        out.failed_assertions.append(msg)
+    # E6/02：报告正文的大额数值必须能在工具结果/证据里找到出处。
+    # 这是**唯一**抓得住真基线里"编出一整张区域营收表却判 ✅"的断言——
+    # 溯源（unresolved_numeric_claims）只看 findings，正文从不检查。
+    out.ungrounded_numbers = ungrounded_numbers(out.report_text, state.tool_results, findings)
+    for msg in grounding_violations(case, out.ungrounded_numbers):
         out.assertions_ok = False
         out.failed_assertions.append(msg)
     # --- #5 LLM-judge：评判「答案对不对」（语义层），而非仅字段命中 ---
@@ -384,6 +569,7 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
     tool_calls = sum(o.tool_calls for o in scored)
     tool_success_n = sum(o.tool_success for o in scored)
     tool_fail_n = sum(o.tool_fail for o in scored)
+    tool_skipped_n = sum(o.tool_skipped for o in scored)
     numeric_claims_n = sum(o.numeric_claims for o in scored)
     traced_claims_n = sum(o.traced_claims for o in scored)
     reflect_pass = sum(1 for o in scored if o.reflect_decision == "PASS")
@@ -415,8 +601,13 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
             "clarify_accepted": sum(1 for o in scored if o.status == "CLARIFY_OK"),
             "tool_calls_total": tool_calls,
             "avg_tool_calls": round(tool_calls / len(scored), 2) if scored else 0.0,
+            # E6/03：分母只算**真的执行过**的调用（`success + fail`，跳过不算）。
+            # 一条都没执行过 → **None（未定义）**，不是 0 —— 与 `hallucination_rate`
+            # 零 claim 同一条纪律：把"没测到"报成 0 是最典型的自欺。
             "tool_success_rate": round(tool_success_n / (tool_success_n + tool_fail_n), 3)
-            if (tool_success_n + tool_fail_n) else 0.0,
+            if (tool_success_n + tool_fail_n) else None,
+            # 跳过数必须单独可见：否则读者不知道分母为什么比 `tool_calls_total` 小
+            "tool_skipped_total": tool_skipped_n,
             "numeric_claims_total": numeric_claims_n,
             "traced_claims_total": traced_claims_n,
             "traceability_rate": round(traced_claims_n / numeric_claims_n, 3)
@@ -440,6 +631,9 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
         "cases_detail": [o.to_dict() for o in outcomes],
         "cost_note": "tokens 由网关 usage 真实上报；cost 需在 config 配置 cost_input/output_per_mtok。",
     }
+    report["gates"] = compute_gates(report["metrics"],
+                                    sum(len(o.ungrounded_numbers) for o in outcomes),
+                                    mode=mode)
     if badcase_dir:
         # D39：把本轮失败的用例落盘，供 `python -m app.eval.badcase --replay` 复跑。
         # 只记"该记的"（SKIPPED / DEGRADED 不算）——见 badcase._is_badcase。
@@ -450,6 +644,32 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
         except Exception:  # 落盘失败不得影响评测本身
             pass
     return report
+
+
+def _verdict(gate: dict | None) -> str:
+    """门禁结论渲染：缺该项 → `—`（**不是 PASS**，缺项不等于通过）。"""
+    if not gate:
+        return "—"
+    return "PASS" if gate.get("passed") else "**FAIL**"
+
+
+def _fmt_rate(value: float | None) -> str:
+    """比率渲染：**`None` = 未定义（分母为 0）**，必须说出来，不能印成 0。
+
+    与 `hallucination_rate` 同一条纪律：把"没测到"印成 0 是最典型的自欺。
+    """
+    return "未定义（无有效分母）" if value is None else str(value)
+
+
+def _fmt_cost(value: float | None) -> str:
+    """成本渲染：`None`（没配单价）与 `0.0`（确实免费）**必须长得不一样**。
+
+    真实基线报告里那行 `成本 USD 0.0` 其实是**未计**——`.env` 里 `COST_*=0`
+    把"没配"表达成了"免费"。不猜单价，但也不能让读者把它读成零成本。
+    """
+    if value is None:
+        return "未计（未配单价）"
+    return f"{value}（单价为 0 = 已知免费）" if value == 0 else str(value)
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -465,19 +685,24 @@ def render_markdown(report: dict[str, Any]) -> str:
         "|---|---|",
     ]
     rows = [
-        ("FINISH 率", m["finish_rate"]), ("断言通过率", m["pass_rate"]),
-        ("平均工具调用", m["avg_tool_calls"]), ("工具成功率", m["tool_success_rate"]),
-        ("平均 LLM 调用", m["avg_llm_calls"]),
-        ("Reflection PASS 率", m["reflect_pass_rate"]),
-        ("LLM-judge 平均分", m["judge_avg_score"]),
-        ("LLM-judge 方法", m["judge_method"]),
-        ("平均报告长度", m["avg_report_len"]),
-        ("平均耗时(s)", m["avg_duration_s"]), ("prompt tokens", m["prompt_tokens_total"]),
-        ("completion tokens", m["completion_tokens_total"]),
-        ("总 tokens", m["tokens_total"]), ("成本 USD", m["cost_estimate_usd"]),
-        ("溯源覆盖率", m["traceability_rate"]), ("溯源 claims", f"{m['traced_claims_total']}/{m['numeric_claims_total']}"),
+        ("FINISH 率", m.get("finish_rate")), ("断言通过率", m.get("pass_rate")),
+        ("平均工具调用", m.get("avg_tool_calls")),
+        ("工具成功率", _fmt_rate(m.get("tool_success_rate"))),
+        # E6/03：分母变了就必须让读者看见为什么 —— "跳过"不是失败，是**没轮到**
+        ("其中：跳过（依赖未满足，未执行）", m.get("tool_skipped_total", 0)),
+        ("平均 LLM 调用", m.get("avg_llm_calls")),
+        ("Reflection PASS 率", m.get("reflect_pass_rate")),
+        ("LLM-judge 平均分", m.get("judge_avg_score")),
+        ("LLM-judge 方法", m.get("judge_method")),
+        ("平均报告长度", m.get("avg_report_len")),
+        ("平均耗时(s)", m.get("avg_duration_s")), ("prompt tokens", m.get("prompt_tokens_total")),
+        ("completion tokens", m.get("completion_tokens_total")),
+        ("总 tokens", m.get("tokens_total")),
+        ("成本 USD", _fmt_cost(m.get("cost_estimate_usd"))),
+        ("溯源覆盖率", _fmt_rate(m.get("traceability_rate"))),
+        ("溯源 claims", f"{m.get('traced_claims_total')}/{m.get('numeric_claims_total')}"),
         # D41：疑似幻觉率 = 1 − 覆盖率。**None = 未定义（零数值结论）**，不是 0。
-        ("**疑似幻觉率**（数值无源占比）", m.get("hallucination_rate")),
+        ("**疑似幻觉率**（数值无源占比）", _fmt_rate(m.get("hallucination_rate"))),
         # 跳过项必须显式可见：否则"没跑"会被误读成"通过"
         ("跳过（需真实模型）", m.get("skipped_requires_real", 0)),
         # 降级项同理，且更危险：它是"拿 mock 冒充真模型"，不发出来就会被当真实成绩
@@ -488,6 +713,39 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for name, val in rows:
         lines.append(f"| {name} | {val} |")
+    gates = report.get("gates")
+    # 渲染器必须**不能崩**：报告是产物，缺一个门禁键就 `KeyError` 会把整篇报告打掉，
+    # 比少印一行糟得多（E6/03 的 `_report_with_cost` 就构造了最小 gates）。
+    if gates:
+        ev = gates.get("evidence")
+        ev_note = "—"
+        if ev:
+            # 跳过项在 mock 下**按设计发生**，不当否决理由——否则 `--mode mock --strict`
+            # 永远是退出码 2，门禁变成噪音。（`real` 模式下的跳过仍然否决：铁律 6。）
+            ev_note = (f"跳过 {ev.get('skipped')}"
+                       + ("（mock 按设计，不否决）" if not ev.get("skipped_counts", True) else "")
+                       + f" / 降级 {ev.get('degraded')}")
+        halu = gates.get("hallucination") or {}
+        ground = gates.get("grounded_numbers") or {}
+        lines += [
+            "",
+            "## 门禁（E6/02）",
+            "",
+            "| 门禁 | 判据 | 现值 | 结论 |",
+            "|---|---|---|---|",
+            f"| 幻觉 | `hallucination_rate <= 0` | {halu.get('value', '—')} | "
+            f"{_verdict(halu)} |",
+            f"| 正文数值溯源 | 无源大额数值 = 0 | {ground.get('violations', '—')} 条 | "
+            f"{_verdict(ground)} |",
+            f"| 证据完整性 | 无降级；`real` 下另须无跳过 | {ev_note} | "
+            f"{_verdict(ev)} |",
+            "",
+            f"**总体：{'PASS' if gates.get('passed') else 'FAIL'}**"
+            + ("（`--strict` 下退出码 2）" if not gates.get("passed") else ""),
+            "",
+            "> 幻觉率 `None` = 零数值结论（**未定义**，不是'零幻觉'），不否决；"
+            "但'没有数值结论'本身由 `min_numeric_claims` 在用例级拦。",
+        ]
     if m.get("degraded_excluded"):
         deg = [c["case_id"] for c in report["cases_detail"] if c["status"] == "DEGRADED"]
         stages = sorted({s for c in report["cases_detail"] for s in c.get("degraded_stages", [])})
@@ -521,6 +779,8 @@ def main() -> None:
     ap.add_argument("--ids", default="", help="只跑指定用例 id（逗号分隔）")
     ap.add_argument("--badcases", default=None,
                     help="把失败用例落盘到此目录（D39；默认不落盘）")
+    ap.add_argument("--strict", action="store_true",
+                    help="门禁失败时以退出码 2 结束（E6/02；默认不改退出码）")
     args = ap.parse_args()
 
     ids = [x.strip() for x in args.ids.split(",") if x.strip()]
@@ -536,6 +796,12 @@ def main() -> None:
         print(f"\n[report] -> {p}")
     # 简洁 JSON 行，便于脚本化读取
     print("\n[metrics-json]", report["metrics"])
+
+    # 门禁（E6/02）：**只在显式 `--strict` 下改退出码**。
+    # 既有脚本/CI 依赖"跑完即 0"，静默改语义会让它们在不该红的地方红。
+    if args.strict and not (report.get("gates") or {}).get("passed", True):
+        print("\n[gates] FAIL —— `--strict` 下退出码 2", file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":

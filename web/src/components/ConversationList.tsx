@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, MessageSquare, Trash2, PanelLeftClose, Sparkles } from "lucide-react";
+import { Plus, MessageSquare, Trash2, PanelLeftClose } from "lucide-react";
 import type { Conversation } from "@/lib/types";
 
 function timeAgo(ts: number): string {
@@ -38,20 +38,15 @@ export function ConversationList({
           className="hidden shrink-0 overflow-hidden border-r border-slate-200 bg-white md:block"
         >
           <div className="flex h-full w-72 flex-col">
-            {/* brand 标识 + 收起 */}
+            {/* 标题 + 收起（Logo 已由左侧细导航栏展示，这里不再重复） */}
             <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm shadow-indigo-500/30">
-                  <Sparkles className="h-3.5 w-3.5 text-white" />
+              <div className="flex flex-col leading-tight">
+                <span className="text-[13px] font-semibold text-slate-900">
+                  数据分析工作台
                 </span>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[13px] font-semibold text-slate-900">
-                    数据分析工作台
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Enterprise DA Agent
-                  </span>
-                </div>
+                <span className="text-[11px] text-slate-500">
+                  Enterprise DA Agent
+                </span>
               </div>
               <button
                 onClick={onToggle}

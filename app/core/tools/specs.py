@@ -243,6 +243,24 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     ),
 }
 
+# --------------------------------------------------------------------------- #
+# 不能作为**计划步骤**的工具（E2/05）
+#
+# 理由只有一个：**流水线顺序**。计划步骤由 Executor 执行，而 Executor 在 Analyst
+# **之前**（`graph.py:161` vs `graph.py:172`）。`generate_report` 的唯一输入是
+# `state.analysis`（`report_tool.run` 只读 analysis/reflection/objective），
+# 那一刻它还是空值 → 该步骤要么被依赖级联跳过，要么侥幸执行后渲染一份**空壳报告**。
+# D54 真实基线（`data/checkpoints/eval_*.json`）：13 次跳过 + 1 次 163 字符空壳，
+# 零 findings / 零指标 / 零建议。
+#
+# 它**不是**"坏工具"：`run_reporter` 仍用它做模板兜底，直接调用也仍然可用
+# （`tests/test_agent_real.py::test_generate_report_runs`）。禁的是**把它排进计划**。
+#
+# 这份名单是**唯一来源**：planner 侧（`routing.select_tools_for_planner`）与
+# 执行器侧（`nodes._run_one_step`）都读它——加一个名字，两侧同时生效（防漂移）。
+# --------------------------------------------------------------------------- #
+NOT_PLANNABLE_TOOLS: frozenset[str] = frozenset({"generate_report"})
+
 
 # --------------------------------------------------------------------------- #
 # Rate limiting — sliding window per (session, tool)

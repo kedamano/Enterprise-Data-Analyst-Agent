@@ -15,6 +15,7 @@ from ...core.attachments import (
     get_attachment_store,
     image_dir,
     is_image,
+    resolve_session_id,
     _safe_filename,
 )
 from ...models.schemas import (
@@ -45,9 +46,15 @@ def _to_info(p: DatasetPreview, kind_override: str | None = None) -> AttachmentI
 @router.post("/upload", response_model=UploadResponse)
 async def upload(
     file: UploadFile = File(...),
-    session_id: str = Form(default="default"),
+    session_id: str | None = Form(default=None),
 ):
-    """上传单个文件并绑定到 session。"""
+    """上传单个文件并绑定到 session。
+
+    AUTH/02：不带 `session_id` 时**服务端生成一个并回传**（此前默认值 `"default"`
+    会让所有不带 session 的调用方共用同一个桶，互相看得见对方上传的表）。
+    生成的 id 就在响应里，调用方接着用即可。
+    """
+    session_id = resolve_session_id(session_id)
     raw = await file.read()
     if len(raw) == 0:
         raise HTTPException(status_code=400, detail="文件为空")
@@ -109,16 +116,21 @@ async def upload(
 
 
 @router.get("/list", response_model=AttachmentListResponse)
-def list_attachments(session_id: str = "default"):
-    store = get_attachment_store()
-    items = store.get(session_id)
+def list_attachments(session_id: str | None = None):
+    # 与 upload 同一条规则：空 → 生成一个**空桶**的 id 并返回 `[]`。
+    # 不在空值上直接调 `store.get("")` —— 那会落到共享的 `default` 桶上。
+    sid = resolve_session_id(session_id)
+    items = get_attachment_store().get(sid)
     return AttachmentListResponse(
-        session_id=session_id,
+        session_id=sid,
         attachments=[_to_info(p, kind_override="image" if p.kind == "image" else None) for p in items.values()],
     )
 
 
 @router.delete("/clear")
-def clear_attachments(session_id: str = "default"):
-    get_attachment_store().clear(session_id)
-    return {"ok": True, "session_id": session_id}
+def clear_attachments(session_id: str | None = None):
+    # 同上：不带 session 时只会清到一个刚生成的空桶（等价于 no-op），
+    # **绝不会**顺着空值清掉 `default` 桶里别人的东西。
+    sid = resolve_session_id(session_id)
+    get_attachment_store().clear(sid)
+    return {"ok": True, "session_id": sid}

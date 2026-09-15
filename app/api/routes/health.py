@@ -1,14 +1,57 @@
 from __future__ import annotations
 
+import re
 import time
 
 from fastapi import APIRouter
 
 from ...config import get_settings
-from ...models.schemas import DegradationSummary, HealthResponse, LLMProbeResponse
+from ...models.schemas import (
+    DataSourceConn,
+    DataSourceListResponse,
+    DegradationSummary,
+    HealthResponse,
+    LLMProbeResponse,
+)
 from ...infrastructure.llm.router import fallback_events, llm_last_degraded
 
 router = APIRouter()
+
+
+def _mask_dsn(url: str) -> str:
+    """脱敏数据库连接串：把 ``user:pass@host`` 中的密码替换为 ***。
+
+    sqlite 文件路径无密码，原样返回；postgres/mysql 的显式密码必须打码——
+    前端直接展示，绝不能泄漏凭证。
+    """
+    if url.startswith("sqlite"):
+        return url
+    return re.sub(r"(://[^:/?#]+:)[^@]+(@)", r"\1***\2", url)
+
+
+@router.get("/datasources", response_model=DataSourceListResponse, tags=["health"])
+def datasources():
+    """已配置的数据库连接清单（含主源与命名源）。
+
+    返回的是「访问配置」而非数据——每个源给 name / dialect / 脱敏 url / 只读标记。
+    与「文件库」（个人上传文件）是两类不同资产，前端分两个面板呈现。
+    """
+    try:
+        from ...core.tools.datasource import sources
+
+        raw = sources()
+    except Exception:
+        raw = {}
+    conns = [
+        DataSourceConn(
+            name=name,
+            dialect=info.get("dialect", "unknown"),
+            url=_mask_dsn(info.get("url", "")),
+            readonly=get_settings().sql_readonly,
+        )
+        for name, info in raw.items()
+    ]
+    return DataSourceListResponse(sources=conns)
 
 
 @router.get("/health", response_model=HealthResponse, tags=["health"])

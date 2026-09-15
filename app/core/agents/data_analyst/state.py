@@ -55,6 +55,10 @@ class ToolResult(BaseModel):
     error_class: Optional[str] = None
     attempts: int = 1
     artifacts: list[str] = Field(default_factory=list)
+    # E6/03：**未执行**（依赖步骤没完成）≠ 执行失败。
+    # `status` 仍记 FAILED（Reflection 的 REPLAN 与 `_dep_done` 都看 status），
+    # 但指标必须能把它从"失败"里分出来——否则"根本没发生的调用"会拉低工具成功率。
+    skipped: bool = False
 
 
 class TimeRange(BaseModel):

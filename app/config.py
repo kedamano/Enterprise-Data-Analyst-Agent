@@ -193,6 +193,28 @@ class Settings(BaseSettings):
     # 嵌入模型加载墙钟预算（秒）：超时即禁用嵌入、降级为纯 BM25 检索，避免
     # sentence-transformers 在本机联网校验/首次加载时无限阻塞入库与检索。
     embed_load_timeout_s: float = 25.0
+    # RAG-01 低置信兜底：首条短语亲和分低于此值即判「低置信」，**内容不下发**给模型。
+    #
+    # 0.15 是**量出来的**，不是拍的：黄金集 6 正例的首条亲和分为 0.188~0.500，
+    # 唯一负例 0.111（字面沾边）或 0.000（无重合）。两侧余量都不大，改这个值
+    # 必须重跑 `tests/test_rag_confidence.py::test_calibration_holds_on_the_real_golden_set`
+    # 与 `::test_golden_positive_queries_stay_high_confidence`。标定表见
+    # `docs/specs/RAG/01-low-confidence-fallback.md` §2.1.1。
+    #
+    # ⚠️ 别拿 `rerank_score` 当阈值：它是 `0.8×亲和 + 0.2×RRF归一`，归一化项有**地板分**
+    # （完全无关的首条也能拿到 0.2×1.0），同一批样本在 RERANK_ENABLED 开/关下会得出
+    # 相反的结论。判级只用亲和分这一个尺度。
+    rag_min_confidence: float = 0.15
+
+    @field_validator("rag_min_confidence", mode="before")
+    @classmethod
+    def _lenient_confidence_threshold(cls, v: Any) -> Any:
+        """非法阈值（非数/负数）退回默认，**不抛**——配置写错不该让检索整体不可用。"""
+        try:
+            parsed = float(v)
+        except (TypeError, ValueError):
+            return 0.15
+        return 0.15 if parsed < 0 else parsed
 
     # --- Memory / cache ---
     redis_url: str = ""

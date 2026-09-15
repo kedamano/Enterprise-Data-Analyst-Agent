@@ -1,8 +1,7 @@
 """Real-LLM TDD suite for the Enterprise Data Analyst Agent.
 
-Run with a real key, e.g.:
-    LLM_API_KEY=sk-or-... LLM_MODEL=deepseek/deepseek-chat \
-        python -m pytest tests/test_agent_real.py -v
+Run with a real key (endpoint/model 由 `.env` 或 shell 提供，二者都会被遵守）:
+    python -m pytest tests/test_agent_real.py -v
 
 The suite defines the agent's behavioural contract and verifies it against the
 live model. A spy in conftest fails any test that silently fell back to Mock.
@@ -40,12 +39,28 @@ def test_llm_backend_is_real():
 # --------------------------------------------------------------------------- #
 # 1. Context stage — semantically parse the user question.
 # --------------------------------------------------------------------------- #
+# CLARIFY/01：`CLARIFY` 是一次对话回合的**终止态**（等用户回答），**不是失败**
+# （`nodes.run_context` 在设它时把 `state.error` 显式清空，注释就写着"澄清不是错误"）。
+# 这两个用例的本意是"**不崩溃 + 不静默降级**"，所以澄清也算通过——
+# 但**必须断言澄清是完整的**：空问题的 CLARIFY 仍然判红（那才是静默失败）。
+_CONTEXT_STATUSES = ("UNDERSTAND", "PLAN", "ERROR", "CLARIFY")
+
+
+def _clarify_questions(state) -> list:
+    meta = getattr(state, "metadata", None) or {}
+    return [q for q in ((meta.get("clarification") or {}).get("questions") or []) if q]
+
+
 def test_context_stage_extracts_intent(session_id):
     s = AgentState(session_id=session_id, user_query="分析最近半年华北地区营收下滑的原因，按产品和渠道维度下钻")
     s = run_context(s)
-    assert s.status in ("UNDERSTAND", "PLAN", "ERROR")
+    assert s.status in _CONTEXT_STATUSES
+    if s.status == "CLARIFY":
+        # 模型判定需要澄清是合法输出——只验证澄清信息合理且未静默降级
+        assert _clarify_questions(s), "CLARIFY 必须带回非空问题，缺问题就是静默失败"
+        assert fallback_occurred() is False
+        return
     if s.status == "ERROR":
-        # 模型判定需要澄清也是合法输出——只验证澄清信息合理且未静默降级
         assert s.error, "澄清场景应返回澄清说明而非空"
         assert fallback_occurred() is False
         return
@@ -61,7 +76,13 @@ def test_context_stage_extracts_intent(session_id):
 def test_context_stage_dimensions(session_id):
     s = AgentState(session_id=session_id, user_query="按地区和产品维度分析各渠道的订单量趋势")
     s = run_context(s)
-    assert s.status in ("UNDERSTAND", "PLAN", "ERROR")
+    assert s.status in _CONTEXT_STATUSES
+    if s.status == "CLARIFY":
+        # 真实 LLM 非确定性：这一问没给时间范围，模型可能据 CLARIFY/01 反问一句。
+        # 反问本身合法（只要不静默降级），但它**不能是空的**——见上面的说明。
+        assert _clarify_questions(s), "CLARIFY 必须带回非空问题，缺问题就是静默失败"
+        assert fallback_occurred() is False
+        return
     if s.status == "ERROR":
         # 模型判定需要澄清也是合法输出（真实 LLM 非确定性），只要不崩溃即可
         assert s.error, "澄清场景应返回澄清说明而非空"

@@ -33,6 +33,10 @@ _ALIASES: dict[str, str] = {
     "freeform": "自定义SQL 手写查询 复杂查询 多表 关联 join 窗口函数 子查询",
     "python_analysis": "Python 脚本 代码 计算 清洗 处理 CSV Excel 建模 回归 统计检验 显著性",
     "visualization": "图表 画图 可视化 柱状图 折线图 趋势图 饼图 散点图",
+    # E2/05：这份别名对 planner **已失效**——`generate_report` 在
+    # `select_tools_for_planner` 里于**计数与打分之前**就被摘掉（见 NOT_PLANNABLE_TOOLS），
+    # 它既不进候选、也占不到 top-k 名额。保留原文是因为 `route_tools` 本身仍是通用原语
+    # （直接调用它的人按语义拿工具，不受 planner 的禁令约束）。
     "generate_report": "报告 周报 月报 汇报 结论 建议 总结",
     "image_analyze": "图片 截图 看图 图表识别 OCR",
 }
@@ -125,12 +129,26 @@ def select_tools_for_planner(query: str, *, specs: Optional[dict[str, Any]] = No
     """自适应选择：工具少 → 全给；工具多 → 只给路由结果。
 
     返回 ``(工具名列表, 是否做了路由)``，供 planner 注入与观测。
+
+    E2/05：先摘掉**不可作为计划步骤**的工具（`NOT_PLANNABLE_TOOLS`），再谈路由。
+    必须在这里摘、且必须在**计数之前**摘：
+
+    * 工具数 ≤ `threshold_count` 时走"全给"分支，返回的就是**整个** `specs.keys()`
+      ——不摘就会原样交给 planner（当前 9 个工具没超过阈值 12，所以真正生效的是这一路）；
+    * 摘在 `route_tools` **之前**，被摘的名字才不会占 top-k 名额、也不会进 IDF 语料
+      （否则它会把一个真实工具挤出候选）。
+
+    提示词侧（`planner.md`）另有一份清单，是同一件事的**预防**；执行器侧
+    （`nodes._run_one_step`）是**检测**。三处都读同一个常量，不许各写一份名单。
     """
     if specs is None:
         from .specs import TOOL_SPECS
 
         specs = TOOL_SPECS
-    all_names = list(specs.keys())
+    from .specs import NOT_PLANNABLE_TOOLS
+
+    plannable = {k: v for k, v in specs.items() if k not in NOT_PLANNABLE_TOOLS}
+    all_names = list(plannable.keys())
     if len(all_names) <= max(1, threshold_count):
         return all_names, False
-    return route_tools(query, specs=specs), True
+    return route_tools(query, specs=plannable), True

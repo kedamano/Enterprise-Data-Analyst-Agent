@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Modal,
   ModalBody,
   ModalContent,
-  useModal,
 } from "@/components/ui/animated-modal";
 import { setApiKey } from "@/lib/auth";
 
@@ -20,9 +19,7 @@ export function AuthGate({
   onAuthed: () => void;
   onCancel: () => void;
 }) {
-  const { setOpen } = useModal();
   const [key, setKey] = useState("");
-  useEffect(() => setOpen(open), [open, setOpen]);
 
   const submit = () => {
     const v = key.trim();
@@ -32,7 +29,7 @@ export function AuthGate({
   };
 
   return (
-    <Modal>
+    <Modal open={open} onClose={onCancel}>
       <ModalBody className="max-w-md">
         <ModalContent>
           <h2 className="text-lg font-semibold text-slate-900">需要 API Key</h2>

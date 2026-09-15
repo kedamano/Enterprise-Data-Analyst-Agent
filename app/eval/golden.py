@@ -50,6 +50,15 @@ class GoldenCase:
     # `溯源 0/0` 却全程判过，于是"分析没给出任何数据结论"这件事**测不出来**。
     # 数据类用例设 ≥1，把"零数值结论"从"通过"变成"失败"。
     min_numeric_claims: int = 0
+    # 报告**正文**里允许多少个"在全部工具结果/证据里都找不到出处"的大额数值。
+    #
+    # 存在的理由（E6/02）：`sources.unresolved_numeric_claims` 只遍历
+    # **`findings[].evidence[].value`**，**报告正文的数值从来不检查**。
+    # 真实基线里 `q_region_top` 只跑了一条 `SELECT * FROM dim_channel LIMIT 100`
+    # （3 行维表），却**凭空写出一整张区域营收表**（1,245,000 / +18.5% / 占比 32%）
+    # ——findings 干净、正文是编的——**却判 ✅**。
+    # `-1`（默认）＝ 本用例不检查（报告由模板渲染的场景）；`0` ＝ 一个都不许编。
+    max_ungrounded_numbers: int = -1
     # 需要真实模型才能验证的用例：mock 模式下**跳过并显式计数**，
     # 绝不把"没跑"混进通过率（铁律 6：无 key 前不得声称已达标）
     requires_real: bool = False
@@ -74,6 +83,10 @@ _BASE_GOLDEN: tuple[GoldenCase, ...] = (
         must_find=("地区", "产品", "渠道"),
         expected_tools=("schema_search", "sql_query"),
         must_not_appear=("SELECT 1",),
+        # E6/02：基础用例同样要"真的产出结论、且正文数字能溯源"。
+        # 真基线里 4 条空洞 ✅ 正是从这里来的（`min_findings` 默认 0）。
+        min_findings=1,
+        max_ungrounded_numbers=0,
         tags=("diagnostic", "revenue"),
     ),
     GoldenCase(
@@ -82,6 +95,9 @@ _BASE_GOLDEN: tuple[GoldenCase, ...] = (
         must_find=("region",),
         expected_tools=("schema_search", "sql_query"),
         must_not_appear=("SELECT 1",),
+        # 真基线里**本条**凭空造出一整张区域营收表却判 ✅ —— 门禁的靶子。
+        min_findings=1,
+        max_ungrounded_numbers=0,
         tags=("comparison",),
     ),
     GoldenCase(
@@ -89,6 +105,8 @@ _BASE_GOLDEN: tuple[GoldenCase, ...] = (
         query="按产品类别对比订单量与客户数，找出最值得投入的品类",
         must_find=("订单", "客户"),
         expected_tools=("schema_search", "sql_query"),
+        min_findings=1,
+        max_ungrounded_numbers=0,
         tags=("comparison",),
     ),
     GoldenCase(
@@ -96,6 +114,8 @@ _BASE_GOLDEN: tuple[GoldenCase, ...] = (
         query="最近三个月各渠道订单量趋势如何，哪个渠道在恶化",
         must_find=("渠道", "趋势"),
         expected_tools=("schema_search", "sql_query"),
+        min_findings=1,
+        max_ungrounded_numbers=0,
         tags=("trend",),
     ),
     GoldenCase(
@@ -103,6 +123,8 @@ _BASE_GOLDEN: tuple[GoldenCase, ...] = (
         query="分析最近营收变化的原因并给出改进建议",
         must_find=(),
         expected_tools=("schema_search",),
+        min_findings=1,
+        max_ungrounded_numbers=0,
         tags=("diagnostic",),
     ),
 )
@@ -126,6 +148,12 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
         expect_quality_codes=("dq_override_requested",),
         expect_refusal=True,
         must_not_appear=("SELECT 1",),
+        # **故意不设 `min_findings`**：本条要的不是"业务结论"，而是"**不得静默**"。
+        # 用户说的是"直接给结论"，路由到 `quick_answer` 后**本来就不产 findings**
+        # ——那是模式的正确行为，不是缺陷。它的"不静默"由 `expect_refusal` 守：
+        # 一声不吭地照办会直接判红。硬加 `min_findings=1` 只会得到一个
+        # **mock 专属假红**（真模型走 full 模式才可能产 findings）。
+        max_ungrounded_numbers=0,
         tags=("adversarial",),
     ),
     GoldenCase(
@@ -133,6 +161,8 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
         query="分析各区域营收表现并给出建议",
         must_have_limitations=True,
         expect_finish=True,
+        min_findings=1,
+        max_ungrounded_numbers=0,
         judge_min_score=0.5,   # #5：要求 LLM-judge 得分达标（离线 rubric 必然过，真 LLM 更严）
         tags=("control", "negative"),
     ),
@@ -141,6 +171,8 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
         query="各区域营收排名，请用区域名称而不是编号",
         expected_tools=("sql_query",),
         must_not_appear=("SELECT 1",),
+        min_findings=1,
+        max_ungrounded_numbers=0,
         tags=("semantic",),
     ),
 

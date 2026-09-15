@@ -41,20 +41,55 @@ def test_judge_case_offline_method_default():
     assert 0.0 <= res.score <= 1.0
 
 
-def test_judge_case_falls_back_when_llm_unavailable():
-    # 即便要求走 LLM（JUDGE_USE_LLM=1），无 key / openai 缺失也应降级到 rubric，绝不崩溃
-    old = os.environ.get("JUDGE_USE_LLM")
-    os.environ["JUDGE_USE_LLM"] = "1"
-    try:
-        case = GoldenCase(id="x", query="q", must_find=("营收",))
-        res = judge_case(case, "营收分析包含营收数据", "")
-        assert res.method == "rubric-offline"
-        assert 0.0 <= res.score <= 1.0
-    finally:
-        if old is None:
-            os.environ.pop("JUDGE_USE_LLM", None)
-        else:
-            os.environ["JUDGE_USE_LLM"] = old
+def test_judge_case_falls_back_when_llm_unavailable(monkeypatch):
+    """即便要求走 LLM（`JUDGE_USE_LLM=1`），**调用失败**也必须降级 rubric 且不崩溃。
+
+    **2026-09-15 修正**：本用例原先**没有模拟任何不可用条件**——它靠的是测试环境里
+    `LLM_BASE_URL` 被 conftest 指到错误端点、真实调用必然 401 才"通过"的。
+    那是**假绿**：一旦端点被修正，它立刻失败（正是它暴露了 conftest 的端点误指）。
+    现在改成显式让调用抛错，不再依赖环境恰好是坏的。
+    """
+    monkeypatch.setenv("JUDGE_USE_LLM", "1")
+    monkeypatch.setenv("LLM_API_KEY", "not-a-real-key")  # 绕过"无 key 直接 rubric"分支
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    import app.eval.judge as judge_mod
+
+    def _boom(*_a, **_kw):
+        raise RuntimeError("上游不可用")
+
+    monkeypatch.setattr(judge_mod, "judge_with_llm", _boom)
+
+    case = GoldenCase(id="x", query="q", must_find=("营收",))
+    res = judge_case(case, "营收分析包含营收数据", "")
+    assert res.method == "rubric-offline"
+    assert 0.0 <= res.score <= 1.0
+    assert "上游不可用" in res.rationale or "降级" in res.rationale, res.rationale
+
+
+def test_judge_case_skips_llm_without_key(monkeypatch):
+    """另一个入口：**没有 key** 时压根不尝试 LLM（`use_llm` 为假），直接 rubric。
+
+    与上一条是两条不同的路径，此前都没被真正测到。
+    """
+    monkeypatch.setenv("JUDGE_USE_LLM", "1")
+    monkeypatch.setenv("LLM_API_KEY", "")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    import app.eval.judge as judge_mod
+
+    def _should_not_be_called(*_a, **_kw):  # pragma: no cover
+        raise AssertionError("无 key 时不该调用 LLM judge")
+
+    monkeypatch.setattr(judge_mod, "judge_with_llm", _should_not_be_called)
+
+    case = GoldenCase(id="x", query="q", must_find=("营收",))
+    res = judge_case(case, "营收分析包含营收数据", "")
+    assert res.method == "rubric-offline"
 
 
 def test_runner_collects_judge_metric():

@@ -9,12 +9,17 @@ import {
   Settings,
   FileText,
   Sparkles,
-  LayoutDashboard,
   History,
   Database,
   FolderOpen,
 } from "lucide-react";
 import type { ReactNode } from "react";
+
+/**
+ * 主区域视图标识。左侧细导航点击后**切换主区域内容**（而不是弹小窗）——
+ * 知识库/文件库/数据源都是需要大面积操作的重功能，弹窗装不下。
+ */
+export type RailView = "chat" | "knowledge" | "files" | "datasources";
 
 function Logo() {
   return (
@@ -57,6 +62,7 @@ function RailLink({
       onClick={onClick}
       title={title}
       aria-label={title}
+      aria-current={active ? "page" : undefined}
       className={`grid h-9 w-9 place-items-center rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${
         active
           ? colors[accent ?? "indigo"]
@@ -69,15 +75,23 @@ function RailLink({
 }
 
 export function SideRail({
+  view,
+  onNavigate,
   onNew,
   onToggleList,
   showList,
   onOpenDocs,
+  onOpenHistory,
+  onOpenSettings,
 }: {
+  view: RailView;
+  onNavigate: (v: RailView) => void;
   onNew: () => void;
   onToggleList: () => void;
   showList: boolean;
   onOpenDocs: () => void;
+  onOpenHistory: () => void;
+  onOpenSettings: () => void;
 }) {
   return (
     <Sidebar open={false} setOpen={() => undefined} animate={false}>
@@ -92,10 +106,11 @@ export function SideRail({
               onClick={(e) => {
                 e.preventDefault();
                 onNew();
+                onNavigate("chat");
               }}
               title="新对话"
               accent="indigo"
-              active
+              active={view === "chat"}
             >
               <Plus className="h-5 w-5" strokeWidth={2.25} />
             </RailLink>
@@ -111,37 +126,45 @@ export function SideRail({
               <MessagesSquare className="h-5 w-5" strokeWidth={2.25} />
             </RailLink>
             <RailLink
-              onClick={(e) => e.preventDefault()}
-              title="工作台（占位）"
-              accent="violet"
-            >
-              <LayoutDashboard className="h-5 w-5" strokeWidth={2.25} />
-            </RailLink>
-            <RailLink
-              onClick={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.preventDefault();
+                onOpenHistory();
+              }}
               title="历史记录"
-              accent="slate"
+              accent="sky"
             >
               <History className="h-5 w-5" strokeWidth={2.25} />
             </RailLink>
             <RailLink
-              onClick={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate("datasources");
+              }}
               title="数据源"
               accent="emerald"
+              active={view === "datasources"}
             >
               <Database className="h-5 w-5" strokeWidth={2.25} />
             </RailLink>
             <RailLink
-              onClick={(e) => e.preventDefault()}
-              title="知识库（占位）"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate("knowledge");
+              }}
+              title="知识库"
               accent="amber"
+              active={view === "knowledge"}
             >
               <BookOpen className="h-5 w-5" strokeWidth={2.25} />
             </RailLink>
             <RailLink
-              onClick={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate("files");
+              }}
               title="文件库"
               accent="rose"
+              active={view === "files"}
             >
               <FolderOpen className="h-5 w-5" strokeWidth={2.25} />
             </RailLink>
@@ -160,8 +183,11 @@ export function SideRail({
             <FileText className="h-5 w-5" strokeWidth={2.25} />
           </RailLink>
           <RailLink
-            onClick={(e) => e.preventDefault()}
-            title="设置（占位）"
+            onClick={(e) => {
+              e.preventDefault();
+              onOpenSettings();
+            }}
+            title="设置"
             accent="slate"
           >
             <Settings className="h-5 w-5" strokeWidth={2.25} />

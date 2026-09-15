@@ -93,7 +93,8 @@ def _csv_artifacts(state, workdir: Path) -> tuple[list[tuple[str, Path]], list[s
 
 
 def _readme(state, csvs: list[tuple[str, Path]], skipped: list[str],
-            is_blocked: bool = False, masked: bool = False) -> str:
+            is_blocked: bool = False, masked: bool = False,
+            charts: list[dict] | None = None) -> str:
     lines = [
         "== 分析交付包 ==",
         f"会话 session_id：{state.session_id}",
@@ -106,6 +107,8 @@ def _readme(state, csvs: list[tuple[str, Path]], skipped: list[str],
         "queries.sql    本次运行的全部只读查询（按执行顺序，含 step_id）",
         "trace.json     溯源清单（结论 → sql_id → SQL → 行样本）",
         "data/*.csv     数据产物",
+        "charts/*.png   报告里内嵌的图表（报告用 /api/v1/chat/analyze/chart/... 引用，"
+        "贴到外部平台会裂图，此处是**离线可看的那份**）",
         "WATERMARK.txt  导出水印（DLP，可验证）",
         "",
     ]
@@ -114,6 +117,8 @@ def _readme(state, csvs: list[tuple[str, Path]], skipped: list[str],
             "-- 本交付包已按 DLP 策略脱敏 --",
             "data/*.csv 按调用方角色的策略处理：strict 列**整列剔除**（含表头），",
             "sample 列按值掩码，none 列原样。水印见 WATERMARK.txt 与响应头 X-Dlp-Watermark。",
+            "**本包不含 charts/ 图表**：图是位图，无法逐像素脱敏——宁可少给，",
+            "不可假装脱敏过。需要图请用 masked=0 导出（走两步授权）。",
             "需要原始值请用 masked=0 重新导出（走两步授权）。",
             "",
         ]
@@ -125,6 +130,8 @@ def _readme(state, csvs: list[tuple[str, Path]], skipped: list[str],
             "因此**对外分享前请自行确认是否含敏感数据**。",
             "",
         ]
+    if charts and not masked:
+        lines.append(f"本次运行有 {len(charts)} 张图，已随包提供（charts/）。")
     if not csvs:
         lines.append("本次运行**无数据产物**（未执行取数步骤，或结果为空）。")
     if skipped:
@@ -155,6 +162,147 @@ def _zip_bytes(items: dict[str, bytes]) -> bytes:
     return buf.getvalue()
 
 
+# --------------------------------------------------------------------------- #
+# D51：**唯一的**交付包构造函数 —— 导出预览与 zip 必须同源
+#     "预览说有几个文件、各多少字节，包里就必须是同样那几个、同样那些字节。"
+#     两处各写一份清单 = 预览迟早骗人，而且没人会立刻发现。
+# --------------------------------------------------------------------------- #
+
+#: 文件名 → (kind, note)。未登记的走默认（kind=data）。
+_ITEM_META = {
+    "report.md": ("report", "报告正文（含图表引用）"),
+    "queries.sql": ("sql", "本次运行的全部只读查询"),
+    "trace.json": ("trace", "溯源清单（结论 → SQL → 行样本）"),
+    "README.txt": ("readme", "交付说明"),
+    "WATERMARK.txt": ("watermark", "导出水印（可验证）"),
+}
+
+
+def _item_meta(name: str) -> tuple[str, str]:
+    if name in _ITEM_META:
+        return _ITEM_META[name]
+    if name.startswith("charts/"):
+        return "chart", "报告内嵌图表"
+    if name.startswith("data/"):
+        return "data", "数据产物（CSV）"
+    return "other", ""
+
+
+def _principal_check(session_id: str):
+    """AUTH/01：越权读别人的会话 → 403；AUTH 关闭 → 返回匿名 principal。"""
+    from ...core.security.auth import current_principal, owns_session
+
+    principal = None
+    try:
+        principal = current_principal()
+        if not owns_session(session_id, principal):
+            raise HTTPException(status_code=403, detail="无权访问该会话")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    return principal
+
+
+def _want_masked(masked: str) -> bool:
+    """``masked`` 语义：``1``=脱敏（安全路径）/ ``0``=原始（走 HITL）/ 缺省按策略是否激活。"""
+    from ...core.security import dlp as _dlp
+
+    if masked == "1":
+        return True
+    if masked == "0":
+        return False
+    return _dlp.policy_active()
+
+
+def _build_items(state, session_id: str, principal, want_masked: bool
+                 ) -> tuple[dict[str, bytes], list[str], str | None]:
+    """构造交付包的全部条目（含 README 与可选水印）。
+
+    返回 ``(items, skipped, watermark_token)``。**zip 与 manifest 共用本函数**：
+    任何"包里有什么"的改动只在这里发生一次。
+    """
+    from ...config import get_settings as _settings
+
+    from ...core.agents.data_analyst import charts as _charts
+    from ...core.security import dlp as _dlp, watermark as _wm
+
+    workdir = _session_workdir(session_id)
+    csvs, skipped = _csv_artifacts(state, workdir)
+    chart_items = _charts.collect_charts(state)
+
+    resolver = _dlp.make_resolver(principal) if want_masked else None
+    items: dict[str, bytes] = {
+        "README.txt": _readme(state, csvs, skipped, masked=bool(want_masked),
+                              charts=chart_items).encode("utf-8"),
+        "report.md": (state.report or "（本次运行没有产出报告）").encode("utf-8"),
+        "queries.sql": _queries_sql(state).encode("utf-8"),
+        "trace.json": _trace_json(state).encode("utf-8"),
+    }
+    for name, path in csvs:
+        try:
+            raw = path.read_bytes()
+            if resolver is not None:
+                raw = _dlp.mask_csv_text(raw.decode("utf-8", errors="replace"),
+                                         resolver).encode("utf-8")
+            items[name] = raw
+        except Exception:
+            skipped.append(str(path))
+
+    # D51：图表入包。**脱敏版一律不含**——位图无法逐像素脱敏（README 已写明原因）
+    if not want_masked:
+        for c in chart_items:
+            try:
+                items[f"charts/{c['name']}"] = Path(c["path"]).read_bytes()
+            except Exception:
+                skipped.append(str(c.get("path", "")))
+
+    # D49 水印：**附加**（新文件 + 响应头），不改动任何既有产物字节
+    token = None
+    secret = getattr(_settings(), "dlp_watermark_secret", "") or ""
+    if secret:
+        user_id = str(getattr(principal, "user_id", "") or "")
+        exported_at = datetime.now(timezone.utc).isoformat()
+        token = _wm.issue_watermark(user_id=user_id, session_id=session_id,
+                                    exported_at=exported_at, secret=secret)
+        if token:
+            items["WATERMARK.txt"] = _wm.watermark_lines(
+                token, user_id=user_id, session_id=session_id,
+                exported_at=exported_at).encode("utf-8")
+    return items, skipped, token
+
+
+def _manifest_of(items: dict[str, bytes], session_id: str, want_masked: bool) -> dict[str, Any]:
+    files = []
+    for name, data in sorted(items.items()):
+        kind, note = _item_meta(name)
+        files.append({"name": name, "bytes": len(data), "kind": kind, "note": note})
+    return {
+        "session_id": session_id,
+        "masked": bool(want_masked),
+        "total_bytes": sum(f["bytes"] for f in files),
+        "files": files,
+    }
+
+
+@router.get("/analyze/export/{session_id}/manifest")
+def analyze_export_manifest(session_id: str,
+                            masked: str = Query("", pattern="^(|0|1)$")):
+    """D51：**导出预览** —— 打包之前先说清楚包里有什么。
+
+    与 zip **同源**（同一个 :func:`_build_items`）：预览说几个文件、各多少字节，
+    包里就是同样那几个、同样那些字节。
+
+    **不需要两步授权**：预览只暴露文件名与字节数，不暴露任何**值**；
+    真正取原始值仍然走 D45 的 428/confirm（见 `analyze_export`）。
+    """
+    principal = _principal_check(session_id)
+    want_masked = _want_masked(masked)
+    state = _load_state(session_id)
+    items, _skipped, _token = _build_items(state, session_id, principal, want_masked)
+    return _manifest_of(items, session_id, want_masked)
+
+
 @router.get("/analyze/export/{session_id}")
 def analyze_export(session_id: str,
                    format: str = Query("zip", pattern="^(zip|sql|report|csv)$"),
@@ -166,29 +314,11 @@ def analyze_export(session_id: str,
     ``0``=原始值（走 D45 HITL 两步授权）；缺省按策略是否激活决定
     （策略未激活时缺省=0，保持既有行为一字不变）。
     """
-    from ...config import get_settings as _settings
-
-    from ...core.security import dlp as _dlp, watermark as _wm
-    from ...core.security.auth import current_principal, owns_session
-
     # AUTH/01：越权读别人的会话 → 403
-    principal = None
-    try:
-        principal = current_principal()
-        if not owns_session(session_id, principal):
-            raise HTTPException(status_code=403, detail="无权访问该会话")
-    except HTTPException:
-        raise
-    except Exception:
-        pass
+    principal = _principal_check(session_id)
 
     # D49：脱敏版是安全默认；只有**原始值**导出才需要审批
-    if masked == "1":
-        want_masked = True
-    elif masked == "0":
-        want_masked = False
-    else:
-        want_masked = _dlp.policy_active()
+    want_masked = _want_masked(masked)
 
     # D45 两步授权：原始导出**保留未脱敏原始值**，属合规上的高危动作。
     # 默认关（HITL_ENABLED=false）→ 这段不生效。
@@ -212,8 +342,6 @@ def analyze_export(session_id: str,
             pass  # 策略层故障不得让导出直接崩（fail-closed 由 requires_confirmation 内部保证）
 
     state = _load_state(session_id)
-    workdir = _session_workdir(session_id)
-    csvs, skipped = _csv_artifacts(state, workdir)
 
     if format == "sql":
         return Response(_queries_sql(state), media_type="text/plain; charset=utf-8")
@@ -221,23 +349,8 @@ def analyze_export(session_id: str,
         return Response(state.report or "（本次运行没有产出报告）",
                         media_type="text/markdown; charset=utf-8")
 
-    # D49：按角色策略逐列处理 CSV（strict 整列剔除 / sample 按值掩码 / none 原样）
-    resolver = _dlp.make_resolver(principal) if want_masked else None
-    items: dict[str, bytes] = {
-        "README.txt": _readme(state, csvs, skipped, masked=bool(want_masked)).encode("utf-8"),
-        "report.md": (state.report or "（本次运行没有产出报告）").encode("utf-8"),
-        "queries.sql": _queries_sql(state).encode("utf-8"),
-        "trace.json": _trace_json(state).encode("utf-8"),
-    }
-    for name, path in csvs:
-        try:
-            raw = path.read_bytes()
-            if resolver is not None:
-                raw = _dlp.mask_csv_text(raw.decode("utf-8", errors="replace"),
-                                         resolver).encode("utf-8")
-            items[name] = raw
-        except Exception:
-            skipped.append(str(path))
+    # D51：与 manifest **同源**的构造（README / CSV 脱敏 / 图表 / 水印都在里面）
+    items, _skipped, token = _build_items(state, session_id, principal, want_masked)
     if format == "csv":
         items = {k: v for k, v in items.items() if k.startswith("data/") or k == "README.txt"}
 
@@ -245,18 +358,7 @@ def analyze_export(session_id: str,
                                f'attachment; filename="analysis-{session_id}.zip"'}
     if want_masked:
         headers["masked"] = "1"
-
-    # D49 水印：**附加**（新文件 + 响应头），不改动任何既有产物字节
-    secret = getattr(_settings(), "dlp_watermark_secret", "") or ""
-    if secret:
-        user_id = str(getattr(principal, "user_id", "") or "")
-        exported_at = datetime.now(timezone.utc).isoformat()
-        tok = _wm.issue_watermark(user_id=user_id, session_id=session_id,
-                                  exported_at=exported_at, secret=secret)
-        if tok:
-            items["WATERMARK.txt"] = _wm.watermark_lines(
-                tok, user_id=user_id, session_id=session_id,
-                exported_at=exported_at).encode("utf-8")
-            headers["X-Dlp-Watermark"] = tok
+    if token:
+        headers["X-Dlp-Watermark"] = token
 
     return Response(_zip_bytes(items), media_type="application/zip", headers=headers)

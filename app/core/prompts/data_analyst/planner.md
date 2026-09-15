@@ -125,9 +125,84 @@ Each step must contain:
   "tool": "...",
   "dependencies": [],
   "expected_output": "...",
-  "success_criteria": "..."
+  "success_criteria": "...",
+  "input": {}
 }
 ```
+
+---
+
+# Step Input — data steps must carry their own SQL
+
+**The executor does NOT invent a query for you.** A step that needs data and
+brings no `input.sql` is executed as a **failure** — it is never guessed into
+some table. Write the SQL yourself.
+
+- `sql_query` / `freeform` steps **MUST** set `input.sql` — a complete,
+  read-only, executable statement that answers **this step's** objective.
+- If `<task_context>` contains `discovered_schema`, write the SQL **against
+  that schema**: use exactly those table and column names. Never invent a
+  table or column name that is not listed there.
+- If no schema is known yet, put `schema_search` **first** and write the SQL on
+  a later step. Do not guess a table name to fill the gap.
+- `dataset_profile` steps may set `input.table` explicitly (otherwise the
+  executor picks one).
+- Never emit a placeholder statement (`SELECT 1`, `SELECT *` without a purpose)
+  just to have *something* in `input.sql` — a failed step is honest, a
+  meaningless query is not.
+- Steps that need no parameters (e.g. `schema_search`, `visualization`) may
+  omit `input` entirely.
+
+Example:
+
+```json
+{
+  "id": "step_2",
+  "objective": "按月计算各区域营收",
+  "action": "执行 SQL 聚合查询",
+  "tool": "sql_query",
+  "dependencies": ["step_1"],
+  "expected_output": "区域 × 月份的营收汇总",
+  "success_criteria": "返回非空聚合结果",
+  "input": {"sql": "SELECT region_id, SUM(revenue) AS total_revenue FROM fact_sales GROUP BY region_id ORDER BY total_revenue DESC LIMIT 20"}
+}
+```
+
+---
+
+# SQL Dialect — write the SQL your engine actually runs
+
+The dialect you reach for by habit is not always this engine's. `<task_context>.sql_dialect`
+tells you **which source runs which engine**, one line per source:
+
+```
+- default（主源，未指定 input.source 时用它）: sqlite — ...
+- pg_warehouse: postgres — ...
+```
+
+- **Follow it.** Take the line for the source your step targets (`input.source` when
+  you set one, otherwise the main source) and write **that** engine's SQL.
+- **SQL steps only.** `python_analysis` and the metadata tools are unaffected.
+
+**If `sql_dialect` is absent** (the engine could not be determined for any source),
+write the most conservative SQL — the part that survives all engines:
+
+- **Avoid** `DATE_TRUNC`, `DATE_FORMAT`, `INTERVAL` and `x::type`: none of them is
+  universal.
+- Use **double-quoted identifiers** (`"col"`, not `` `col` ``) and
+  `CAST(x AS INTEGER)` instead of `x::type`.
+- When the question allows it, `WHERE`/`GROUP BY` on the raw column beats a date
+  function you are not sure of.
+
+**Do not "correct" a dialect you were told about.** If the line says `postgres`,
+then `DATE_TRUNC('month', "sale_date")` is the *right* answer and `strftime` is the
+bug — the reverse of the `sqlite` case. The point is to match the engine, not to
+avoid certain words.
+
+**Dialect is never a licence to invent names.** Which engine you write for does not
+change *which* tables and columns exist: names still come from `discovered_schema`
+(or from a `schema_search` step you planned first). "I was writing SQLite" is not a
+reason to make a table up.
 
 ---
 
@@ -156,12 +231,14 @@ Visualization
 
 Image / Visual Data
 → image_analyze
-
-Final Report
-→ generate_report
 ```
 
 Use the minimum required tools.
+
+There is **no report step**. A Markdown report is produced by the Reporter
+stage *after* your plan has run (it consumes the analysis result, which does not
+exist yet while your steps execute). Do **not** plan a report step — not even as
+the final one.
 
 # Tool Misuse Guardrails（负例）
 
@@ -178,7 +255,9 @@ not to use" rule:
 - `image_analyze` — only when the user uploaded an image and the question
   relates to its content; never fabricate image content（必须实际读取图片）;
   do NOT use for purely tabular uploads（那是 sql_query / dataset_profile）。
-- `generate_report` — only as the final step, never mid-analysis.
+
+**这里故意不写"不要用某某出报告工具"这类负例**：点名一个工具（哪怕是禁止）就会让它
+出现在候选里——D54 的教训正是"我们把它推到了模型眼前"。不提供，就不点名。
 
 ---
 
@@ -235,7 +314,8 @@ Schema:
 "tool": "...",
 "dependencies": [],
 "expected_output": "...",
-"success_criteria": "..."
+"success_criteria": "...",
+"input": {"sql": "（tool 为 sql_query / freeform 时**必填**，见上节）"}
 }
 ],
 "stopping_criteria": [

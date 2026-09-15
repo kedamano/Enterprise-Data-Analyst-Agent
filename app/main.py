@@ -7,13 +7,26 @@ Mounts health / chat / documents routers and wires CORS + logging. Run with::
 from __future__ import annotations
 
 import pathlib
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
-from .api.routes import attachments, caliber, chat, debug, document, export, health, mcp, ui
+from .api.routes import (
+    attachments,
+    caliber,
+    chat,
+    debug,
+    document,
+    export,
+    files,
+    health,
+    knowledge,
+    mcp,
+    ui,
+)
 from .config import get_settings
 from .infrastructure.observability.tracing import setup_logging
 
@@ -47,7 +60,25 @@ def _missing() -> HTMLResponse:
         status_code=404,
     )
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """启动钩子：后台预热知识库嵌入模型。
+
+    嵌入模型首次加载要么成功缓存，要么等满 ``embed_load_timeout_s`` 后永久禁用
+    （离线缓存缺失时会转在线下载而挂起，实测 ~25s）。放到后台 daemon 线程里付掉
+    这一次性代价，用户第一次「入库 / 检索」就不会干等数十秒；预热失败也不影响服务
+    （混合检索的 BM25 通道可独立工作）。
+    """
+    if settings.knowledge_enabled:
+        import threading
+
+        from .core.tools import knowledge_tool
+
+        threading.Thread(target=knowledge_tool.warm_up_embedder, daemon=True).start()
+    yield
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -88,6 +119,8 @@ app.include_router(chat.router, prefix=settings.api_prefix)
 app.include_router(document.router, prefix=settings.api_prefix)
 app.include_router(debug.router, prefix=settings.api_prefix)
 app.include_router(attachments.router, prefix=settings.api_prefix)
+app.include_router(knowledge.router, prefix=settings.api_prefix)
+app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(export.router, prefix=settings.api_prefix)
 app.include_router(caliber.router, prefix=settings.api_prefix)
 app.include_router(mcp.router, prefix=settings.api_prefix)

@@ -1,6 +1,16 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+/**
+ * LLM 偶尔会在 markdown 里夹带 HTML 换行标记（`<br>` / `<br/>` / `<br />`）。
+ * react-markdown 默认不渲染 raw HTML → 字面量直接漏到页面上。
+ * 这里把它翻译成 markdown 硬换行，而不是启用 rehype-raw（那会引入 XSS 面）。
+ * 行内 `<br>2. xxx` 换行后正好落回 GFM 有序列表语义。
+ */
+function normalizeLineBreaks(md: string): string {
+  return md.replace(/<br\s*\/?>/gi, "\n");
+}
+
 export function Markdown({ children }: { children: string }) {
   return (
     <div className="da-markdown text-[14.5px] leading-[1.8] text-slate-700">
@@ -38,6 +48,15 @@ export function Markdown({ children }: { children: string }) {
               className="text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
               target="_blank"
               rel="noopener noreferrer"
+              {...p}
+            />
+          ),
+          // D51：报告图内嵌的图源（`![标题](/api/v1/chat/analyze/chart/...)`）。
+          // 后端只提供位图（不含 svg）——同源 inline 的 SVG 可带脚本。
+          img: ({ ...p }) => (
+            <img
+              className="my-3 h-auto max-w-full rounded-lg border border-slate-200 bg-white"
+              loading="lazy"
               {...p}
             />
           ),
@@ -97,7 +116,7 @@ export function Markdown({ children }: { children: string }) {
           hr: ({ ...p }) => <hr className="my-4 border-slate-200" {...p} />,
         }}
       >
-        {children}
+        {normalizeLineBreaks(children)}
       </ReactMarkdown>
     </div>
   );

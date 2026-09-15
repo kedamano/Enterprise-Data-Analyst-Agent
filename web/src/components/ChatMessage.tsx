@@ -8,6 +8,8 @@ import { StageTimeline } from "./StageTimeline";
 import { stageLabel } from "@/lib/api";
 import { ShareBar } from "./ShareBar";
 import { RunBadges } from "./RunBadges";
+import { MetricCards, latestMetrics } from "./MetricCards";
+import { ExportPreview } from "./ExportPreview";
 import type { Message, Attachment } from "@/lib/types";
 
 function fmtSize(n: number): string {
@@ -151,6 +153,9 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
         {/* E3/E4：增量徽标 + 质量门禁披露（后端早已下发，此前无人消费） */}
         <RunBadges events={message.events} />
 
+        {/* D51：指标卡（后端归一化后经 FINISH 帧下发；无指标则整块不渲染） */}
+        <MetricCards metrics={latestMetrics(message.events)} />
+
         {hasReport && (
           <div className="group mb-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/50">
             <div className="mb-2 flex items-center justify-between">
@@ -188,6 +193,8 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
               )}
             </div>
             <Report raw={message.text ?? ""} />
+            {/* D51：#7 导出预览 —— 打包前先说清楚包里有什么（与真实 zip 同源） */}
+            {sessionId && <ExportPreview sessionId={sessionId} />}
           </div>
         )}
 

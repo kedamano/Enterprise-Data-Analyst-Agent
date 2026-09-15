@@ -30,6 +30,7 @@ import io
 import json
 import re
 import sqlite3
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -156,6 +157,25 @@ def _slug(name: str) -> str:
     if not ident or ident[0].isdigit():
         ident = f"t_{ident}" if ident else "uploaded"
     return ident[:50]
+
+
+def resolve_session_id(session_id: str | None) -> str:
+    """空 / 纯空白 / `None` → **新生成**一个 id；否则**原样返回**。
+
+    AUTH/02 动因：`sidecar_path()` 把空值归一成字面量 `"default"`，而上传接口的默认值
+    **就是** `"default"` —— 于是**两个都不带 session_id 的调用方会互相看见对方上传的表**
+    （`attached_tables(None)` 与 `("")` 返回同一批，可达路径）。
+
+    这里选择**补齐边界而不是拒绝请求**：
+    - 生成而不是 400：不带 session 是合法用法（curl 试一下、脚本单发），
+      拒绝会平白打断它；
+    - **每次调用生成新的**（`uuid4`），绝不是固定值 —— 固定值只是换了个名字的共享桶。
+
+    传进来的 id **不清洗**：桶的所有权（谁能用哪个 id）是 AUTH/01 的事，
+    这里只保证"没有 id 的时候不会撞车"。
+    """
+    sid = str(session_id or "").strip()
+    return sid or f"s_{uuid.uuid4().hex[:12]}"
 
 
 class AttachmentStore:

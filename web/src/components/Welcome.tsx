@@ -1,4 +1,4 @@
-import { Sparkles, BarChart3, Bot, Zap, ArrowUpRight } from "lucide-react";
+import { Sparkles, BarChart3, Bot, Zap, ArrowUpRight, Database, BookOpen, Upload } from "lucide-react";
 
 const EXAMPLES = [
   "查询 orders 表的总行数",
@@ -36,7 +36,23 @@ const COLOR_MAP: Record<string, { bg: string; fg: string; ring: string }> = {
   amber: { bg: "bg-amber-50", fg: "text-amber-600", ring: "ring-amber-100" },
 };
 
-export function Welcome({ onPick }: { onPick: (q: string) => void }) {
+/**
+ * 落地首页（聊天区为空时展示）。
+ * 2026-09-15：原「工作台」已被移除，其价值收口到这里——三个快速入口直接打开
+ * 真实资产面板（上传文件 / 加知识 / 连数据源），而不是再放一个只读的 vanity 仪表盘。
+ * 说明：这里刻意不放「新建分析」——落地页本身已是空白新会话，再放会堆积空会话。
+ */
+export function Welcome({
+  onPick,
+  onUpload,
+  onAddKnowledge,
+  onDataSources,
+}: {
+  onPick: (q: string) => void;
+  onUpload?: () => void;
+  onAddKnowledge?: () => void;
+  onDataSources?: () => void;
+}) {
   return (
     <div className="relative flex h-full flex-col items-center overflow-y-auto bg-slate-50 px-6">
       {/* 顶部柔和光晕 */}
@@ -85,6 +101,37 @@ export function Welcome({ onPick }: { onPick: (q: string) => void }) {
               </div>
             );
           })}
+        </div>
+
+        {/* 快速开始：三个真实资产入口（替代已移除的「工作台」）*/}
+        <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          {onUpload && (
+            <button
+              type="button"
+              onClick={onUpload}
+              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+            >
+              <Upload className="h-4 w-4" /> 上传文件
+            </button>
+          )}
+          {onAddKnowledge && (
+            <button
+              type="button"
+              onClick={onAddKnowledge}
+              className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-medium text-amber-700 transition hover:bg-amber-100"
+            >
+              <BookOpen className="h-4 w-4" /> 添加知识
+            </button>
+          )}
+          {onDataSources && (
+            <button
+              type="button"
+              onClick={onDataSources}
+              className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] font-medium text-sky-700 transition hover:bg-sky-100"
+            >
+              <Database className="h-4 w-4" /> 查看数据源
+            </button>
+          )}
         </div>
 
         {/* 示例问题 */}

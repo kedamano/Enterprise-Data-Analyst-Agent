@@ -24,6 +24,7 @@ from .checkpoint import load as checkpoint_load, save as checkpoint_save
 from .state import AgentState
 
 from .nodes import (  # noqa: E402
+    iter_executor_all,
     run_analyst,
     run_context,
     run_executor,
@@ -317,8 +318,11 @@ def _stream_analysis_inner(session_id: str, user_query: str, history: list | Non
                 except Exception:
                     state.mode = "full"
             # execute all planned steps（P1-1：按依赖波次并发执行）
-            state = run_executor_all(state)
-            yield _attach_llm_fallbacks(state)
+            # 流式路径用逐步版本：每个工具步骤完成即 yield 一帧 EXECUTE 快照。
+            # 此前用 run_executor_all（黑盒）→ SSE 永远没有 EXECUTE 帧，
+            # 前端「执行完成 · 0 个工具」、时间线无工具步骤卡片，均源于此。
+            for _exec_snap in iter_executor_all(state):
+                yield _attach_llm_fallbacks(_exec_snap)
             # sql_only / quick_answer：裁剪 Analyst/Reflection/Reporter 重链
             if state.mode in ("sql_only", "quick_answer"):
                 try:

@@ -5,7 +5,6 @@ import {
   Modal,
   ModalBody,
   ModalContent,
-  useModal,
 } from "@/components/ui/animated-modal";
 import { Sparkles, History, Settings2 } from "lucide-react";
 import { SideRail } from "@/components/SideRail";
@@ -18,15 +17,18 @@ import { streamAnalyze, isTerminal, uploadAttachments } from "@/lib/api";
 import type { AgentEvent } from "@/lib/api";
 import { AuthError } from "@/lib/api";
 import { AuthGate } from "@/components/AuthGate";
+import { HistoryModal, SettingsModal } from "@/components/RailPanels";
+import { KnowledgeView } from "@/components/KnowledgeView";
+import { FilesView } from "@/components/FilesView";
+import { DataSourcesView } from "@/components/DataSourcesView";
+import type { RailView } from "@/components/SideRail";
 import type { Conversation, Message, Attachment } from "@/lib/types";
 
 const STORE_KEY = "da_conversations_v1";
 
-function DocsModal({ open }: { open: boolean }) {
-  const { setOpen } = useModal();
-  useEffect(() => setOpen(open), [open, setOpen]);
+function DocsModal({ open, onClose }: { open: boolean; onClose?: () => void }) {
   return (
-    <Modal>
+    <Modal open={open} onClose={onClose}>
       <ModalBody className="max-w-xl">
         <ModalContent>
           <h2 className="text-xl font-semibold text-slate-900">使用指南</h2>
@@ -69,6 +71,16 @@ export default function App() {
   const [docsOpen, setDocsOpen] = useState(false);
   // #1：鉴权开启时，401/503 触发登录弹窗；pendingRef 暂存待重试的发送参数
   const [authOpen, setAuthOpen] = useState(false);
+  // 主区域视图：chat（对话）/ knowledge / files / datasources
+  // 知识库与文件库是有目录结构、需要大面积操作的重功能，用页面承载而非弹窗。
+  const [view, setView] = useState<RailView>("chat");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const clearAllConversations = useCallback(() => {
+    setConversations([]);
+    setActiveId(null);
+  }, [setConversations]);
   const pendingRef = useRef<{ text: string; attachments: Attachment[] } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -290,24 +302,42 @@ export default function App() {
       <SidebarProvider>
         <div className="flex h-full w-full overflow-hidden bg-slate-50 text-slate-800">
           <SideRail
+            view={view}
+            onNavigate={setView}
             onNew={newConversation}
             onToggleList={() => setShowList((s) => !s)}
             showList={showList}
             onOpenDocs={() => setDocsOpen(true)}
+            onOpenHistory={() => setHistoryOpen(true)}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
 
           <ConversationList
             conversations={conversations}
             activeId={activeId}
             open={showList}
-            onSelect={setActiveId}
-            onNew={newConversation}
+            onSelect={(id) => {
+              setActiveId(id);
+              setView("chat");
+            }}
+            onNew={() => {
+              newConversation();
+              setView("chat");
+            }}
             onDelete={deleteConversation}
             onToggle={() => setShowList((s) => !s)}
           />
 
           <main className="relative flex min-w-0 flex-1 flex-col bg-slate-50">
-            {/* 顶部 header：白色 + 细线分隔 */}
+            {view !== "chat" ? (
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {view === "knowledge" && <KnowledgeView />}
+                {view === "files" && <FilesView />}
+                {view === "datasources" && <DataSourcesView />}
+              </div>
+            ) : (
+              <>
+                {/* 顶部 header：白色 + 细线分隔 */}
             <header className="flex items-center justify-between border-b border-slate-200/80 bg-white/80 px-5 py-3 backdrop-blur">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm shadow-indigo-500/30">
@@ -346,7 +376,12 @@ export default function App() {
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto">
               {!active || active.messages.length === 0 ? (
-                <Welcome onPick={send} />
+                <Welcome
+                  onPick={send}
+                  onUpload={() => setView("files")}
+                  onAddKnowledge={() => setView("knowledge")}
+                  onDataSources={() => setView("datasources")}
+                />
               ) : (
                 <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
                   {active.messages.map((m) => (
@@ -374,11 +409,25 @@ export default function App() {
                 <Composer onSubmit={send} onStop={stop} streaming={streaming} />
               </div>
             </div>
+              </>
+            )}
           </main>
         </div>
       </SidebarProvider>
 
-      <DocsModal open={docsOpen} />
+      <DocsModal open={docsOpen} onClose={() => setDocsOpen(false)} />
+      <HistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        conversations={conversations}
+        onSelect={setActiveId}
+        onDelete={deleteConversation}
+      />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onClearAll={clearAllConversations}
+      />
       <AuthGate
         open={authOpen}
         onAuthed={handleAuthed}

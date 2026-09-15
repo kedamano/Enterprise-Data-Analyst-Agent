@@ -14,13 +14,14 @@ import json
 import logging
 import re
 import time
-from typing import Any
+from typing import Any, Iterator
 
 from ....config import get_settings
 from ....core.memory import long_term, short_term
 from ....core.prompts import build_system_message, build_user_message, load_prompt
 from ....core.tools import execute_tool
 from ....core.tools.errors import is_schema_error
+from .sql_precheck import dialect_hints, format_error, known_schema
 from ....infrastructure.llm.router import get_llm
 from ....infrastructure.observability.tracing import trace
 from ...agents.data_analyst.state import (
@@ -194,22 +195,181 @@ def _last_result(state: AgentState, tool: str) -> ToolResult | None:
     return None
 
 
-def _first_table(state: AgentState) -> tuple[str, list[str]]:
+# 一张表要能支撑"趋势/对比"这类分析，至少得有这么多行。
+# 3~8 行的维表（dim_channel / dim_region）在结构上就答不了分析问题。
+_MIN_ROWS_FOR_ANALYSIS = 100
+
+
+def _intent_tokens(text: str) -> set[str]:
+    """从意图文本里取**ASCII 词**（首字符为字母、长度 ≥3）。
+
+    只取 ASCII 是刻意的：中文词对英文 schema 零信息量（"营收"不在
+    `fact_sales` 的任何名字里），却会在中文表名/列名的库上**偶然命中**，
+    那属于运气而不是判断。宁可少一个信号，也不要一个噪声信号。
+    """
+    return {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z0-9_]{2,}", text or "")}
+
+
+def _looks_like_dimension(name: str) -> bool:
+    """表名像不像维表。**只作相对信号**（见 `_pick_table`）——命名是惯例不是契约。"""
+    n = (name or "").lower()
+    return (n.startswith("dim_") or n.endswith("_dim") or n.endswith("_ref")
+            or "lookup" in n)
+
+
+def _measure_columns(cols: list[str]) -> list[str]:
+    return [c for c in cols if _is_numeric_col(c)]
+
+
+def _match_dimension_column(dimensions: list[str], cols: list[str]) -> Optional[str]:
+    """把 context 里的维度名映射到**真实列名**。
+
+    两段：① 精确相等（既有行为，优先）；② 否则按「列名以 ``{d}_`` 开头 /
+    以 ``_{d}`` 结尾」匹配。
+
+    第二段补的是真实基线的又一处退化：`context.dimensions == ["region"]`
+    而列名是 `region_id` —— 精确列表成员判定**永不成立** → `dim=None`
+    → 合成 SQL 从分组聚合退化成 ``SELECT *``。
+    """
+    for d in dimensions:
+        if d in cols:
+            return d
+    for d in dimensions:
+        dl = (d or "").lower()
+        if not dl:
+            continue
+        for c in cols:
+            cl = c.lower()
+            if cl.startswith(dl + "_") or cl.endswith("_" + dl):
+                return c
+    return None
+
+
+def _table_candidates(state: AgentState) -> list[dict[str, Any]]:
+    """候选表：最近一次成功的 schema_search 结果；没有则退回上传表。"""
+    res = _last_result(state, "schema_search")
+    if res and res.output.get("tables"):
+        return list(res.output["tables"])
+    # 退回附件层时补上 `match` 标记：`schema_tool` 会给上传表打这个标记，
+    # 直接问附件层拿到的没有——不补，`_pick_table` 就认不出"这是用户自己的数据"。
+    out: list[dict[str, Any]] = []
+    for t in _uploaded_tables(state):
+        t = dict(t)
+        t.setdefault("match", "user_upload")
+        out.append(t)
+    return out
+
+
+def _pick_table(state: AgentState, extra_text: str = "") -> tuple[str, list[str]]:
+    """按**内容**选「当前应查询的表」。E2/02：绝不盲取 `tables[0]`。
+
+    动因（`eval --mode real` 首次全量基线）：`_first_table` 取
+    ``schema_search.tables[0]``，而那是 ``insp.get_table_names()`` 的**字典序第一张**
+    ——两个样例库里都是 ``dim_channel``（3 行维表）。于是 planner 每步 `input={}`
+    时，**每个 SQL 步骤都被合成到同一条** ``SELECT * FROM dim_channel LIMIT 100``，
+    返回 3 行、不报错、记 SUCCESS（`工具成功率 0.986`），而报告据此**编出一整张
+    区域营收表**还判 ✅。
+
+    打分（确定性，分数相同取候选序在前者）：
+
+    | 信号 | 分 | 理由 |
+    |---|---|---|
+    | 意图词命中表名/列名 | +3 | 问题里说了 region，就该优先含 region 的表 |
+    | 存在度量列 | +2 | 没有可聚合的度量列**答不了分析问题**——维表与事实表的本质差别 |
+    | `row_count >= _MIN_ROWS_FOR_ANALYSIS` | +1 | 3 行的表支撑不了"趋势/对比" |
+    | 名字像维表（**且有别的正分候选**） | −3 | 相对信号，避免把名为 `dim_x` 的可用表一并压掉 |
+
+    **胜者分 ≤ 0 且候选 ≥2 → `("", [])`** → 调用方合成出空 SQL → 该步**响亮 FAILED**。
+    "拿不到一张能用的表"必须表现为失败，而不是"随便找一张表凑一句 SELECT *"。
+
+    边界：候选**只有一张**时**不** fail-closed——没有第二个选项就没有"选错"，
+    照用（详见下方 `len(cands) == 1` 分支的回归说明）。
+    """
+    cands = _table_candidates(state)
+    if not cands:
+        return "", []
+    # ATTACH/01：用户上传了数据时，候选**收缩到上传表**——这是产品政策
+    # （run_planner 的 data_source_priority 同一条），不是启发式打分。
+    uploads = [t for t in cands if t.get("match") == "user_upload"]
+    if uploads:
+        cands = uploads
+
+    intent = " ".join([
+        extra_text or "",
+        getattr(state, "user_query", "") or "",
+        getattr(state.context, "objective", "") or "",
+        " ".join(getattr(state.context, "metrics", None) or []),
+        " ".join(getattr(state.context, "dimensions", None) or []),
+    ])
+    tokens = _intent_tokens(intent)
+
+    scores: list[int] = []
+    for t in cands:
+        cols = [str(c.get("name") or "") for c in (t.get("columns") or [])]
+        blob = (str(t.get("table") or "") + " " + " ".join(cols)).lower()
+        score = 0
+        if tokens and any(tok in blob for tok in tokens):
+            score += 3
+        if not cols:
+            # **列清单缺失 ≠ 没有度量列**：这是"无从判断"，不是"判断为否"。
+            # 真跑不会出现（`schema_search` 一律带 `insp.get_columns`），
+            # 但把"不知道"当成"不合格"会让一个本可用的候选直接判死。
+            # 给 +1 使其**可用但排在已知可用的表之后**——它不会盖过
+            # 任何有度量列（+2）或词面命中（+3）的候选，也就不会复活
+            # "盲取 tables[0]" 那个 bug。
+            score += 1
+        elif _measure_columns(cols):
+            score += 2
+        rc = t.get("row_count")
+        if isinstance(rc, int) and rc >= _MIN_ROWS_FOR_ANALYSIS:
+            score += 1
+        scores.append(score)
+
+    best = max(scores)
+    idx = scores.index(best)
+    # 维表惩罚是**相对**的：只有存在别的候选可挑时才扣。没有别的候选时，
+    # `dim_x` 仍是唯一可用表——宁可给出真实的维表数据，也不虚构一张"更合适"的表。
+    if best > 0 and len(cands) > 1:
+        adjusted = [s - 3 if _looks_like_dimension(t.get("table")) else s
+                    for s, t in zip(scores, cands)]
+        best = max(adjusted)
+        idx = adjusted.index(best)
+
+    if best <= 0 and not uploads:
+        # **只有一个候选时不适用 fail-closed**：那说明库里就这一张表，
+        # "该查哪张表"**不成为选择**——与上传表优先是同一个道理
+        # （用户/环境只给了一份数据，没有选错的可能）。
+        #
+        # 这一条不是给打分开后门，是**回归逼出来的**：`tests/test_export.py`
+        # 的夹具建的是单表 `c(id INTEGER, phone TEXT)`（无度量列），
+        # 全是文本/ID 列。旧 `_first_table` 盲取它、流程正常；一刀切
+        # fail-closed 会让"导出脱敏值"这类**本就不需要聚合列**的场景整条断掉。
+        # 而 D54 的 bug 需要**≥2 个候选**（字典序第一张 vs 真正该查的那张）
+        # 才复现——单候选场景没有"选错"这回事。
+        if len(cands) == 1:
+            t = cands[0]
+            return (t.get("table") or "",
+                    [str(c.get("name") or "") for c in (t.get("columns") or [])])
+        logger.warning("候选表 %s 没有一个能支撑分析（均无度量列/词面无关），"
+                       "不合成 SQL", [t.get("table") for t in cands])
+        return "", []
+    if best <= 0 and uploads:
+        # 用户只有这一份数据，"该查哪张表"不成为选择 → 取候选序第一张
+        idx = 0
+    t = cands[idx]
+    return t.get("table") or "", [str(c.get("name") or "") for c in (t.get("columns") or [])]
+
+
+def _first_table(state: AgentState, extra_text: str = "") -> tuple[str, list[str]]:
     """取「当前应查询的表」。ATTACH/03：上传表优先于内置库。
 
     用户上传了数据时，任何「自动选表」都必须落在 ``upload.<t>`` 上 ——
     否则 dataset_profile / sql_query 的兜底参数会指向内置企业库。
+
+    E2/02 起**委托** :func:`_pick_table`：保留旧签名与全部调用点，
+    但不再等于 ``tables[0]``（见 `_pick_table` 的动因）。
     """
-    res = _last_result(state, "schema_search")
-    if res and res.output.get("tables"):
-        t = res.output["tables"][0]
-        cols = [c["name"] for c in t.get("columns", [])]
-        return t["table"], cols
-    # schema_search 尚未跑：直接问附件层要（避免首步就落到内置库）
-    ups = _uploaded_tables(state)
-    if ups:
-        return ups[0]["table"], [c["name"] for c in ups[0].get("columns", [])]
-    return "", []
+    return _pick_table(state, extra_text)
 
 
 def _is_numeric_col(col: str) -> bool:
@@ -224,6 +384,8 @@ def _is_numeric_col(col: str) -> bool:
         kw in c
         for kw in ("revenue", "amount", "price", "cost", "sales", "qty", "quantity",
                    "units", "count", "total", "value", "profit", "score", "num",
+                   # E2/02：演示分析库的度量列名（fact_orders.gmv / fact_traffic.visits）
+                   "gmv", "visits",
                    "营收", "金额", "价格", "成本", "销量", "数量", "总额", "利润")
     )
 
@@ -352,6 +514,76 @@ def _adversarial_state(state: AgentState, issues: list) -> Any:
     )
 
 
+_MAX_SCHEMA_TABLES_IN_PROMPT = 12
+
+
+def _discovered_schema_text(state: AgentState) -> str:
+    """最近一次成功 `schema_search` 的**紧凑 schema 摘要**（表名/列名/行数）。
+
+    E2/02：planner 此前**完全看不到 schema**——`business_semantics` 只给维表取值，
+    没有任何列清单。于是它**即便想写 `input.sql` 也无从写起**，
+    只能产出 `input={}` 的步骤（真实基线里每一步都是）。重规划轮次里
+    `schema_search` 的结果已经躺在 `tool_results` 里，这里把它交回给 planner。
+
+    **只给结构，绝不夹带数据行**（脱敏纪律：schema 是结构，取值是数据），
+    且条数有界（超出只取前 N 张，避免把 prompt 预算吃光）。
+    """
+    res = _last_result(state, "schema_search")
+    if not res or not res.output.get("tables"):
+        return ""
+    lines: list[str] = []
+    for t in res.output["tables"][:_MAX_SCHEMA_TABLES_IN_PROMPT]:
+        cols = [str(c.get("name") or "") for c in (t.get("columns") or [])]
+        rc = t.get("row_count")
+        suffix = f"  rows≈{rc}" if isinstance(rc, int) else ""
+        lines.append(f"- {t.get('table')}({', '.join(cols)}){suffix}")
+    return "\n".join(lines)
+
+
+# E2/04：源太多时只列前 N 个（prompt 预算有界；主源排在最前，见 `sources()` 的顺序）
+_MAX_SOURCES_IN_PROMPT = 8
+
+
+def _dialect_text(state: AgentState) -> str:
+    """配置里**真实的**引擎 → planner 的 SQL 方言先验（E2/04）。
+
+    动因：D54 的真实基线里，模型每一轮都先按 Postgres 习惯写出 `DATE_TRUNC`，
+    被预检拦下、REPLAN、重写。预检（`sql_precheck.dialect_hints`）治的是**已发生的**；
+    这里治的是**别一上来就写错**——一句先验就够，成本极低。
+
+    **三条硬约束**（少一条都会把护栏变成故障源）：
+
+    1. **绝不回 DSN**：只取 `dialect` 与**源名**（`available_sources()` 的既有约定：
+       "只有名字，绝不回 DSN"）。连接串进 prompt 等于把凭据写进模型上下文。
+    2. **绝不抛**：读配置失败 → `""` → 调用方不注入键，planner 照常工作。
+    3. **有界**：`_MAX_SOURCES_IN_PROMPT` 上限。
+
+    **绝不硬编码 "SQLite"**：E7 多源下 `input.source` 可能指向真 PG 库，那里
+    `DATE_TRUNC` 是**原生**写法；写死禁令就会禁止模型用它能用的写法，
+    而预检那边根本不拦（按引擎分级）→ **两边口径相反**。引擎一律从配置读。
+    """
+    try:
+        from ....core.tools.datasource import (
+            DEFAULT_SOURCE, available_sources, resolve_source)
+        from .sql_precheck import dialect_brief
+
+        lines: list[str] = []
+        for name in list(available_sources())[:_MAX_SOURCES_IN_PROMPT]:
+            try:
+                _url, dialect = resolve_source(name)
+            except Exception:
+                continue  # 单个源解析不了不影响其他源（更不该影响 planner）
+            brief = dialect_brief(dialect)
+            if not brief:
+                continue  # 引擎判不出来 → 这一源**不说**（不猜）
+            label = "（主源，未指定 input.source 时用它）" if name == DEFAULT_SOURCE else ""
+            lines.append(f"- {name}{label}: {brief}")
+        return "\n".join(lines)
+    except Exception as exc:
+        state.metadata["dialect_error"] = str(exc)
+        return ""
+
+
 def _semantics_text(state: AgentState) -> str:
     """SEMANTIC/01：业务语义紧凑文本（采集失败/为空 → 空串，绝不影响主流程）。"""
     try:
@@ -374,12 +606,24 @@ def _step_supplies_own_source(step: PlanStep) -> bool:
     return bool(inp.get("sql"))
 
 
+def _has_schema_result(state: AgentState) -> bool:
+    """`schema_search` 是否已经**成功跑过**（不论选表结果如何）。"""
+    res = _last_result(state, "schema_search")
+    return bool(res and res.output.get("tables"))
+
+
 def _needs_schema_discovery(step: PlanStep, state: AgentState) -> bool:
-    """这一步是否需要**先补一次 schema 发现**才跑得动。"""
+    """这一步是否需要**先补一次 schema 发现**才跑得动。
+
+    E2/02：判据从「`_first_table` 解析出了表」改为「`schema_search` 已经跑过」。
+    两者在正常情况下等价，但**在"跑过却选不出可用表"时不等价**——
+    那种情况下再补一次发现只会拿到同一批候选（白跑一趟，还多一条工具调用），
+    正确行为是**让这一步响亮失败**，把"这批候选撑不起分析"如实报上去。
+    """
     if getattr(step, "tool", "") not in _TABLE_DEPENDENT_TOOLS:
         return False
-    if _first_table(state)[0]:
-        return False          # 已有 schema_search 结果，或能解析到上传表
+    if _has_schema_result(state) or _first_table(state)[0]:
+        return False          # 已发现过 schema，或能解析到上传表
     return not _step_supplies_own_source(step)
 
 
@@ -466,7 +710,7 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
             logger.warning("步骤 %s 无法合成真实 SQL（无可用表），将按失败处理",
                            getattr(step, "id", "?"))
             return {"sql": ""}
-        dim = next((d for d in ctx.dimensions if d in cols), None)
+        dim = _match_dimension_column(list(ctx.dimensions or []), cols)
         # 合成 SQL 也要尽量贴合"分析"意图：有数值列就 SUM，而不是一味 COUNT。
         # （真实 e2e 曾因退化到 COUNT 让"各区域营收"变成"各区域行数=2"。）
         num = next(
@@ -778,6 +1022,18 @@ def run_planner(state: AgentState) -> AgentState:
     sem_text = _semantics_text(state)
     if sem_text:
         task_context["business_semantics"] = sem_text
+    # E2/02：把**已发现的 schema** 交给 planner。没有它，planner 写不出 `input.sql`
+    # （见 `_discovered_schema_text`）。没有 schema_search 结果时**不注入空壳键**——
+    # 给了空表清单，模型反而会照着编表名。
+    schema_text = _discovered_schema_text(state)
+    if schema_text:
+        task_context["discovered_schema"] = schema_text
+    # E2/04：把「执行引擎的方言」交给 planner —— 与 `discovered_schema` **同一个模式**：
+    # 判不出引擎就**不注入空壳键**（给了空内容模型反而会照着编）。
+    # 先有 discovered_schema 才写得出表列名，先有 sql_dialect 才写得出**能跑**的语句。
+    dialect_text = _dialect_text(state)
+    if dialect_text:
+        task_context["sql_dialect"] = dialect_text
 
     # INTERVIEW/01 ③：工具多时按语义路由（工具少时全给——路由是负收益）。
     # 只注入被选中的工具名，避免 100 个工具的说明淹没 prompt。
@@ -895,29 +1151,10 @@ def run_executor(state: AgentState) -> AgentState:
         state.status = "ANALYZE"
         return state
     step = steps[state.current_step_index]
-    deps_ok = all(_dep_done(d, state) for d in step.dependencies)
-    if not deps_ok:
-        result = ToolResult(step_id=step.id, tool=step.tool, status="FAILED",
-                            error="依赖步骤未完成")
-    else:
-        # E2/02：计划漏排 schema_search 时先补一次发现，否则合成不出真实 SQL
-        # （真实基线上 64% 的工具调用失败源于此）
-        ensure_schema_discovered(state, [step])
-        params = build_executor_params(state, step)
-        result = execute_tool(step.id, step.tool, params, state.session_id)
-        # §23 确定性分支路由：Invalid Column/Table → Schema Search → Retry。
-        # 不等一整轮 REPLAN，立即用最新 schema 重建参数并重试一次（有界）。
-        if (result.status == "FAILED" and is_schema_error(result.error)
-                and not step.id.endswith("__retry")):
-            recovery = execute_tool(f"{step.id}__recovery_schema", "schema_search",
-                                    {"keyword": (state.context.metrics or [""])[0]},
-                                    state.session_id)
-            state.tool_results.append(result)
-            state.tool_results.append(recovery)
-            if recovery.status == "SUCCESS":
-                retry_params = build_executor_params(state, step)
-                result = execute_tool(f"{step.id}__retry", step.tool, retry_params, state.session_id)
-    state.tool_results.append(result)
+    # E2-03：单步逻辑（依赖/预检/执行/恢复）只写在一处，见 `_run_one_step`
+    results = _run_one_step(step, state)
+    state.tool_results.extend(results)
+    result = results[0]
     if result.status == "SUCCESS":
         try:
             from ....core.agents.data_analyst.iteration import save_last_dataset
@@ -934,32 +1171,160 @@ def _dep_done(dep_id: str, state: AgentState) -> bool:
     return any(r.step_id == dep_id and r.status == "SUCCESS" for r in state.tool_results)
 
 
-def _execute_one_step(step: PlanStep, state: AgentState) -> list[ToolResult]:
-    """P1-1：执行单个步骤并返回其 ToolResult 列表（**不**修改共享 state）。
+# --------------------------------------------------------------------------- #
+# E2-03：SQL 预检 —— 执行前拦方言；失败后补真实列；不逐字重跑
+# --------------------------------------------------------------------------- #
+_SQL_TOOLS = ("sql_query", "freeform")
 
-    与 ``run_executor`` 的逐步骤逻辑一一对应，但改为「纯函数式」返回，
-    以便放进线程池并发执行：同一波次的步骤彼此依赖已满足，不会读写对方的
-    ``tool_results``，故并发安全；合并回 ``state.tool_results`` 由主线程在波次
-    结束后统一做（避免多线程写同一 list）。
+
+def _own_sql(step: PlanStep) -> str:
+    """步骤**自己写的** SQL（`input.sql`）。空串 = 没有 → 走合成路径。"""
+    return str(((getattr(step, "input", None) or {}).get("sql") or "")).strip()
+
+
+def _step_engine(state: AgentState, step: PlanStep) -> str:
+    """该步骤的目标引擎（E7 多源：`input.source` 可指向真 PG/MySQL 库）。"""
+    src = (getattr(step, "input", None) or {}).get("source")
+    try:
+        from ...tools.datasource import resolve_source
+
+        _, dialect = resolve_source(src)
+        return dialect or "sqlite"
+    except Exception:
+        return "sqlite"
+
+
+def _preflight_sql_error(state: AgentState, step: PlanStep,
+                         params: dict[str, Any]) -> str | None:
+    """执行前的**方言**预检：非空 → 这条 SQL 不该被送去执行。
+
+    只拦方言（构造精确、可证伪）；**schema 检查不在这里拦**——
+    表/列提取有误判风险，拦掉一条正确 SQL（假红）比多跑一次贵得多。
     """
+    if step.tool not in _SQL_TOOLS:
+        return None
+    sql = str((params or {}).get("sql") or "").strip()
+    if not sql:
+        return None
+    engine = _step_engine(state, step)
+    hints = dialect_hints(sql, engine=engine)
+    if not hints:
+        return None
+    logger.warning("步骤 %s 的 SQL 在 %s 上跑不通（未执行）：%s",
+                   getattr(step, "id", "?"), engine, "；".join(hints))
+    return format_error(sql, known_schema(state), message="SQL 预检未通过（未执行）",
+                        engine=engine, hints=hints)
+
+
+def _enrich_sql_failure(state: AgentState, step: PlanStep, result: ToolResult) -> ToolResult:
+    """失败后把**真实列清单**补进 `error` —— REPLAN 唯一能拿到的上下文。
+
+    模型拿到的是 `no such column: f.order_id`，它得自己回忆起 `fact_sales` 的真实列；
+    补上这一句，"再试一次"才有依据。
+    """
+    if result.status != "FAILED" or step.tool not in _SQL_TOOLS:
+        return result
+    sql = _own_sql(step) or str((getattr(result, "input", None) or {}).get("sql") or "")
+    schema = known_schema(state)
+    if not sql or not schema:
+        return result
+    result.error = format_error(sql, schema, message=result.error,
+                                engine=_step_engine(state, step))
+    return result
+
+
+_NOT_PLANNABLE_MSG = (
+    "`{tool}` 不能作为计划步骤：它需要 `state.analysis`，而分析阶段（Analyst）"
+    "在本阶段（Executor）**之后**——此刻 analysis 还不存在。"
+    "报告由 Reporter 阶段产出，不要把它排进计划。"
+)
+
+
+def _not_plannable_error(step: PlanStep) -> str | None:
+    """步骤的工具是否**按构造做不到**（E2/05）。
+
+    与 SQL 预检同类：**计划本身排错了一步**，所以
+
+    * **不算 `skipped`**：`skipped` 专指"依赖未满足、根本没轮到"（E6/03），
+      这里必须留在**失败分母**里，否则"排错步骤"会从指标里消失；
+    * **不改道**：不"顺手帮它执行"、也不顺延到 Reporter——静默补救会把
+      "planner 排了一个做不到的步骤"这件事藏起来，比响亮失败更坏。
+
+    名单与 planner 侧**同源**（`NOT_PLANNABLE_TOOLS`），不另写一份。
+    """
+    try:
+        from ....core.tools.specs import NOT_PLANNABLE_TOOLS
+    except Exception:  # 导入故障不得拦住执行
+        return None
+    if step.tool not in NOT_PLANNABLE_TOOLS:
+        return None
+    logger.warning("步骤 %s 排了不可计划的工具 %s（未执行）",
+                   getattr(step, "id", "?"), step.tool)
+    return _NOT_PLANNABLE_MSG.format(tool=step.tool)
+
+
+def _run_one_step(step: PlanStep, state: AgentState) -> list[ToolResult]:
+    """**单步执行的全部逻辑**（依赖检查 → 预检 → 执行 → 恢复/重试）。
+
+    `run_executor`（逐步）与 `_execute_one_step`（并发）都走这里——
+    两份逐字复制的分支曾经漂移过，合成一处后不可能再漂移。
+    """
+    # E2/05：先拦"按构造做不到"的步骤，**排在依赖检查之前**。
+    # 否则它会被记成 `依赖步骤未完成` —— D54 真实基线里 13 条假象就是这么被盖住的：
+    # 那根本不是依赖问题，是这一步永远做不到。
+    blocked = _not_plannable_error(step)
+    if blocked is not None:
+        return [ToolResult(step_id=step.id, tool=step.tool, status="FAILED",
+                           error=blocked)]
+
     deps_ok = all(_dep_done(d, state) for d in step.dependencies)
     if not deps_ok:
+        # E6/03：**未执行** ≠ 执行失败。标出来，指标才不会把它算进分母。
         return [ToolResult(step_id=step.id, tool=step.tool, status="FAILED",
-                           error="依赖步骤未完成")]
+                           skipped=True, error="依赖步骤未完成")]
+
+    ensure_schema_discovered(state, [step])
     params = build_executor_params(state, step)
+
+    preflight = _preflight_sql_error(state, step, params)
+    if preflight is not None:
+        # **不算 skipped**：这不是"没轮到"，而是这一步自己的 SQL 写错了——
+        # 它是**真的失败**，必须留在工具成功率的分母里。
+        return [ToolResult(step_id=step.id, tool=step.tool, status="FAILED",
+                           error=preflight)]
+
     result = execute_tool(step.id, step.tool, params, state.session_id)
-    # §23 确定性分支路由：Invalid Column/Table → Schema Search → Retry。
     results: list[ToolResult] = [result]
+
+    # §23 确定性分支路由：Invalid Column/Table → Schema Search → Retry。
     if (result.status == "FAILED" and is_schema_error(result.error)
             and not step.id.endswith("__retry")):
         recovery = execute_tool(f"{step.id}__recovery_schema", "schema_search",
                                 {"keyword": (state.context.metrics or [""])[0]},
                                 state.session_id)
         results.append(recovery)
-        if recovery.status == "SUCCESS":
+        # E2-03：**带 `input.sql` 的步骤不做逐字重跑**——`build_executor_params`
+        # 会原样返回同一条 SQL，重跑必然再失败一次（真实基线里就是这样空转的）。
+        # 合成路径仍要重试：那里 `_first_table` 会因新 schema 重选表。
+        if recovery.status == "SUCCESS" and not _own_sql(step):
             retry_params = build_executor_params(state, step)
-            results.append(execute_tool(f"{step.id}__retry", step.tool, retry_params, state.session_id))
+            results.append(execute_tool(f"{step.id}__retry", step.tool,
+                                       retry_params, state.session_id))
+    for r in results:
+        _enrich_sql_failure(state, step, r)
     return results
+
+
+def _execute_one_step(step: PlanStep, state: AgentState) -> list[ToolResult]:
+    """P1-1：执行单个步骤并返回其 ToolResult 列表（**不**修改共享 state）。
+
+    改为「纯函数式」返回，以便放进线程池并发执行：同一波次的步骤彼此依赖已满足，
+    不会读写对方的 ``tool_results``，故并发安全；合并回 ``state.tool_results``
+    由主线程在波次结束后统一做（避免多线程写同一 list）。
+
+    E2-03：逻辑与 `run_executor` **共用** `_run_one_step`（此前是两份逐字复制的分支）。
+    """
+    return _run_one_step(step, state)
 
 
 def _run_batch(steps: list[PlanStep], state: AgentState, max_workers: int) -> dict[str, list[ToolResult]]:
@@ -993,25 +1358,20 @@ def _run_batch_after_discovery(steps: list[PlanStep], state: AgentState,
     return _run_batch(steps, state, max_workers)
 
 
-@trace("executor")
-def run_executor_all(state: AgentState) -> AgentState:
-    """P1-1：按依赖关系把计划拆成「波次」，同一波内并发执行，跨波次仍串行。
+def _executor_all_steps(state: AgentState) -> Iterator[AgentState]:
+    """P1-1 波次并发执行的**逐步快照内核**（run_executor_all / 流式共用）。
 
-    * 波次划分 = 经典拓扑分层：第 N 波的依赖都已在第 <N 波完成。
-    * 天然兼容原顺序语义：仅含 1 个独立步骤时退化为一步一执行。
-    * 若某步失败导致其后续步骤永远「依赖未完成」，剩余步骤打 FAILED 占位，
-      与顺序执行器的容错行为一致（不卡死、不漏步）。
-    * 失败/恢复产生的 ``llm_fallbacks`` 由 router 自身记录，本函数不触碰。
-
-    ⚠️ 必须带 ``@trace("executor")``：主路径（``run_analysis`` → 本函数）若缺
-    span，eval 的 ``tool_calls``（= 数 trace 里的 executor span）会恒为 0，
-    可观测性指标失真。此前只有顺序版 ``run_executor`` 有装饰器，并行版漏了。
+    执行语义与原 ``run_executor_all`` 完全一致（波次划分 / 失败占位 /
+    save_last_dataset 时机均不变），唯一区别是**每完成一个计划步骤就 yield
+    一次快照**（status 保持 EXECUTE），最后推进到 ANALYZE 并 yield 终态快照。
+    同步路径把快照逐个丢弃即可，两条路径不会漂移。
     """
     state.status = "EXECUTE"
     steps = state.plan.steps
     if not steps:
         state.status = "ANALYZE"
-        return state
+        yield state
+        return
     done_ids: set[str] = {r.step_id for r in state.tool_results}
     max_workers = get_settings().parallel_executor_workers
     safety = 0
@@ -1025,7 +1385,7 @@ def run_executor_all(state: AgentState) -> AgentState:
                 if s.id not in done_ids:
                     state.tool_results.append(
                         ToolResult(step_id=s.id, tool=s.tool, status="FAILED",
-                                   error="依赖步骤未完成"))
+                                   skipped=True, error="依赖步骤未完成"))
                     done_ids.add(s.id)
             break
         batch = _run_batch_after_discovery(ready, state, max_workers)
@@ -1039,9 +1399,64 @@ def run_executor_all(state: AgentState) -> AgentState:
                     save_last_dataset(state)  # E3：会话数据集，供下一轮增量迭代
                 except Exception:
                     pass
+            yield state  # 每步一次快照：SSE 路径的 EXECUTE 帧来源
     state.current_step_index = len(steps)
     state.status = "ANALYZE"
+    yield state
+
+
+@trace("executor")
+def run_executor_all(state: AgentState) -> AgentState:
+    """P1-1：按依赖关系把计划拆成「波次」，同一波内并发执行，跨波次仍串行。
+
+    * 波次划分 = 经典拓扑分层：第 N 波的依赖都已在第 <N 波完成。
+    * 天然兼容原顺序语义：仅含 1 个独立步骤时退化为一步一执行。
+    * 若某步失败导致其后续步骤永远「依赖未完成」，剩余步骤打 FAILED 占位，
+      与顺序执行器的容错行为一致（不卡死、不漏步）。
+    * 失败/恢复产生的 ``llm_fallbacks`` 由 router 自身记录，本函数不触碰。
+
+    ⚠️ 必须带 ``@trace("executor")``：主路径（``run_analysis`` → 本函数）若缺
+    span，eval 的 ``tool_calls``（= 数 trace 里的 executor span）会恒为 0，
+    可观测性指标失真。此前只有顺序版 ``run_executor`` 有装饰器，并行版漏了。
+
+    实现为消费 :func:`_executor_all_steps` 内核（忽略中间快照），保证与流式
+    路径 (:func:`iter_executor_all`) 的执行语义同源、不漂移。
+    """
+    for _ in _executor_all_steps(state):
+        pass
     return state
+
+
+def iter_executor_all(state: AgentState) -> Iterator[AgentState]:
+    """``run_executor_all`` 的流式版本：每完成一个工具步骤即 yield 一次快照。
+
+    为什么必须存在：SSE 路径此前只在 ``run_executor_all`` **返回后**拿到单个
+    快照，而彼时 status 已推进为 ANALYZE —— 前端永远收不到 EXECUTE 帧，
+    「执行完成 · 0 个工具」就是这条 bug（工具明明执行了，UI 计数恒为 0，
+    时间线里也没有任何工具步骤卡片）。
+
+    span 语义与 ``@trace("executor")`` 一致：在 ``trace_run`` 上下文内手动开
+    / 关 executor span，保证 eval 的 tool_calls（数 executor span）在流式
+    路径同样计数，不会因为换入口而失真。
+    """
+    from ....infrastructure.observability.tracing import _current_tracer
+
+    tracer = _current_tracer.get()
+    span = tracer.start("executor") if tracer is not None else None
+    ended = False
+
+    def _end(ok: bool, error: BaseException | None = None) -> None:
+        nonlocal ended
+        if tracer is not None and span is not None and not ended:
+            ended = True
+            tracer.end(span, ok=ok, error=error)
+
+    try:
+        yield from _executor_all_steps(state)
+        _end(True)
+    except BaseException as exc:  # noqa: BLE001 — 生成器需同时兜 GeneratorExit
+        _end(False, exc)
+        raise
 
 
 # --------------------------------------------------------------------------- #
@@ -1284,6 +1699,15 @@ def run_reporter(state: AgentState) -> AgentState:
         state.report = append_citations(state.report or "", state.analysis, state.tool_results)
     except Exception:
         pass
+    # D51：报告图内嵌 —— 有图才追加 `## 图表`（无图不留空标题）；
+    # 图源只认落在本会话工作目录里、真实存在的成功产物（见 charts.collect_charts）
+    try:
+        from ....core.agents.data_analyst.charts import collect_charts, embed_charts
+
+        state.report = embed_charts(state.report or "", collect_charts(state),
+                                    state.session_id)
+    except Exception:
+        pass  # 嵌图故障不得打断报告
     # D41：把本轮的溯源覆盖 / 疑似幻觉计入 /metrics（与 eval **同一口径**）
     try:
         from ....core.agents.data_analyst.sources import trace_coverage

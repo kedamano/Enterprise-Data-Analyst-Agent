@@ -258,8 +258,24 @@ def test_analyze_stream_emits_sse(mock_llm_env):
     assert "FINISH" in statuses, f"流应到达 FINISH，实际: {statuses}"
 
 
-def test_document_ingest(mock_llm_env):
+def test_document_ingest(mock_llm_env, monkeypatch, tmp_path):
+    """``POST /documents/ingest``（服务端文本入库）应真正写进知识库。
+
+    隔离（2026-09-15 补）：本测试此前直接写**真实** ``data/knowledge.db``
+    （``source=guard_test``），每跑一次就追加一批分块——实测已累积到 119 段，
+    且这些测试垃圾会挤进真实检索结果。现指向临时 SQLite。
+    """
     from fastapi.testclient import TestClient
+
+    from app.core.tools import knowledge_tool
+    from app.core.tools.knowledge_tool import KnowledgeStore
+
+    # 嵌入置空 → 纯 BM25：不联网、不加载模型（首次加载要等 ~25s 超时）
+    monkeypatch.setattr(knowledge_tool, "_embed", lambda _t: None)
+    store = KnowledgeStore(db_path=tmp_path / "kb.db")
+    # patch 单例本体：pipeline 在 import 期已绑定 get_store 函数对象，
+    # patch 函数名不足以隔离入库路径（见 tests/test_kb_management_api.py docstring）
+    monkeypatch.setattr(knowledge_tool, "_store", store)
 
     from app.main import app
 
@@ -273,3 +289,6 @@ def test_document_ingest(mock_llm_env):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["chunks"] >= 1, "文本应被分块入库"
+
+    # 落进隔离库 → 确认没有污染真实 data/knowledge.db
+    assert [d["source"] for d in store.list_sources()] == ["guard_test"]

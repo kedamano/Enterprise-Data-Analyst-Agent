@@ -13,6 +13,16 @@ from ...core.agents.data_analyst.state import AgentStatus
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+def _metric_cards(snap) -> list[dict] | None:
+    """D51：指标卡数据（归一化在 `metric_cards`，**唯一口径**，与报告表格同源）。"""
+    try:
+        from ...core.agents.data_analyst.metric_cards import normalize_metrics
+
+        return normalize_metrics(getattr(getattr(snap, "analysis", None), "metrics", None))
+    except Exception:
+        return None
+
+
 def _to_response(state) -> AnalyzeResponse:
     findings = [f.model_dump() for f in state.analysis.findings]
     return AnalyzeResponse(
@@ -31,6 +41,8 @@ def _to_response(state) -> AnalyzeResponse:
         plan_steps=[s.objective for s in state.plan.steps],
         tool_results=[r.model_dump() for r in state.tool_results],
         findings=findings,
+        # D51：指标卡（REST 面与 SSE 用同一个归一化函数）
+        metrics=_metric_cards(state) or [],
         reflection_decision=state.reflection.decision if state.reflection else None,
         confidence=state.reflection.confidence if state.reflection else None,
         error=state.error,
@@ -44,9 +56,21 @@ def _effective_query(req: AnalyzeRequest) -> str:
     return f"{req.query}\n\n针对上一轮提问的回答：{req.clarification_answer}"
 
 
+def _session_id_for(req: AnalyzeRequest) -> str:
+    """AUTH/02：空 `session_id` 由服务端生成一个（随响应回传），而不是落到共享的 `default` 桶。
+
+    此前用 `req.session_id or ""`，而附件层把空值归一成字面量 `default` ——
+    于是**两个都不带 session_id 的调用方会共用同一个桶**（uploads/sidecar/数据集）。
+    客户端拿得到生成值（`AnalyzeResponse.session_id` / SSE 的 FINISH 帧）就能继续用。
+    """
+    from ...core.attachments import resolve_session_id
+
+    return resolve_session_id(req.session_id)
+
+
 @router.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
-    state = run_analysis(req.session_id or "", _effective_query(req), req.history,
+    state = run_analysis(_session_id_for(req), _effective_query(req), req.history,
                          force_full_rerun=req.force_full_rerun)
     _record_owner(state.session_id)
     return _to_response(state)
@@ -117,8 +141,9 @@ def analyze_stream(req: AnalyzeRequest):
 
     def gen():
         seen: set[str] = set()
-        _record_owner(req.session_id or "")
-        for snap in stream_analysis(req.session_id or "", _effective_query(req), req.history,
+        sid = _session_id_for(req)
+        _record_owner(sid)
+        for snap in stream_analysis(sid, _effective_query(req), req.history,
                                     force_full_rerun=req.force_full_rerun):
             last = snap.tool_results[-1] if snap.tool_results else None
             try:
@@ -142,6 +167,8 @@ def analyze_stream(req: AnalyzeRequest):
                 # 逐步执行日志：EXECUTE 事件带该步明细
                 "step": _step_view(last) if snap.status == "EXECUTE" else None,
                 "report": snap.report if snap.status == "FINISH" else None,
+                # D51：指标卡（只有 FINISH 帧带——中途帧带半成品，前端会当最终值渲染）
+                "metrics": _metric_cards(snap) if snap.status == "FINISH" else None,
                 # E1：FINISH 时附溯源覆盖率
                 "trace_summary": _trace_summary(snap) if snap.status == "FINISH" else None,
                 # E2：自定义写码产物摘要
@@ -277,6 +304,29 @@ def analyze_artifacts(session_id: str):
             items.append({"step_id": r.step_id, "tool": r.tool, "status": r.status,
                           "artifacts": list(r.artifacts)})
     return {"session_id": session_id, "artifacts": items}
+
+
+@router.get("/analyze/chart/{session_id}/{name}")
+def analyze_chart(session_id: str, name: str):
+    """D51：取会话工作目录里的图（报告 `## 图表` 内嵌引用的图源）。
+
+    两层防护：**文件名白名单**（400）+ **目录校验**（403）。只有 .png/.jpg 等位图，
+    **不含 svg**——同源 inline 的 SVG 可带脚本，等于给自己开一个 XSS 面。
+    """
+    _assert_session_access(session_id)
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+
+    from ...core.agents.data_analyst import charts
+
+    if not charts.is_safe_chart_name(name):
+        raise HTTPException(status_code=400, detail=f"非法的图表文件名: {name}")
+    path = charts.resolve_chart_file(session_id, name)
+    if path is None:
+        raise HTTPException(status_code=403, detail="图表不在该会话工作目录内")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"图表不存在: {name}")
+    return FileResponse(str(path), media_type=charts.media_type_for(name))
 
 
 @router.get("/analyze/trace/{session_id}")

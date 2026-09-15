@@ -8,6 +8,7 @@ business terminology, never substitutes for actual query results.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -28,6 +29,10 @@ knowledge_store_type = Any
 
 def _tokenize(text: str) -> list[str]:
     return [t for t in re.findall(r"[\w\u4e00-\u9fff]+", text.lower()) if len(t) > 1]
+
+
+def _sha1(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8", errors="replace")).hexdigest()
 
 
 # \u5d4c\u5165\u6a21\u578b\u8fdb\u7a0b\u7ea7\u7f13\u5b58 + \u5931\u8d25\u5373\u7981\u7528\uff08\u907f\u514d\u6bcf\u6b21\u8c03\u7528\u91cd\u65b0\u52a0\u8f7d ~13s\uff0c\u6216\u8054\u7f51\u6821\u9a8c\u6302\u8d77\uff09
@@ -88,6 +93,21 @@ def _embed(text: str) -> list[float] | None:
         return None
     vec = model.encode(text, normalize_embeddings=True)
     return vec.tolist()
+
+
+def warm_up_embedder() -> None:
+    """后台预热嵌入模型（幂等）。
+
+    首次碰 ``_embed`` 时才会去加载模型，而加载要么成功缓存、要么等满
+    ``embed_load_timeout_s`` 后永久禁用（离线缓存缺失时会转在线下载而挂起）。
+    把这次「一次性的首帧代价」提前到服务启动后的后台线程里付掉，用户第一次
+    「入库」或「检索」就不会干等数十秒。失败也无所谓——混合检索的 BM25 通道
+    可独立工作，服务不受影响。
+    """
+    try:
+        _get_embed_model()
+    except Exception:
+        pass  # 预热仅为提速，绝不影响可用性
 
 
 # --------------------------------------------------------------------------- #
@@ -157,6 +177,23 @@ def _resolve_tenant(tenant: str | None) -> str:
 
 
 class KnowledgeStore:
+    """SQLite-backed knowledge store with table-aware chunking, versioning, and
+    chunk-quality tracking.
+
+    Schema (lazy-migrated):
+        id, source, text, tokens, vec, tenant,
+        version INTEGER DEFAULT 1,
+        status TEXT DEFAULT 'ok', status_reason TEXT,
+        deprecated INTEGER DEFAULT 0,
+        content_hash TEXT
+    """
+
+    # status values
+    STATUS_OK = "ok"
+    STATUS_EMPTY = "empty"
+    STATUS_NOISE = "noise"
+    STATUS_EMBED_FAILED = "embed_failed"
+
     def __init__(self, db_path: Path | None = None) -> None:
         self.db = str(db_path or _DB_PATH)
         Path(self.db).parent.mkdir(parents=True, exist_ok=True)
@@ -166,37 +203,257 @@ class KnowledgeStore:
                     id INTEGER PRIMARY KEY, source TEXT, text TEXT,
                     tokens TEXT, vec TEXT)"""
             )
-            # 多租户：懒迁移加 tenant 列；既有库不加租户值时保持全局可见
+            # Lazy migrations — every ADD is idempotent (only adds if missing)
             cols = {r[1] for r in c.execute("PRAGMA table_info(chunks)").fetchall()}
             if "tenant" not in cols:
                 c.execute("ALTER TABLE chunks ADD COLUMN tenant TEXT")
+            if "version" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+            if "status" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN status TEXT NOT NULL DEFAULT 'ok'")
+            if "status_reason" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN status_reason TEXT")
+            if "deprecated" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN deprecated INTEGER NOT NULL DEFAULT 0")
+            if "content_hash" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN content_hash TEXT")
+            # 多知识库（KB）：分块归属某个知识库；NULL = 历史遗留分块，由
+            # KnowledgeCatalog.ensure_seed() 在首次使用时接管到默认库。
+            # 建索引是因为「按库检索 / 按库统计」是知识库详情页的主路径。
+            if "kb_id" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN kb_id TEXT")
+            c.execute("CREATE INDEX IF NOT EXISTS chunks_kb ON chunks(kb_id)")
 
     @staticmethod
     def _resolve_tenant(tenant: str | None) -> str:
         return _resolve_tenant(tenant)
 
-    def add(self, text: str, source: str, tenant: str | None = None) -> int:
-        tokens = " ".join(_tokenize(text))
-        vec = _embed(text)
+    def add(self, text: str, source: str, tenant: str | None = None,
+            version: int = 1, kb_id: str | None = None) -> int:
+        """Insert one chunk with quality gate + dedup.
+
+        Returns the row id (>=0). Bad chunks (empty / noise) are still stored
+        (so diagnostics can count them) but marked with ``status != 'ok'``.
+        Dupes (same source+tenant+kb+content_hash at the same version) return
+        the existing row id.
+
+        ``kb_id``（多知识库）：分块归属的知识库。**参与去重与版本判定**——
+        两个库各自上传同名文件时互不覆盖，这是"同库同来源才算同文档"的前提。
+        """
+        stripped = (text or "").strip()
+        # ── quality gate (before embedding, no wasted compute) ───────────
+        status, status_reason = self._classify_chunk(stripped)
         ten = self._resolve_tenant(tenant)
+        content_hash = _sha1(stripped)
+        # dedup check (same version only)
         with _lock, sqlite3.connect(self.db) as c:
+            dup = c.execute(
+                "SELECT id FROM chunks WHERE source=? AND tenant IS ? "
+                "AND kb_id IS ? AND content_hash=? AND version=? AND deprecated=0",
+                (source, ten or None, kb_id, content_hash, version),
+            ).fetchone()
+            if dup:
+                return int(dup[0])
+            vec = None
+            reason = status_reason
+            if status == self.STATUS_OK:
+                emb = _embed(stripped)
+                if emb is not None:
+                    vec = json.dumps(emb)
+                else:
+                    status = self.STATUS_EMBED_FAILED
+                    reason = "embed_unavailable"
+            tokens = " ".join(_tokenize(stripped))
             cur = c.execute(
-                "INSERT INTO chunks(source, text, tokens, vec, tenant) VALUES(?,?,?,?,?)",
-                (source, text, tokens, json.dumps(vec) if vec else None, ten or None),
+                "INSERT INTO chunks(source, text, tokens, vec, tenant, "
+                "version, status, status_reason, content_hash, kb_id) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (source, stripped, tokens, vec, ten or None, version,
+                 status, reason, content_hash, kb_id),
             )
             return int(cur.lastrowid)
 
-    def search(self, query: str, top_k: int = 4, tenant: str | None = None) -> list[dict[str, Any]]:
+    def rebuild_source(self, source: str, text: str,
+                       tenant: str | None = None,
+                       kb_id: str | None = None) -> dict[str, int]:
+        """Reindex *source* with a bumped version.
+
+        Returns ``{"added": N, "version": V}``. Idempotent: re-running
+        identical text yields ``added=0`` (content-hash dedup).
+
+        ``kb_id`` 全程参与：版本号、去重、旧版废弃都按 (source, tenant, kb) 三元组
+        计算，因此**不同知识库里的同名文件互不干扰**（同库重传才等于更新）。
+        """
+        from ...etl.chunker import chunk_structured
+
+        ten = self._resolve_tenant(tenant)
+        new_version = (
+            self._next_version(source, tenant, kb_id)
+            if self._has_chunks(source, tenant, kb_id) else 1
+        )
+
+        # Idempotency: if latest version already has exactly this content → no-op
+        if new_version > 1:
+            if self._source_version_matches(source, text, new_version - 1, ten, kb_id):
+                return {"added": 0, "version": new_version - 1}
+            self._deprecate_source(source, tenant, kb_id)
+
+        chunks = chunk_structured(text)
+        added = 0
+        for chunk in chunks:
+            self.add(chunk, source, tenant=tenant, version=new_version, kb_id=kb_id)
+            added += 1
+        return {"added": added, "version": new_version}
+
+    def _source_version_matches(self, source: str, text: str, version: int,
+                                tenant: str | None,
+                                kb_id: str | None = None) -> bool:
+        """True if re-chunking *text* produces exactly the same set of content hashes
+        as the rows already stored for *source* at *version* (order-insensitive).
+        """
+        try:
+            from ...etl.chunker import chunk_structured
+            new_chunks = chunk_structured(text)
+            new_hashes = {_sha1(c) for c in new_chunks}
+        except Exception:
+            return False
+        with _lock, sqlite3.connect(self.db) as c:
+            existing = c.execute(
+                "SELECT content_hash FROM chunks WHERE source=? AND tenant IS ? "
+                "AND kb_id IS ? AND version=?",
+                (source, tenant, kb_id, version),
+            ).fetchall()
+            existing_hashes = {r[0] for r in existing if r[0]}
+        return bool(new_hashes) and new_hashes == existing_hashes
+
+    def cleanup_old_versions(self, source: str, keep: int = 2,
+                             tenant: str | None = None,
+                             kb_id: str | None = None) -> int:
+        """Physically delete versions older than the *keep* most-recent ones.
+
+        Returns the number of remaining rows for this source.
+        """
+        ten = self._resolve_tenant(tenant)
+        with _lock, sqlite3.connect(self.db) as c:
+            # find the version KEEP_THRESHOLD = (max version) - keep + 1
+            row = c.execute(
+                "SELECT COALESCE(MAX(version), 0) FROM chunks WHERE source=? "
+                "AND tenant IS ? AND kb_id IS ?",
+                (source, ten or None, kb_id),
+            ).fetchone()
+            if not row or not row[0]:
+                return 0
+            threshold = row[0] - keep + 1
+            c.execute(
+                "DELETE FROM chunks WHERE source=? AND tenant IS ? AND kb_id IS ? "
+                "AND version < ?",
+                (source, ten or None, kb_id, threshold),
+            )
+            remaining = c.execute(
+                "SELECT COUNT(*) FROM chunks WHERE source=? AND tenant IS ? AND kb_id IS ?",
+                (source, ten or None, kb_id),
+            ).fetchone()[0]
+            return int(remaining)
+
+    def chunk_diagnostics(self, tenant: str | None = None) -> dict[str, Any]:
+        """Return quality stats: {total, ok, empty, noise, embed_failed, deprecated}."""
+        ten = self._resolve_tenant(tenant)
+        with _lock, sqlite3.connect(self.db) as c:
+            args: list = []
+            where = ""
+            if ten:
+                where = "WHERE tenant IS ?"
+                args = [ten]
+            total = c.execute(f"SELECT COUNT(*) FROM chunks {where}", args).fetchone()[0]
+            ok = c.execute(
+                f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} status='ok'", args
+            ).fetchone()[0]
+            empty = c.execute(
+                f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} status='empty'", args
+            ).fetchone()[0]
+            noise = c.execute(
+                f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} status='noise'", args
+            ).fetchone()[0]
+            embed_failed = c.execute(
+                f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} status='embed_failed'", args
+            ).fetchone()[0]
+            deprecated = c.execute(
+                f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} deprecated=1", args
+            ).fetchone()[0]
+        return {"total": total, "ok": ok, "empty": empty, "noise": noise,
+                "embed_failed": embed_failed, "deprecated": deprecated}
+
+    # ── helpers ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _classify_chunk(text: str) -> tuple[str, str | None]:
+        if not text:
+            return KnowledgeStore.STATUS_EMPTY, "zero_length"
+        # noise heuristic: <10 non-whitespace chars, or >80% punctuation
+        if len(text) < 10:
+            return KnowledgeStore.STATUS_NOISE, "too_short"
+        punct_ratio = sum(1 for ch in text if ch in "，。！？；：、…,.!?;:`~@#$%^&*()[]{}|/\\\"'\n\t ") / max(len(text), 1)
+        if punct_ratio > 0.8:
+            return KnowledgeStore.STATUS_NOISE, f"punct_ratio={punct_ratio:.2f}"
+        return KnowledgeStore.STATUS_OK, None
+
+    def _next_version(self, source: str, tenant: str | None,
+                      kb_id: str | None = None) -> int:
+        with _lock, sqlite3.connect(self.db) as c:
+            ten = self._resolve_tenant(tenant)
+            row = c.execute(
+                "SELECT COALESCE(MAX(version), 0) FROM chunks "
+                "WHERE source=? AND tenant IS ? AND kb_id IS ?",
+                (source, ten or None, kb_id),
+            ).fetchone()
+            return int(row[0]) + 1
+
+    def _has_chunks(self, source: str, tenant: str | None,
+                    kb_id: str | None = None) -> bool:
+        with _lock, sqlite3.connect(self.db) as c:
+            ten = self._resolve_tenant(tenant)
+            row = c.execute(
+                "SELECT 1 FROM chunks WHERE source=? AND tenant IS ? AND kb_id IS ? LIMIT 1",
+                (source, ten or None, kb_id),
+            ).fetchone()
+            return row is not None
+
+    def _deprecate_source(self, source: str, tenant: str | None,
+                          kb_id: str | None = None) -> None:
+        ten = self._resolve_tenant(tenant)
+        with _lock, sqlite3.connect(self.db) as c:
+            c.execute(
+                "UPDATE chunks SET deprecated=1 WHERE source=? AND tenant IS ? "
+                "AND kb_id IS ? AND deprecated=0",
+                (source, ten or None, kb_id),
+            )
+
+    def search(self, query: str, top_k: int = 4, tenant: str | None = None,
+               kb_id: str | None = None) -> list[dict[str, Any]]:
+        """混合检索（BM25 + 向量 → RRF 融合 → 可选重排）。
+
+        ``kb_id``：指定则**只在该知识库内**召回（知识库详情页的「检索预览」走这条）；
+        不指定则跨库全局检索（agent 的 ``knowledge_search`` 工具保持原行为）。
+        """
         q_vec = _embed(query)
         ten = self._resolve_tenant(tenant)
         with _lock, sqlite3.connect(self.db) as c:
-            if ten:
+            if kb_id:
                 rows = c.execute(
-                    "SELECT id, source, text, vec FROM chunks WHERE tenant=?",
+                    "SELECT id, source, text, vec FROM chunks "
+                    "WHERE kb_id IS ? AND deprecated=0 AND status IN ('ok','embed_failed')",
+                    (kb_id,)).fetchall()
+            elif ten:
+                rows = c.execute(
+                    "SELECT id, source, text, vec FROM chunks "
+                    "WHERE tenant IS ? AND deprecated=0 AND status IN ('ok','embed_failed')",
                     (ten,)).fetchall()
             else:
                 # 全局模式：不过滤（兼容既有无 tenant 数据）
-                rows = c.execute("SELECT id, source, text, vec FROM chunks").fetchall()
+                rows = c.execute(
+                    "SELECT id, source, text, vec FROM chunks "
+                    "WHERE deprecated=0 AND status IN ('ok','embed_failed')"
+                ).fetchall()
         if not rows:
             return []
         text_of = {r[0]: r[2] for r in rows}
@@ -233,9 +490,69 @@ class KnowledgeStore:
         if get_settings().rerank_enabled and ranked:
             # 先取更大候选集再做重排，避免重排无素材
             from ..rag.reranker import rerank
+
             candidates = ranked[: max(top_k * 3, len(ranked))]
             return rerank(query, candidates, top_k)
         return ranked[:top_k]
+
+    # ---- 管理面接口（管理面板/前端知识库用）----
+    def list_sources(self, kb_id: str | None = None) -> list[dict[str, Any]]:
+        """按 source 聚合，返回 {source, chunks}，chunks 多者在前。
+
+        ``kb_id`` 指定时只统计该库（知识库详情页用）；不指定则跨库汇总。
+        """
+        with _lock, sqlite3.connect(self.db) as c:
+            if kb_id:
+                rows = c.execute(
+                    "SELECT source, COUNT(*) FROM chunks WHERE kb_id IS ? "
+                    "GROUP BY source ORDER BY COUNT(*) DESC",
+                    (kb_id,),
+                ).fetchall()
+            else:
+                rows = c.execute(
+                    "SELECT source, COUNT(*) FROM chunks GROUP BY source "
+                    "ORDER BY COUNT(*) DESC"
+                ).fetchall()
+        return [{"source": r[0], "chunks": r[1]} for r in rows]
+
+    def delete_source(self, source: str, kb_id: str | None = None) -> int:
+        """删除某来源的全部分块。``kb_id`` 限定范围，避免误删其他库的同名来源。"""
+        with _lock, sqlite3.connect(self.db) as c:
+            if kb_id:
+                cur = c.execute(
+                    "DELETE FROM chunks WHERE source=? AND kb_id IS ?", (source, kb_id)
+                )
+            else:
+                cur = c.execute("DELETE FROM chunks WHERE source=?", (source,))
+            return int(cur.rowcount)
+
+    def total_chunks(self, kb_id: str | None = None) -> int:
+        with _lock, sqlite3.connect(self.db) as c:
+            if kb_id:
+                return int(c.execute(
+                    "SELECT COUNT(*) FROM chunks WHERE kb_id IS ? AND deprecated=0",
+                    (kb_id,)).fetchone()[0])
+            return int(c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
+
+    def adopt_orphan_chunks(self, kb_id: str) -> dict[str, int]:
+        """把历史无归属分块（``kb_id IS NULL``）划归指定知识库。
+
+        返回 ``{source: 分块数}``，供目录模块登记成文档。幂等：库里已无无归属
+        分块时再调用返回 ``{}``（不会重复接管）。
+        """
+        with _lock, sqlite3.connect(self.db) as c:
+            rows = c.execute(
+                "SELECT source, COUNT(*) FROM chunks WHERE kb_id IS NULL "
+                "AND deprecated=0 GROUP BY source"
+            ).fetchall()
+            c.execute("UPDATE chunks SET kb_id=? WHERE kb_id IS NULL", (kb_id,))
+        return {r[0]: int(r[1]) for r in rows}
+
+    def delete_kb_chunks(self, kb_id: str) -> int:
+        """删库时级联清空该库全部分块，返回删除行数。"""
+        with _lock, sqlite3.connect(self.db) as c:
+            cur = c.execute("DELETE FROM chunks WHERE kb_id IS ?", (kb_id,))
+            return int(cur.rowcount)
 
 
 _store: knowledge_store_type | None = None
@@ -285,6 +602,7 @@ class MilvusKnowledgeStore:
             schema.add_field("source", DataType.VARCHAR, max_length=512)
             schema.add_field("text", DataType.VARCHAR, max_length=65535)
             schema.add_field(self.TENANT_FIELD, DataType.VARCHAR, max_length=128)
+            schema.add_field(self.KB_FIELD, DataType.VARCHAR, max_length=128)
             index_params = client.prepare_index_params()
             index_params.add_index(field_name="vector", index_type="AUTOINDEX",
                                    metric_type="COSINE")
@@ -292,6 +610,9 @@ class MilvusKnowledgeStore:
             client.create_collection(collection, schema=schema, index_params=index_params,
                                      consistency_level="Strong")
         self._has_tenant = self.TENANT_FIELD in self._field_names()
+        # 老 collection 可能没有 kb_id 字段；缺字段时按库过滤无法表达，
+        # 降级为「全局检索」而不是报错（可用性优先，前端会看到跨库结果）。
+        self._has_kb = self.KB_FIELD in self._field_names()
 
     def _field_names(self) -> set[str]:
         """已有 collection 的字段集（老库可能没有 tenant 字段，需兼容）。"""
@@ -342,6 +663,64 @@ class MilvusKnowledgeStore:
             })
         return hits
 
+    # ---- 管理面接口 ----
+    def _kb_filter(self, kb_id: str) -> str:
+        safe = str(kb_id).replace("\\", "\\\\").replace('"', '\\"')
+        return f'{self.KB_FIELD} == "{safe}"'
+
+    def list_sources(self, kb_id: str | None = None) -> list[dict[str, Any]]:
+        flt = self._kb_filter(kb_id) if (kb_id and self._has_kb) else ""
+        try:
+            res = self.client.query(
+                self.collection, filter=flt, output_fields=["source"], limit=16384,
+            )
+        except Exception:
+            return []
+        from collections import Counter
+
+        cnt = Counter((r.get("source") or "") for r in (res or []))
+        return [{"source": s, "chunks": n} for s, n in cnt.most_common()]
+
+    def delete_source(self, source: str, kb_id: str | None = None) -> int:
+        safe = source.replace("\\", "\\\\").replace('"', '\\"')
+        flt = f'source == "{safe}"'
+        if kb_id and self._has_kb:
+            flt = f"{flt} and {self._kb_filter(kb_id)}"
+        try:
+            res = self.client.delete(self.collection, flt)
+        except Exception:
+            return 0
+        if isinstance(res, dict):
+            return int(res.get("delete_count", 0) or 0)
+        return 0
+
+    def total_chunks(self, kb_id: str | None = None) -> int:
+        flt = self._kb_filter(kb_id) if (kb_id and self._has_kb) else ""
+        try:
+            res = self.client.query(
+                self.collection, filter=flt, output_fields=["id"], limit=16384,
+            )
+            return len(res or [])
+        except Exception:
+            return 0
+
+    # Milvus 后端没有「无归属分块」的概念（字段不存在即无归属），接管无操作；
+    # 这些方法保证管理面在 Milvus 模式下也能调用而不抛 AttributeError。
+    def adopt_orphan_chunks(self, kb_id: str) -> dict[str, int]:
+        return {}
+
+    def kb_chunk_count(self, kb_id: str) -> int:
+        return self.total_chunks(kb_id)
+
+    def delete_kb_chunks(self, kb_id: str) -> int:
+        if not self._has_kb:
+            return 0
+        try:
+            res = self.client.delete(self.collection, self._kb_filter(kb_id))
+        except Exception:
+            return 0
+        return int(res.get("delete_count", 0) or 0) if isinstance(res, dict) else 0
+
 
 def get_store() -> knowledge_store_type:
     global _store
@@ -357,6 +736,71 @@ def get_store() -> knowledge_store_type:
     return _store
 
 
+# --------------------------------------------------------------------------- #
+# 管理面辅助函数（前端知识库面板调用，与检索/低置信判定解耦）
+# --------------------------------------------------------------------------- #
+def kb_status() -> dict[str, Any]:
+    """知识库整体状态：后端类型、是否启用、来源数、分块总数。"""
+    s = get_settings()
+    store = get_store()
+    backend = "milvus" if isinstance(store, MilvusKnowledgeStore) else "sqlite"
+    try:
+        sources = store.list_sources()
+        total = sum(x["chunks"] for x in sources)
+    except Exception:
+        sources, total = [], 0
+    return {
+        "enabled": s.knowledge_enabled,
+        "backend": backend,
+        "total_chunks": total,
+        "sources": len(sources),
+    }
+
+
+def list_documents(kb_id: str | None = None) -> list[dict[str, Any]]:
+    return get_store().list_sources(kb_id)
+
+
+def delete_document(source: str, kb_id: str | None = None) -> int:
+    return get_store().delete_source(source, kb_id)
+
+
+def search_documents(query: str, top_k: int = 5,
+                     kb_id: str | None = None) -> list[dict[str, Any]]:
+    """管理预览用检索：直接复用 store.search，不套低置信清空逻辑。
+
+    ``kb_id`` 指定时只在该知识库内召回。
+
+    空库短路：库里没有任何分块时立刻返回 []，**不触发嵌入模型加载**。
+    首次加载嵌入模型要等满 ``embed_load_timeout_s``（实测 ~25s，离线缓存缺失时
+    会去联网下载而挂起），若空库也照走一遍，用户第一次点「检索预览」就会干等
+    数十秒。空库无内容可检，没有理由付这个代价。
+    """
+    store = get_store()
+    try:
+        if store.total_chunks(kb_id) == 0:
+            return []
+    except Exception:
+        pass  # 后端缺该方法时退回正常检索路径，不影响可用性
+    try:
+        return store.search(query, top_k, kb_id=kb_id)
+    except TypeError:
+        # 老后端签名不支持 kb_id：退回全局检索（可用性优先）
+        return store.search(query, top_k)
+
+
+def _low_confidence_note(level: str, hits: int) -> str:
+    """低置信时给模型和人的一句实话。
+
+    **只报"命中了几段"，不报内容**——内容一旦进来就绕开了"不下发"的保证。
+    """
+    if level == "none":
+        return (f"知识库未命中任何相关段落（命中 {hits} 段）。"
+                "本次没有知识依据，不得据此推断业务口径——需要先补充知识库或改问法。")
+    return (f"知识库命中了 {hits} 段字面相近但相关性不足的内容，已不予采用。"
+            "本次没有知识依据，不得据此推断业务口径——需要先补充知识库或改问法。")
+
+
 def run(params: dict[str, Any]) -> dict[str, Any]:
     query = (params.get("query") or "").strip()
     if not query:
@@ -366,5 +810,21 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
     try:
         chunks = get_store().search(query, top_k, tenant=tenant)
     except Exception as exc:
+        # fail-closed：出错就报错，绝不伪装成一次"成功的检索"（那会让模型以为查过了）
         return {"ok": False, "error": str(exc), "chunks": []}
-    return {"ok": True, "chunks": chunks}
+
+    from ..rag.confidence import confidence_of
+
+    conf = confidence_of(query, chunks)
+    payload = {"level": conf.level, "score": conf.score, "basis": conf.basis}
+    if conf.level == "high":
+        return {"ok": True, "chunks": chunks, "confidence": payload,
+                "low_confidence": False, "note": ""}
+
+    # 低置信：**清空 chunks**。标记而不清空等于让模型照样读到，只能靠 prompt 说"别引用"——
+    # 提示词纪律冒充保证。清空才是结构性保证（见 spec §2.2）。
+    from ...infrastructure.observability.metrics import metrics
+
+    metrics.inc("rag_low_confidence_total")   # 只计数，不记录查询内容
+    return {"ok": True, "chunks": [], "confidence": payload,
+            "low_confidence": True, "note": _low_confidence_note(conf.level, len(chunks))}
