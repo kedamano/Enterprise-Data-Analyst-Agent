@@ -13,25 +13,25 @@ function normalizeLineBreaks(md: string): string {
 
 export function Markdown({ children }: { children: string }) {
   return (
-    <div className="da-markdown text-[14.5px] leading-[1.8] text-slate-700">
+    <div className="da-markdown text-body leading-[1.8] text-slate-700">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ ...p }) => (
             <h1
-              className="mt-5 mb-2 text-xl font-semibold text-slate-900"
+              className="mt-5 mb-2 text-title font-semibold text-slate-900"
               {...p}
             />
           ),
           h2: ({ ...p }) => (
             <h2
-              className="mt-5 mb-2 text-lg font-semibold text-slate-900 border-b border-slate-200 pb-1"
+              className="mt-5 mb-2 text-heading font-semibold text-slate-900 border-b border-slate-200 pb-1"
               {...p}
             />
           ),
           h3: ({ ...p }) => (
             <h3
-              className="mt-4 mb-1.5 text-base font-semibold text-slate-800"
+              className="mt-4 mb-1.5 text-heading font-semibold text-slate-800"
               {...p}
             />
           ),
@@ -55,7 +55,7 @@ export function Markdown({ children }: { children: string }) {
           // 后端只提供位图（不含 svg）——同源 inline 的 SVG 可带脚本。
           img: ({ ...p }) => (
             <img
-              className="my-3 h-auto max-w-full rounded-lg border border-slate-200 bg-white"
+              className="my-3 h-auto max-w-full rounded-control border border-slate-200 bg-white"
               loading="lazy"
               {...p}
             />
@@ -74,7 +74,7 @@ export function Markdown({ children }: { children: string }) {
             if (isBlock) {
               return (
                 <code
-                  className="block rounded-lg bg-slate-900 border border-slate-700 p-3 my-3 overflow-x-auto text-[13px] text-emerald-300 font-mono"
+                  className="block rounded-control bg-slate-900 border border-slate-700 p-3 my-3 overflow-x-auto text-small text-emerald-300 font-mono"
                   {...props}
                 >
                   {children}
@@ -83,7 +83,7 @@ export function Markdown({ children }: { children: string }) {
             }
             return (
               <code
-                className="rounded bg-indigo-50 px-1.5 py-0.5 text-[13px] text-indigo-700 font-mono"
+                className="rounded bg-indigo-50 px-1.5 py-0.5 text-small text-indigo-700 font-mono"
                 {...props}
               >
                 {children}
@@ -94,9 +94,9 @@ export function Markdown({ children }: { children: string }) {
             <pre className="bg-transparent p-0 my-0" {...p} />
           ),
           table: ({ ...p }) => (
-            <div className="my-3 overflow-x-auto rounded-lg border border-slate-200">
+            <div className="my-3 overflow-x-auto rounded-control border border-slate-200">
               <table
-                className="w-full border-collapse text-[13px] leading-snug"
+                className="w-full border-collapse text-small leading-snug"
                 {...p}
               />
             </div>

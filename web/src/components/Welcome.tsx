@@ -67,16 +67,16 @@ export function Welcome({
       {/* 用 CSS 动画而非 motion 编排：即便动画被中断，内容也不会停留在 opacity:0 */}
       {/* my-auto：内容比视口矮时垂直居中，消掉落地页下方的大片空白；比视口高时正常滚动 */}
       <div className="da-fade-up relative z-10 mx-auto my-auto w-full max-w-5xl pb-5 pt-7 text-center">
-        <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-indigo-700 shadow-sm">
+        <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 py-1.5 text-small font-medium text-indigo-700 shadow-sm">
           <Sparkles className="h-4 w-4 text-indigo-500" />
           Enterprise Data Analyst Agent
         </div>
 
-        <h1 className="text-balance bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-700 bg-clip-text text-[28px] font-semibold leading-tight tracking-tight text-transparent sm:text-[34px]">
+        <h1 className="text-balance bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-700 bg-clip-text text-display font-semibold leading-tight tracking-tight text-transparent sm:text-display">
           企业数据分析智能体
         </h1>
 
-        <p className="mx-auto mt-3 max-w-2xl text-[14.5px] leading-relaxed text-slate-500">
+        <p className="mx-auto mt-3 max-w-2xl text-body leading-relaxed text-slate-500">
           用自然语言驱动「意图理解 → 计划 → 取数 → 分析 → 质检 → 报告」六阶段编排。
           描述你的业务问题，智能体自动调用工具、取证并产出可读报告。
         </p>
@@ -88,15 +88,15 @@ export function Welcome({
             return (
               <div
                 key={title}
-                className="rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm shadow-slate-200/50"
+                className="rounded-panel border border-slate-200 bg-white p-3.5 text-left shadow-sm shadow-slate-200/50"
               >
                 <div
-                  className={`mb-2.5 grid h-9 w-9 place-items-center rounded-lg ${c.bg} ring-1 ${c.ring}`}
+                  className={`mb-2.5 grid h-9 w-9 place-items-center rounded-control ${c.bg} ring-1 ${c.ring}`}
                 >
                   <Icon className={`h-5 w-5 ${c.fg}`} />
                 </div>
-                <h3 className="text-[14px] font-semibold text-slate-900">{title}</h3>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
+                <h3 className="text-body font-semibold text-slate-900">{title}</h3>
+                <p className="mt-1 text-small leading-relaxed text-slate-500">
                   {desc}
                 </p>
               </div>
@@ -110,7 +110,7 @@ export function Welcome({
             <button
               type="button"
               onClick={onUpload}
-              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13.5px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+              className="flex items-center justify-center gap-2 rounded-panel border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-small font-medium text-emerald-700 transition hover:bg-emerald-100"
             >
               <Upload className="h-4 w-4" /> 上传文件
             </button>
@@ -119,7 +119,7 @@ export function Welcome({
             <button
               type="button"
               onClick={onAddKnowledge}
-              className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13.5px] font-medium text-amber-700 transition hover:bg-amber-100"
+              className="flex items-center justify-center gap-2 rounded-panel border border-amber-200 bg-amber-50 px-4 py-2.5 text-small font-medium text-amber-700 transition hover:bg-amber-100"
             >
               <BookOpen className="h-4 w-4" /> 添加知识
             </button>
@@ -128,7 +128,7 @@ export function Welcome({
             <button
               type="button"
               onClick={onDataSources}
-              className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-[13.5px] font-medium text-sky-700 transition hover:bg-sky-100"
+              className="flex items-center justify-center gap-2 rounded-panel border border-sky-200 bg-sky-50 px-4 py-2.5 text-small font-medium text-sky-700 transition hover:bg-sky-100"
             >
               <Database className="h-4 w-4" /> 查看数据源
             </button>
@@ -138,10 +138,10 @@ export function Welcome({
         {/* 示例问题 */}
         <div className="mb-3 mt-6 text-left">
           <div className="mb-2.5 flex items-center justify-between">
-            <span className="text-[12px] font-medium uppercase tracking-wider text-slate-500">
+            <span className="text-small font-medium uppercase tracking-wider text-slate-500">
               示例问题 · 点击直接发送给智能体
             </span>
-            <span className="hidden text-[12px] text-slate-400 sm:block">
+            <span className="hidden text-small text-slate-400 sm:block">
               或在下方直接提问 / 上传 CSV 文件
             </span>
           </div>
@@ -151,10 +151,10 @@ export function Welcome({
                 key={ex}
                 style={{ animationDelay: `${i * 45}ms` }}
                 onClick={() => onPick(ex)}
-                className="group flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-[13px] text-slate-600 shadow-sm shadow-slate-200/50 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
+                className="group flex items-center justify-between gap-2 rounded-panel border border-slate-200 bg-white px-3.5 py-2.5 text-left text-small text-slate-600 shadow-sm shadow-slate-200/50 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
               >
                 <span className="flex min-w-0 items-center gap-2.5">
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-slate-100 text-[11px] font-mono text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600">
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-control bg-slate-100 text-micro font-mono text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600">
                     {i + 1}
                   </span>
                   <span className="truncate">{ex}</span>

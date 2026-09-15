@@ -3425,3 +3425,76 @@ D57 加 `status='ok'` 过滤时，**没感觉到 "embed_failed 的 chunk 该不�
 * **TTL 自动调度**的 app-startup 接线留后续
 * **`embed_failed` 的 chunk 长期堆积**问题经 D58 已解决（TTL abandon + 手动 retry API），SQLite 后端路径闭环，Milvus 路径等 SDK 接入时补全
 
+---
+
+## Day 59（2026-09-15 · E8/03 嵌入向量版本迁移 + 多跳检索前置）
+
+**任务（SDD→TDD→绿→回归→eval→门禁）**
+
+1. **SDD 契约**：`docs/specs/E8/03-embed-versioning.md`（~270 行）——
+   - Schema：懒迁移加 `embed_model_version TEXT` + 二级索引 `chunks_emv(embed_model_version, kb_id)`
+   - 写入链路：`add()` 自动打当前版本戳（`_resolve_emv()`，覆盖 > settings 默认）
+   - 查询隔离：`search()` 默认只返回当前版本（`embed_model_version IS NULL OR = ?`），保留 old=NULL chunk 在兼容模式可见；`include_stale_versions=True` 跳过过滤
+   - 运行时覆盖：`set_emv_override(v)` 改进程内存态，重启恢复 settings 默认（有意设计：rotate 是运维动作，不该跨重启自动生效）
+   - Re-embed 流：`reembed_chunk(id)` 单条升级；`reembed_batch(kb_id, target, limit)` 批量迁移，跳过 `status != 'ok'` 与 already-on-target 的行
+   - 版本统计：`version_stats(kb_id?)` 返回分版本计数 + stale 数量
+   - Admin API（4 端点）：`GET /admin/embed-version` / `POST /admin/embed-version/rotate` / `POST /admin/chunks/{id}/re-embed` / `POST /admin/embed-version/migrate`
+   - Milvus duck-typing stub：三个新方法兜底抛 `NotImplementedError`
+
+2. **TDD 红→绿**：`tests/test_e8_embed_versioning.py`（14 条 8 类）
+   - `TestEmbedVersionSchema`（V1）— add 自动填 `embed_model_version` 等于 settings 默认
+   - `TestSearchVersionIsolation`（V2/V3）— stale 版本默认被 `search` 过滤；`include_stale_versions=True` 能召回旧版本
+   - `TestVersionStats`（V4）— `version_stats` 报告 `by_version` 分布 + `stale` 计数
+   - `TestReembedSingle`（V5/V8）— `reembed_chunk` 成功后升级版本；不存在的 id 返回 `{ok:false, reason:'not_found'}`
+   - `TestReembedBatch`（V6/V7）— `reembed_batch` 从 v1 迁到 v2；`status=embed_failed` 的行**保持旧版本**
+   - `TestAdminVersionAPI`（V9–V11 + re-embed + migrate）— rotate 端点回报 `{current, previous}`；re-embed / migrate 端点走通
+   - `TestMilvusStub`（V12）— Milvus stub 抛 `NotImplementedError`（无 pymilvus → skip）
+   - `TestD58RegresssWithVersion`（V13）— D58 `retry_embed` 成功后写入当前版本（跨故事守约）
+
+3. **实现**
+   - `config.py` 加 `embed_model_version: str = "v1"`
+   - `knowledge_tool.py`：
+     - 加模块级 `_emv_override / _resolve_emv() / set_emv_override()` 三个 helper
+     - 懒迁移 `ALTER TABLE chunks ADD COLUMN embed_model_version TEXT` + 二级索引
+     - `add()` INSERT 增列 14 个值（`current_emv = _resolve_emv()`）
+     - `search()` WHERE 加版本过滤；[tenant, kb_id, 全局] 三个分支都追加 `emv_arg`
+     - `retry_embed()` 成功分支写 `embed_model_version = _resolve_emv()`
+     - 新增 `reembed_chunk / reembed_batch / version_stats / get_current_embed_version`
+     - Milvus stub 三个新方法兜底
+   - `api/routes/knowledge.py` 加 4 个 admin 端点（version/rotate、re-embed、migrate）
+   - `tests/conftest.py` `_reset_state` 夹具每测试 `set_emv_override(None)` 防跨测试污染
+
+4. **回归与门禁**
+   - **D59 本体**：**13 passed / 1 skipped / 0 failed** in 25.18s
+   - **D58 回归**：15 passed / 1 skipped（retry_embed 仍设当前版本）
+   - **D57 回归**：11 passed（schema 新增 `embed_model_version` 无副作用）
+   - **离线全量**：**1363 passed / 35 skipped / 1 failed** in 526.88s
+     - 唯一失败 `test_auth_permissions::test_enabled_without_keys_is_503` (401 vs 503) 是 pre-existing 与 D59 无关（该用例单独跑也红）
+   - **mock eval**：`--mode mock` 门禁 **PASS**
+
+### 三、RED 与踩坑
+
+| # | 现象 | 根因 | 修法 |
+|---|---|---|---|
+| 全量回归 20 个检索类测试假红 | `_emv_override` 是模块级变量，D59 测试把它 set 成 `"v2"` 后不恢复 → 其它测试 `add()` 全写 v2、`search()` 全过滤 v2，但共享库里旧 chunk 全 v1 → 检索结果空 | `conftest._reset_state` 夹具里前后都 `set_emv_override(None)` |
+| `version_stats` SQL 语法错 `WHERE AND ...` | f-string `f"SELECT COUNT(*) FROM chunks {where} AND ..."`，where 为空时拼出 `chunks AND` | 拆成三行 f-string，`WHERE` 从句独立 |
+| `knowledge_tool.py` import 时 NameError | 前序 Python heredoc 在修 `__init__` 嵌套顺手删掉了模块级 D59 helpers，所有方法体都引用已删的 `_resolve_emv()` | 用 bash 重写区块恢复 helpers |
+
+### 四、回归门禁（D59 DOD 全部通过）
+* **E8/03 本体**：13 passed / 1 skipped（Milvus stub without pymilvus）
+* **D58 回归**：15 passed / 1 skipped
+* **D57 回归**：11 passed / 0 failed
+* **离线全量**：1363 passed / 35 skipped（1 个 pre-existing auth 失败，与 D59 无关）
+* **mock eval**：退出码 0，门禁 PASS
+
+### 五、SDD 边界（**不做**）
+* **Milvus 全路径**：sqlite 后端完整，Milvus 三个 stub 方法抛 `NotImplementedError`（SDK 接入时补全）
+* **真正的向量 re-compute**：测试用 mock embedding；Milvus re-embed 也只是占位
+* **自动触发 migrate**：rotate 之后不会自动批量 re-embed；管理员必须主动调 `migrate`（防止失控的全库向量重建）
+* **跨版本检索对齐**：不同版本的向量空间仍用同一内积打分（没有版本对齐 / 距离归一化，留给后续多跳/EN 链路时考虑）
+
+### 六、遗留
+* **`test_agent_real.py`（13 条）的欠账**自 D54 起未重跑
+* **Milvus 真后端接入**后补全 `reembed_chunk / reembed_batch / version_stats` 的 Milvus 实现
+* **`conftest._reset_state`** 把 D59 EMV override 夹具耦合进 base conftest，后续若新增其它 module-level 跨界状态，按同样模式追加
+

@@ -148,10 +148,16 @@ def test_deny_is_also_audited(auth_on, tmp_path, monkeypatch):
     assert any(x["decision"] == "DENY" for x in lines), "拒绝也必须留痕（只记放行无法复盘）"
 
 
-def test_enabled_without_keys_is_503(monkeypatch):
-    """开了鉴权却没配 key：**要吵**，不能静默放开。"""
+def test_enabled_without_any_identity_source_is_503(monkeypatch):
+    """开了鉴权、却**一个身份来源都没有**：要吵，不能静默放开。
+
+    注意判据是「无身份来源」而不是「无 AUTH_KEYS」——账号体系（AUTH/02）同样是
+    合法来源，只配账号、不配静态 key 是正常部署，那种情况下 503 会把服务整个打死。
+    所以这里把账号体系也关掉，构造真正的零来源状态。
+    """
     monkeypatch.setenv("AUTH_ENABLED", "true")
     monkeypatch.setenv("AUTH_KEYS", "")
+    monkeypatch.setenv("USER_AUTH_ENABLED", "false")
     get_settings.cache_clear()
 
     from fastapi.testclient import TestClient
@@ -159,6 +165,33 @@ def test_enabled_without_keys_is_503(monkeypatch):
     from app.main import app
 
     assert TestClient(app).post("/api/v1/chat/analyze", json=PAYLOAD).status_code == 503
+    get_settings.cache_clear()
+
+
+def test_enabled_without_keys_but_with_accounts_is_401(monkeypatch):
+    """只开鉴权 + 账号体系、不配静态 key：匿名应被要求**登录**（401），而不是 503。
+
+    503 表达的是"服务端配置坏了"，此时配置其实完全合法，用户去 /auth/login 就能进来；
+    回 503 会让"只用账号登录、不用 API key"的部署彻底不可用。
+    但安全意图不变：匿名依然拿不到数据，且登录入口必须可达。
+    """
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_KEYS", "")
+    monkeypatch.setenv("USER_AUTH_ENABLED", "true")
+    get_settings.cache_clear()
+
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    c = TestClient(app)
+    r = c.post("/api/v1/chat/analyze", json=PAYLOAD)
+    assert r.status_code == 401, r.text[:200]
+    assert "登录" in r.json()["detail"], "提示要告诉用户出路是登录，而不是只报错"
+    # 零身份来源时 503 的那种"服务不可用"绝不能出现
+    assert r.status_code != 503
+    # 登录入口必须仍然可达，否则用户被彻底锁在门外
+    assert c.get("/api/v1/auth/config").status_code == 200
     get_settings.cache_clear()
 
 

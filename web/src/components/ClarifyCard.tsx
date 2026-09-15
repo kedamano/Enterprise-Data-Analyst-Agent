@@ -29,21 +29,21 @@ export function ClarifyCard({
   };
 
   return (
-    <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+    <div className="mb-3 rounded-panel border border-amber-200 bg-amber-50/70 p-4">
       <div className="mb-2 flex items-center gap-2">
         <HelpCircle className="h-4 w-4 text-amber-600" />
-        <span className="text-xs font-medium uppercase tracking-wider text-amber-700">
+        <span className="text-small font-medium uppercase tracking-wider text-amber-700">
           {answered ? "已澄清" : "需要你确认"}
         </span>
       </div>
 
       {clarification.objective && (
-        <p className="mb-2 text-xs text-amber-800/80">
+        <p className="mb-2 text-small text-amber-800/80">
           目标：{clarification.objective}
         </p>
       )}
 
-      <ol className="mb-3 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+      <ol className="mb-3 list-decimal space-y-1 pl-5 text-body text-amber-900">
         {questions.map((q, i) => (
           <li key={i}>{q}</li>
         ))}
@@ -63,13 +63,13 @@ export function ClarifyCard({
             rows={2}
             placeholder="直接回答上面的问题，例如：不含退款，对比去年同期"
             aria-label="澄清回答"
-            className="flex-1 resize-none rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400"
+            className="flex-1 resize-none rounded-panel border border-amber-200 bg-white px-3 py-2 text-body outline-none focus:border-amber-400"
           />
           <button
             onClick={submit}
             disabled={!text.trim()}
             aria-label="提交澄清回答"
-            className="flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-2 text-sm text-white disabled:opacity-40"
+            className="flex items-center gap-1 rounded-panel bg-amber-600 px-3 py-2 text-body text-white disabled:opacity-40"
           >
             <Send className="h-3.5 w-3.5" />
             发送
@@ -78,7 +78,7 @@ export function ClarifyCard({
       )}
 
       {(clarification.assumptions ?? []).length > 0 && (
-        <p className="mt-2 text-xs text-amber-800/70">
+        <p className="mt-2 text-small text-amber-800/70">
           已假设：{(clarification.assumptions ?? []).join("；")}
         </p>
       )}

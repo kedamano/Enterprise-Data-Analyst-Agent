@@ -32,8 +32,8 @@ export function AuthGate({
     <Modal open={open} onClose={onCancel}>
       <ModalBody className="max-w-md">
         <ModalContent>
-          <h2 className="text-lg font-semibold text-slate-900">需要 API Key</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-500">
+          <h2 className="text-heading font-semibold text-slate-900">需要 API Key</h2>
+          <p className="mt-2 text-body leading-relaxed text-slate-500">
             服务端已开启鉴权。请输入分配给你的 <code className="rounded bg-slate-100 px-1">X-API-Key</code>
             ，提交后将以该身份继续本次分析。
           </p>
@@ -45,19 +45,19 @@ export function AuthGate({
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="粘贴 API Key"
             aria-label="API Key"
-            className="mt-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400"
+            className="mt-4 w-full rounded-control border border-slate-200 bg-white px-3 py-2 text-body text-slate-800 outline-none focus:border-indigo-400"
           />
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={onCancel}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+              className="rounded-control border border-slate-200 bg-white px-3 py-1.5 text-small font-medium text-slate-600 transition hover:bg-slate-50"
             >
               取消
             </button>
             <button
               onClick={submit}
               disabled={!key.trim()}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-control bg-indigo-600 px-3 py-1.5 text-small font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
             >
               确定
             </button>

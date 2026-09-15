@@ -74,7 +74,7 @@ export const Timeline = ({ data }: { data: TimelineEntry[] }) => {
                   />
                 </div>
                 <h3
-                  className={`hidden md:block text-[12px] md:pl-10 leading-tight transition-colors ${TONE_TITLE[tone]}`}
+                  className={`hidden md:block text-small md:pl-10 leading-tight transition-colors ${TONE_TITLE[tone]}`}
                 >
                   {item.title}
                 </h3>
@@ -82,7 +82,7 @@ export const Timeline = ({ data }: { data: TimelineEntry[] }) => {
 
               <div className="relative pl-10 pr-2 md:pl-1 w-full min-w-0">
                 <h3
-                  className={`md:hidden block text-sm mb-1 text-left leading-tight ${TONE_TITLE[tone]}`}
+                  className={`md:hidden block text-body mb-1 text-left leading-tight ${TONE_TITLE[tone]}`}
                 >
                   {item.title}
                 </h3>

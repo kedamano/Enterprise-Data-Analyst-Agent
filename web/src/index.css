@@ -1,44 +1,90 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-@custom-variant dark (&:is(.dark *));
+/* ============================================================================
+   设计令牌层
+   ----------------------------------------------------------------------------
+   收敛前：字号 18 档 / 278 处，圆角 6 档，图标 8 档 —— 每处单独决定的产物。
+   收敛后：字号 6 档、圆角 2 档、间距 7 级，全部有名字，语义固定。
 
-/* ===== 设计令牌（浅色主题，对齐参考图的明亮质感） ===== */
-:root {
-  --background: 210 20% 98%;        /* 接近 #fafbfc */
-  --foreground: 222 47% 11%;        /* slate-900 附近 */
+   命名原则：令牌描述「用途」而不是「外观」。
+   bg-brand 而不是 bg-navy —— 这样换季改色不用改 300 处引用。
+   ========================================================================= */
 
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+@theme {
+  /* ---- 字体 --------------------------------------------------------------
+     拉丁与数字用 IBM Plex（自托管，见 main.tsx 的 @fontsource 导入）；
+     CJK 交给系统 UI 字体 —— 中文网页字重 700+ 的完整字库动辄数 MB，
+     自托管的收益远低于代价，且中文用户对系统字体的字形更熟悉。
+     两类字体在同一行里协作：数字获得 Plex 的辨识度，汉字保持原生观感。 */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  /* ---- 字号（6 档，替代原来挤在 10–13.5px 的 8 档） ----------------------
+     display 32 · title 22 · heading 17 · body 15 · small 13 · micro 11.5
+     行高按阅读场景配：长文本松（1.6），单行标签紧（1.35）。 */
+  --text-display: 32px;
+  --text-display--line-height: 1.2;
+  --text-display--letter-spacing: -0.02em;
 
-  --primary: 244 75% 57%;          /* indigo-600 */
-  --primary-foreground: 0 0% 100%;
+  --text-title: 22px;
+  --text-title--line-height: 1.3;
+  --text-title--letter-spacing: -0.01em;
 
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 222 47% 11%;
+  --text-heading: 17px;
+  --text-heading--line-height: 1.4;
 
-  --muted: 220 14% 96%;
-  --muted-foreground: 215 16% 47%;
+  --text-body: 15px;
+  --text-body--line-height: 1.6;
 
-  --accent: 262 83% 58%;           /* violet-600 */
-  --accent-foreground: 0 0% 100%;
+  --text-small: 13px;
+  --text-small--line-height: 1.5;
 
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
+  --text-micro: 11.5px;
+  --text-micro--line-height: 1.35;
 
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 244 75% 57%;
+  /* ---- 圆角（2 档，替代原来用量相当的 6 档） ----------------------------
+     控件（按钮/输入/表格单元）与容器（卡片/弹窗/面板）分开。
+     胶囊形（rounded-full）仍在用，但只用于状态徽标，不用于容器。 */
+  --radius-control: 6px;
+  --radius-panel: 12px;
 
-  --radius: 0.75rem;
+  /* ---- 色彩 --------------------------------------------------------------
+     ink 系（文字层级）· canvas/paper/rule（表面层级）· 语义色（只在表达含义时出现）
+     单一品牌色，不再用「靛蓝 + 紫罗兰」双色渐变。 */
+  --color-ink: #0e1726; /* 主文字、标题 */
+  --color-ink-2: #46586c; /* 次要文字、说明 */
+  --color-ink-3: #71849a; /* 元信息、占位、禁用 */
+
+  --color-canvas: #f4f7fa; /* 页面底色 */
+  --color-paper: #ffffff; /* 卡片、输入框、表格 */
+  --color-rule: #e2e8ef; /* 分隔线、边框 */
+  --color-rule-strong: #cbd5e1; /* 强调边框、hover 态 */
+
+  --color-brand: #143a5e; /* 品牌色：主操作、当前选中、链接 */
+  --color-brand-hover: #0f2c48;
+  --color-brand-soft: #eaf0f6; /* 品牌色浅底（选中行、徽标底） */
+
+  --color-verified: #1b7f5a; /* 成功、已完成、健康 */
+  --color-verified-soft: #e8f4ef;
+  --color-attention: #9a6700; /* 待办、进行中、需注意 */
+  --color-attention-soft: #fdf6e3;
+  --color-danger: #b3261e; /* 失败、错误、危险操作 */
+  --color-danger-soft: #fdecea;
+
+  /* ---- 动效 --------------------------------------------------------------
+     收敛前 108 处 transition 分散在每张卡片上。这里给出两档明确时长：
+     fast 用于 hover 反馈，slow 用于展开/收起这类结构性变化。 */
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
 }
 
-* {
-  border-color: hsl(var(--border));
-}
+/* ============================================================================
+   基础层
+   ========================================================================= */
 
 html,
 body,
@@ -50,50 +96,139 @@ body,
 }
 
 body {
-  margin: 0;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* 细腻滚动条（浅色） */
+/* 数字对齐：凡是会逐行比较的数字列都用等宽数字，避免「列看起来在抖」。
+   这是排版惯例（Elements of Typographic Style），不是装饰。 */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---- 键盘焦点 --------------------------------------------------------------
+   此前只有约 5% 的可交互元素有 focus 样式。这里统一给所有可聚焦元素
+   一个清晰的、在任何底色上都可见的焦点环；鼠标点击不显示（:focus-visible）。 */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+/* 深色底上的焦点环（品牌色徽标、用户气泡里） */
+.on-dark :focus-visible {
+  outline-color: #ffffff;
+}
+
+/* ============================================================================
+   组件层
+   ========================================================================= */
+
+/* 滚动条：细、低对比，不抢内容的注意力 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(220 13% 80%);
+  background: #c9d3de;
   border-radius: 9999px;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(220 13% 70%);
+  background: #a9b7c6;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* 极淡点阵纹理 —— 浅色版 */
-.bg-dotgrid {
-  background-image: radial-gradient(
-    hsl(220 13% 88% / 0.6) 1px,
-    transparent 1px
-  );
-  background-size: 22px 22px;
+/* 报告正文的排版（Markdown 渲染结果）
+   行宽上限 72 字符落在舒适阅读区间；表格允许横向滚动而不撑破容器。 */
+.da-markdown {
+  font-size: var(--text-body);
+  line-height: 1.7;
+  color: var(--color-ink);
+}
+.da-markdown > * + * {
+  margin-top: 0.85em;
+}
+.da-markdown h1,
+.da-markdown h2,
+.da-markdown h3 {
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.4em;
+}
+.da-markdown h1 {
+  font-size: var(--text-heading);
+}
+.da-markdown h2 {
+  font-size: var(--text-heading);
+}
+.da-markdown h3 {
+  font-size: var(--text-body);
+}
+.da-markdown ul,
+.da-markdown ol {
+  padding-left: 1.35em;
+}
+.da-markdown ul {
+  list-style: disc;
+}
+.da-markdown ol {
+  list-style: decimal;
+}
+.da-markdown li + li {
+  margin-top: 0.3em;
+}
+.da-markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.da-markdown pre {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-panel);
+  padding: 0.9em 1em;
+  overflow-x: auto;
+}
+.da-markdown pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.da-markdown blockquote {
+  border-left: 3px solid var(--color-rule-strong);
+  padding-left: 0.9em;
+  color: var(--color-ink-2);
+}
+.da-markdown a {
+  color: var(--color-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-/* 一次性入场动画：用 CSS 而非 JS 编排，即使动画被打断也能回到可见状态。
-   注意：基础态即为「可见」，动画只作为锦上添花——避免 fill-mode 把元素
-   在动画未跑完时锁死在 opacity:0（无头截图 / 弱性能设备上会白屏）。 */
+/* ============================================================================
+   动效
+   ========================================================================= */
+
+/* 一次性入场：基础态即为可见，动画只是锦上添花。
+   不用 fill-mode 把元素锁在 opacity:0 —— 无头截图 / 弱性能设备上会白屏。 */
 @keyframes daFadeUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -102,16 +237,18 @@ body {
 }
 
 .da-fade-up {
-  animation: daFadeUp 0.5s ease-out backwards;
+  animation: daFadeUp 0.35s ease-out backwards;
 }
 
-.da-fade-up button {
-  animation: daFadeUp 0.45s ease-out backwards;
-}
-
+/* 系统声明「减少动效」时，把一切动画与过渡归零。
+   此前只有 .da-fade-up 尊重该偏好，其余 108 处 transition 仍在跑。 */
 @media (prefers-reduced-motion: reduce) {
-  .da-fade-up,
-  .da-fade-up button {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

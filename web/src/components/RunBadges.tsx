@@ -49,7 +49,7 @@ function IssueRow({ issue }: { issue: QualityIssue }) {
         : "text-slate-600";
   return (
     <li className={`flex items-start gap-1.5 ${tone}`}>
-      <span className="mt-0.5 shrink-0 font-mono text-[10px] uppercase opacity-70">
+      <span className="mt-0.5 shrink-0 font-mono text-micro uppercase opacity-70">
         {issue.severity}
       </span>
       <span className="min-w-0">{issue.detail}</span>
@@ -71,7 +71,7 @@ export function RunBadges({ events }: { events?: AgentEvent[] | null }) {
         {iteration && (
           <span
             aria-label={`增量执行：${iterationLabel(iteration.kind)}`}
-            className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700"
+            className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-micro font-medium text-indigo-700"
           >
             <GitBranch className="h-3 w-3" />
             增量 · {iterationLabel(iteration.kind)}
@@ -82,12 +82,12 @@ export function RunBadges({ events }: { events?: AgentEvent[] | null }) {
         )}
         {iteration && (
           // 增量轮不重新取数——把"基于上一结果"写明，避免误读为全量结论。
-          <span className="text-[11px] text-slate-400">基于上一结果，未重新取数</span>
+          <span className="text-micro text-slate-400">基于上一结果，未重新取数</span>
         )}
         {degraded && (
           <span
             aria-label="本轮为模板兜底"
-            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-micro font-medium text-amber-700"
           >
             <AlertTriangle className="h-3 w-3" />
             模板兜底（LLM 降级）
@@ -98,7 +98,7 @@ export function RunBadges({ events }: { events?: AgentEvent[] | null }) {
       {issues.length > 0 && (
         <div
           aria-label="数据质量提示"
-          className={`rounded-xl border p-3 text-xs ${
+          className={`rounded-panel border p-3 text-small ${
             hasBlock
               ? "border-rose-200 bg-rose-50"
               : "border-amber-200 bg-amber-50"

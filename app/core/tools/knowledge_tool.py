@@ -21,7 +21,9 @@ from typing import Any
 
 from ...config import get_settings
 
-_DB_PATH = Path("data/knowledge.db")
+# 路径可用 ``KNOWLEDGE_DB_PATH`` 覆盖。默认不变（``data/knowledge.db``）。
+# 缺这个开关时测试与旁路实例只能写真实库——与 ``knowledge_catalog`` 同理。
+_DB_PATH = Path(os.environ.get("KNOWLEDGE_DB_PATH") or (Path("data") / "knowledge.db"))
 _lock = threading.Lock()
 
 # SQLite 与 Milvus 两个后端共用 add/search 鸭子类型接口
@@ -810,7 +812,7 @@ class KnowledgeStore:
                      else " AND (embed_model_version IS NULL"
                           " OR embed_model_version=? )")
         emv_arg: list = ([] if include_stale_versions
-                         else [get_settings().embed_model_version])
+                         else [_resolve_emv()])
         q_vec = _embed(query)
         ten = self._resolve_tenant(tenant)
         with _lock, sqlite3.connect(self.db) as c:

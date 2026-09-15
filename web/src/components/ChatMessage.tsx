@@ -32,7 +32,7 @@ function AttachmentStrip({ attachments }: { attachments: Attachment[] }) {
       {attachments.map((a) => (
         <div
           key={a.id}
-          className="inline-flex max-w-[260px] items-center gap-1.5 rounded-md bg-white/15 px-2 py-1 text-[12.5px] text-white"
+          className="inline-flex max-w-[260px] items-center gap-1.5 rounded-control bg-white/15 px-2 py-1 text-small text-white"
           title={`${a.name} · ${fmtSize(a.size)}`}
         >
           {a.kind === "image" ? (
@@ -51,7 +51,7 @@ function AttachmentStrip({ attachments }: { attachments: Attachment[] }) {
 function StatusPill({ status, done }: { status?: string; done?: boolean }) {
   if (done) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[12.5px] font-medium text-emerald-700">
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-small font-medium text-emerald-700">
         <Check className="h-3.5 w-3.5" /> 已完成
       </span>
     );
@@ -60,7 +60,7 @@ function StatusPill({ status, done }: { status?: string; done?: boolean }) {
   const busy = status !== "FINISH" && status !== "ERROR" && status !== "FAILED";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-medium ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-small font-medium ${
         busy
           ? "border border-indigo-200 bg-indigo-50 text-indigo-700"
           : "border border-rose-200 bg-rose-50 text-rose-700"
@@ -91,7 +91,7 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
         animate={{ opacity: 1, y: 0 }}
         className="flex justify-end"
       >
-        <div className="max-w-[75%] rounded-2xl rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 px-[18px] py-3 text-[15px] leading-relaxed text-white shadow-lg shadow-indigo-500/20">
+        <div className="max-w-[75%] rounded-panel rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 px-[18px] py-3 text-body leading-relaxed text-white shadow-lg shadow-indigo-500/20">
           {attachments.length > 0 && <AttachmentStrip attachments={attachments} />}
           {message.text && <div className="whitespace-pre-wrap break-words">{message.text}</div>}
         </div>
@@ -119,19 +119,19 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
       animate={{ opacity: 1, y: 0 }}
       className="flex gap-3"
     >
-      <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/20">
+      <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-panel bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/20">
         <Bot className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1.5 flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-900">
+          <span className="text-body font-semibold text-slate-900">
             数据分析智能体
           </span>
           <StatusPill status={message.status} done={message.done} />
         </div>
 
         {message.error && (
-          <div className="mb-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <div className="mb-3 flex items-start gap-2 rounded-panel border border-rose-200 bg-rose-50 p-3 text-body text-rose-700">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{message.error}</span>
           </div>
@@ -157,9 +157,9 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
         <MetricCards metrics={latestMetrics(message.events)} />
 
         {hasReport && (
-          <div className="group mb-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/50">
+          <div className="group mb-3 rounded-panel border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/50">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              <span className="text-small font-medium uppercase tracking-wider text-slate-500">
                 分析报告
               </span>
               {/* 操作按钮成组靠右。此前 justify-between 会把三个按钮摊开铺满整行，
@@ -168,7 +168,7 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
                 <button
                   onClick={copyReport}
                   aria-label="复制报告"
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+                  className="inline-flex items-center gap-1 rounded-control border border-slate-200 bg-white px-2 py-1 text-small text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
                 >
                   {copied ? (
                     <>
@@ -185,7 +185,7 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
                   <a
                     href={`/api/v1/chat/analyze/export/${sessionId}?format=zip`}
                     aria-label="导出交付包"
-                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+                    className="inline-flex items-center gap-1 rounded-control border border-slate-200 bg-white px-2 py-1 text-small text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
                   >
                     <Download className="h-3.5 w-3.5" /> 导出
                   </a>
@@ -203,13 +203,13 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
         )}
 
         {message.events && message.events.length > 0 && (
-          <div className="mb-3 rounded-xl border border-slate-200/80 bg-white px-3 py-3 shadow-sm shadow-slate-200/50">
+          <div className="mb-3 rounded-panel border border-slate-200/80 bg-white px-3 py-3 shadow-sm shadow-slate-200/50">
             <StageTimeline events={message.events} defaultExpanded={!isDone} />
           </div>
         )}
 
         {!message.done && !message.events?.length && !message.error && (
-          <div className="flex items-center gap-2.5 text-[14.5px] text-slate-500">
+          <div className="flex items-center gap-2.5 text-body text-slate-500">
             <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-400" />
             正在连接智能体…
           </div>

@@ -25,7 +25,7 @@ export function ShareBar({ sessionId }: { sessionId: string | null }) {
   const permission = () => setNote("数据权限：接 #1 Principal 范围（allowed_tables / row_filters）");
 
   const btn =
-    "inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800";
+    "inline-flex items-center gap-1 rounded-control border border-slate-200 bg-white px-2 py-1 text-small text-slate-500 transition hover:border-slate-300 hover:text-slate-800";
 
   return (
     <div className="flex items-center gap-1.5">
@@ -39,7 +39,7 @@ export function ShareBar({ sessionId }: { sessionId: string | null }) {
         <ShieldCheck className="h-3.5 w-3.5" /> 权限
       </button>
       {note && (
-        <span className="ml-1 text-[11px] text-slate-400" role="status">
+        <span className="ml-1 text-micro text-slate-400" role="status">
           {note}
         </span>
       )}

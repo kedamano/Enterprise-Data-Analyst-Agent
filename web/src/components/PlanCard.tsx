@@ -82,19 +82,19 @@ export function PlanCard({
   const { done, finished } = progressOf(events, plan.workflow.length);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-[12.5px]">
+    <div className="rounded-panel border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-small">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1 text-indigo-600">
           <Bot className="h-3.5 w-3.5" /> 任务识别
         </span>
-        <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700">
+        <span className="rounded-control border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700">
           {label}
         </span>
         <span className="ml-auto flex flex-wrap gap-1">
           {plan.deliverable.map((d) => (
             <span
               key={d}
-              className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] text-slate-500"
+              className="rounded-control border border-slate-200 bg-white px-1.5 py-0.5 text-micro text-slate-500"
             >
               {d}
             </span>
@@ -102,7 +102,7 @@ export function PlanCard({
         </span>
       </div>
 
-      <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+      <div className="mb-1 text-micro font-medium uppercase tracking-wider text-slate-400">
         执行计划
       </div>
       <ol className="grid gap-0.5">
@@ -126,7 +126,7 @@ export function PlanCard({
       </ol>
 
       {required.length > 0 && (
-        <div className="mt-1.5 text-[11px] text-slate-400">
+        <div className="mt-1.5 text-micro text-slate-400">
           需要：{required.join(" / ")}
         </div>
       )}

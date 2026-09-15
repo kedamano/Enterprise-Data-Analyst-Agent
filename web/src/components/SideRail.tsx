@@ -32,7 +32,7 @@ function Logo() {
       width={32}
       height={32}
       draggable={false}
-      className="h-8 w-8 select-none rounded-lg object-contain shadow-sm ring-1 ring-slate-200/80"
+      className="h-8 w-8 select-none rounded-control object-contain shadow-sm ring-1 ring-slate-200/80"
     />
   );
 }
@@ -71,7 +71,7 @@ function RailLink({
       title={title}
       aria-label={title}
       aria-current={active ? "page" : undefined}
-      className={`grid h-9 w-9 place-items-center rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${
+      className={`grid h-9 w-9 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${
         active
           ? colors[accent ?? "indigo"]
           : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
@@ -109,7 +109,7 @@ function UserEntry({
         onClick={onClick}
         title="登录 / 注册"
         aria-label="登录 / 注册"
-        className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+        className="grid h-9 w-9 place-items-center rounded-panel text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
       >
         <LogIn className="h-5 w-5" strokeWidth={2.25} />
       </button>
@@ -124,7 +124,7 @@ function UserEntry({
       title={`${name} · ${roleLabel(user.role)}`}
       aria-label={`账号设置：${name}`}
       aria-current={active ? "page" : undefined}
-      className={`grid h-9 w-9 place-items-center rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${
+      className={`grid h-9 w-9 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${
         active ? "bg-indigo-50 ring-1 ring-indigo-200" : "hover:bg-slate-100"
       }`}
     >

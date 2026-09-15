@@ -33,12 +33,12 @@ function DocsModal({ open, onClose }: { open: boolean; onClose?: () => void }) {
     <Modal open={open} onClose={onClose}>
       <ModalBody className="max-w-xl">
         <ModalContent>
-          <h2 className="text-xl font-semibold text-slate-900">使用指南</h2>
-          <p className="mt-3 text-sm leading-relaxed text-slate-500">
+          <h2 className="text-title font-semibold text-slate-900">使用指南</h2>
+          <p className="mt-3 text-body leading-relaxed text-slate-500">
             这是一个企业级数据分析智能体的可视化控制台。你可以用自然语言提出业务问题，
             智能体会自动完成以下六阶段编排：
           </p>
-          <ul className="mt-4 space-y-2 text-sm text-slate-700">
+          <ul className="mt-4 space-y-2 text-body text-slate-700">
             {[
               "意图理解 — 解析你的业务目标与约束",
               "制定计划 — 规划需要调用的工具与步骤",
@@ -53,7 +53,7 @@ function DocsModal({ open, onClose }: { open: boolean; onClose?: () => void }) {
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-xs text-slate-400">
+          <p className="mt-4 text-small text-slate-400">
             所有工具均为只读 / 计算，不会对数据源产生写操作。
           </p>
         </ModalContent>
@@ -355,31 +355,31 @@ export default function App() {
                   width={28}
                   height={28}
                   draggable={false}
-                  className="h-7 w-7 shrink-0 select-none rounded-lg object-contain shadow-sm ring-1 ring-slate-200/80"
+                  className="h-7 w-7 shrink-0 select-none rounded-control object-contain shadow-sm ring-1 ring-slate-200/80"
                 />
                 <div className="flex min-w-0 flex-col leading-tight">
-                  <span className="truncate text-[14px] font-semibold text-slate-900">
+                  <span className="truncate text-body font-semibold text-slate-900">
                     {active?.title || "企业数据分析智能体"}
                   </span>
-                  <span className="truncate text-[11.5px] text-slate-500">
+                  <span className="truncate text-micro text-slate-500">
                     数据分析 · 自然语言驱动六阶段编排
                   </span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-[11.5px] font-medium text-emerald-700 sm:inline-flex">
+                <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-micro font-medium text-emerald-700 sm:inline-flex">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   deepseek-chat 已就绪
                 </span>
                 <button
                   onClick={newConversation}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12.5px] font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-control border border-slate-200 bg-white px-3 py-1.5 text-small font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
                 >
                   <History className="h-4 w-4" /> 新对话
                 </button>
                 <button
                   onClick={() => setDocsOpen(true)}
-                  className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-slate-800"
+                  className="grid h-8 w-8 place-items-center rounded-control border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-slate-800"
                   title="使用文档"
                   aria-label="使用文档"
                 >

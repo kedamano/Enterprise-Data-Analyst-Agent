@@ -190,15 +190,15 @@ export function Composer({
   // 流式：只显示「停止」控件，不允许编辑
   if (streaming) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-4 py-3.5 shadow-sm">
+      <div className="flex items-center gap-3 rounded-panel border border-indigo-200/70 bg-indigo-50/70 px-4 py-3.5 shadow-sm">
         <span className="relative flex h-2.5 w-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-70" />
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-500" />
         </span>
-        <span className="text-[14.5px] font-medium text-indigo-900">智能体正在分析，请稍候…</span>
+        <span className="text-body font-medium text-indigo-900">智能体正在分析，请稍候…</span>
         <button
           onClick={onStop}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3.5 py-2 text-[13px] font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-control border border-indigo-200 bg-white px-3.5 py-2 text-small font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
         >
           <Square className="h-3.5 w-3.5" /> 停止
         </button>
@@ -215,7 +215,7 @@ export function Composer({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "relative rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50 transition",
+        "relative rounded-panel border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50 transition",
         dragging && "ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-50",
       )}
     >
@@ -226,11 +226,11 @@ export function Composer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-indigo-400 bg-indigo-50/80 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center rounded-panel border-2 border-dashed border-indigo-400 bg-indigo-50/80 backdrop-blur-sm"
           >
             <Paperclip className="h-6 w-6 text-indigo-500" />
-            <p className="mt-2 text-sm font-medium text-indigo-700">松开即可上传文件或图片</p>
-            <p className="mt-0.5 text-xs text-indigo-500/80">支持图片 · CSV · Excel · PDF · JSON · 代码文件</p>
+            <p className="mt-2 text-body font-medium text-indigo-700">松开即可上传文件或图片</p>
+            <p className="mt-0.5 text-small text-indigo-500/80">支持图片 · CSV · Excel · PDF · JSON · 代码文件</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -242,7 +242,7 @@ export function Composer({
             a.kind === "image" && a.previewUrl ? (
               <div
                 key={a.id}
-                className="group relative h-16 w-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                className="group relative h-16 w-16 overflow-hidden rounded-control border border-slate-200 bg-slate-50"
                 title={`${a.name} · ${fmtSize(a.size)}`}
               >
                 <img
@@ -262,7 +262,7 @@ export function Composer({
             ) : (
               <div
                 key={a.id}
-                className="group inline-flex max-w-[200px] items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+                className="group inline-flex max-w-[200px] items-center gap-1.5 rounded-control border border-slate-200 bg-slate-50 px-2 py-1.5 text-small text-slate-700"
                 title={`${a.name} · ${fmtSize(a.size)}`}
               >
                 {extIcon(a.name)}
@@ -297,7 +297,7 @@ export function Composer({
           onClick={() => fileInputRef.current?.click()}
           aria-label="上传文件或图片"
           title="上传文件或图片（支持拖拽 / Ctrl+V 粘贴）"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-panel text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600"
         >
           <Paperclip className="h-5 w-5" />
         </button>
@@ -313,7 +313,7 @@ export function Composer({
             aria-label="提问输入框"
             placeholder={PLACEHOLDERS[placeholderIdx]}
             className={cn(
-              "block w-full resize-none bg-transparent px-1 py-2 text-[14.5px] leading-[22px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0",
+              "block w-full resize-none bg-transparent px-1 py-2 text-body leading-[22px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0",
             )}
           />
         </div>
@@ -325,7 +325,7 @@ export function Composer({
           aria-label="发送"
           title="发送（⌘/Ctrl + Enter）"
           className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300",
+            "grid h-9 w-9 shrink-0 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300",
             canSubmit
               ? "bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30 hover:from-indigo-600 hover:to-violet-700"
               : "bg-slate-100 text-slate-300",
@@ -336,7 +336,7 @@ export function Composer({
       </div>
 
       {/* 底部小提示行 */}
-      <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-2 text-[12px] text-slate-400">
+      <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-2 text-small text-slate-400">
         <span className="inline-flex items-center gap-1.5">
           <ImageIcon className="h-3.5 w-3.5" />
           支持图片、CSV、Excel、PDF、文本、代码文件

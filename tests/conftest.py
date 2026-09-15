@@ -38,6 +38,28 @@ os.environ["LLM_NO_FALLBACK"] = "true"
 for _var in ("REDIS_URL", "POSTGRES_DSN", "MILVUS_HOST"):
     os.environ.setdefault(_var, "")
 
+# --- 知识库两条 SQLite 路径隔离（必须在任何 `app` 导入之前设置）---
+#
+# `knowledge_tool._DB_PATH` 与 `knowledge_catalog._DB_PATH` 都是**模块级常量**，
+# 在导入时求值。它们默认指向真实 `data/`，于是：
+#   * 测试调 `get_catalog().create_base("诊断测试库")` 会往**真实目录**塞一条空库
+#     （实测累积 16 条，直接出现在用户的知识库界面上）；
+#   * 任何走 `get_store()` 的用例都会写真实分块表。
+#
+# 这里把两者指向真实库的**临时副本**：写入被隔离，而既有已种子内容（企业知识库
+# 137 分块）仍然可见——测试若依赖它不会因此假红。
+import shutil as _shutil  # noqa: E402
+import tempfile as _tempfile  # noqa: E402
+
+_KB_ISOLATION_DIR = Path(_tempfile.mkdtemp(prefix="da_kb_isolation_"))
+for _db_name, _env_var in (("knowledge.db", "KNOWLEDGE_DB_PATH"),
+                           ("knowledge_meta.db", "KNOWLEDGE_META_DB")):
+    _src = _PROJECT_ROOT / "data" / _db_name
+    _dst = _KB_ISOLATION_DIR / _db_name
+    if _src.exists():
+        _shutil.copy2(_src, _dst)   # 拷贝而非移动：真实库只读不动
+    os.environ[_env_var] = str(_dst)
+
 import pytest  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
@@ -50,10 +72,14 @@ from app.infrastructure.llm.router import (  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _reset_state():
-    """Fresh LLM/settings cache before every test."""
+    """Fresh LLM/settings cache + D59 runtime EMV override before every test."""
+    from app.core.tools.knowledge_tool import set_emv_override
+
     reset_llm()
     get_settings.cache_clear()
+    set_emv_override(None)
     yield
+    set_emv_override(None)
     reset_llm()
 
 
