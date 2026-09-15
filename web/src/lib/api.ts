@@ -573,6 +573,20 @@ export interface KbIngestResponse {
   hint?: string | null;
 }
 
+export interface KbPreviewResponse {
+  kb_id: string;
+  doc_id: string;
+  name: string;
+  doc_type: string;
+  source: string;
+  previewable: boolean;
+  truncated: boolean;
+  text: string | null;
+  chars: number;
+  chunks: number;
+  reason: string | null;
+}
+
 /** 统一的请求包装：把后端 400 的 `detail` 抬成 Error message，便于直接展示。 */
 async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
   const res = await fetch(input, {
@@ -681,7 +695,30 @@ export function searchKb(
   return requestJson(`/api/v1/knowledge-bases/${kbId}/search${qs}`, { signal });
 }
 
+/** 拉取知识库文档的预览全文（按分块拼回，截断到 ~50KB）。 */
+export function previewKbDocument(
+  kbId: string,
+  docId: string,
+  signal?: AbortSignal,
+): Promise<KbPreviewResponse> {
+  return requestJson<KbPreviewResponse>(
+    `/api/v1/knowledge-bases/${kbId}/documents/${docId}/preview`, { signal },
+  );
+}
+
 // ---------------------------------------------------------------- 文件库（企业文件管理）
+
+export interface FsPreviewResponse {
+  id: string;
+  name: string;
+  mime: string;
+  previewable: boolean;
+  truncated: boolean;
+  text: string | null;
+  chars: number;
+  encoding: string | null;
+  reason: string | null;
+}
 
 export interface FsNode {
   id: string;
@@ -752,4 +789,12 @@ export function deleteFsNode(nodeId: string): Promise<{ ok: boolean; deleted: nu
 /** 下载直链（浏览器原生下载，不走 fetch，避免大文件占用内存）。 */
 export function fsDownloadUrl(nodeId: string): string {
   return `/api/v1/files/download/${nodeId}`;
+}
+
+/** 拉取文件预览内容（文本类文件返回全文，非文本返回 previewable=false）。 */
+export async function previewFsFile(
+  nodeId: string,
+  signal?: AbortSignal,
+): Promise<FsPreviewResponse> {
+  return requestJson<FsPreviewResponse>(`/api/v1/files/preview/${nodeId}`, { signal });
 }

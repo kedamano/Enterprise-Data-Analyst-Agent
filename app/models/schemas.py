@@ -205,6 +205,21 @@ class KbIngestResponse(BaseModel):
     hint: Optional[str] = None
 
 
+class KbPreviewResponse(BaseModel):
+    """知识库文档预览响应：已入库文档按分块拼回的全文（截断到 ~50KB）。"""
+    kb_id: str
+    doc_id: str
+    name: str
+    doc_type: str = "file"
+    source: str = ""
+    previewable: bool = True
+    truncated: bool = False
+    text: Optional[str] = None
+    chars: int = 0
+    chunks: int = 0
+    reason: Optional[str] = None
+
+
 # --- 文件库：企业文件管理（目录树 + 文件）---
 class FsNode(BaseModel):
     id: str
