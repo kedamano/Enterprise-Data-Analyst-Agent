@@ -241,7 +241,11 @@ body {
 }
 
 /* 系统声明「减少动效」时，把一切动画与过渡归零。
-   此前只有 .da-fade-up 尊重该偏好，其余 108 处 transition 仍在跑。 */
+   此前只有 .da-fade-up 尊重该偏好，其余 108 处 transition 仍在跑。
+
+   应用内的「减少界面动效」开关（设置 → 体验）由 ExperiencePanel 在
+   <html> 上写 data-reduce-motion="1"，所以必须**同时**响应该属性——
+   否则那个开关只是改了个没人读的 DOM 属性（此前正是如此）。 */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -251,4 +255,13 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+html[data-reduce-motion="1"] *,
+html[data-reduce-motion="1"] *::before,
+html[data-reduce-motion="1"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

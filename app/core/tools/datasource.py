@@ -73,12 +73,39 @@ def _guess_dialect(url: str) -> str:
 
 
 def sources() -> dict[str, dict[str, str]]:
-    """全部可用源（含主源，名为 ``default``）。"""
+    """全部可用源（含主源，名为 ``default``）。
+
+    三层合并：主源（``DATA_DB_URL``）→ env 命名源（``DATA_SOURCES``）→
+    页面「新建连接」的本地存储（``datasource_store_path``）。local 同名**覆盖**
+    env 源（页面是最新意图）；``default`` 主源永远不可被覆盖。
+    """
     settings = get_settings()
     out = {DEFAULT_SOURCE: {"url": settings.data_db_url,
                             "dialect": settings.data_db_dialect or _guess_dialect(settings.data_db_url)}}
     out.update(_parse_sources(getattr(settings, "data_sources", "")))
+    try:
+        from .datasource_store import DataSourceStore
+
+        local = DataSourceStore(settings.datasource_store_path).list_entries()
+    except Exception as exc:  # 存储故障不阻塞源解析
+        logger.warning("本地数据源存储读取失败，忽略页面新建的源：%s", exc)
+        local = {}
+    for name, entry in local.items():
+        if name == DEFAULT_SOURCE:
+            continue
+        out[name] = {"url": entry["url"],
+                     "dialect": entry.get("dialect") or _guess_dialect(entry["url"])}
     return out
+
+
+def local_source_names() -> list[str]:
+    """页面「新建连接」落盘的源名——只有这些可从页面删除。"""
+    try:
+        from .datasource_store import DataSourceStore
+
+        return list(DataSourceStore(get_settings().datasource_store_path).list_entries())
+    except Exception:
+        return []
 
 
 def available_sources() -> list[str]:

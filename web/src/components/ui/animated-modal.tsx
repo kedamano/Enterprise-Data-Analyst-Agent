@@ -35,7 +35,7 @@ const CloseIcon = ({ onClose }: { onClose?: () => void }) => (
     type="button"
     onClick={onClose}
     aria-label="关闭"
-    className="absolute top-4 right-4 z-10 grid h-8 w-8 place-items-center rounded-control text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+    className="absolute top-4 right-4 z-10 grid h-8 w-8 place-items-center rounded-control text-ink-3 transition hover:bg-canvas hover:text-ink-2"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -100,7 +100,7 @@ export function Modal({
             ref={modalRef}
             onClick={(e) => e.stopPropagation()}
             className={cn(
-              "min-h-[40%] max-h-[90%] w-full max-w-lg md:max-w-[42%] bg-white border border-slate-200 md:rounded-panel relative z-50 flex flex-col flex-1 overflow-hidden shadow-2xl shadow-slate-900/10",
+              "min-h-[40%] max-h-[90%] w-full max-w-lg md:max-w-[42%] bg-white border border-rule md:rounded-panel relative z-50 flex flex-col flex-1 overflow-hidden shadow-2xl ",
               className ?? "",
             )}
             initial={{ opacity: 0, scale: 0.5, rotateX: 40, y: 40 }}
@@ -144,7 +144,7 @@ export const ModalFooter = ({
   children: ReactNode;
   className?: string;
 }) => (
-  <div className={cn("flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3 md:px-8", className)}>
+  <div className={cn("flex justify-end gap-2 border-t border-rule bg-canvas px-6 py-3 md:px-8", className)}>
     {children}
   </div>
 );

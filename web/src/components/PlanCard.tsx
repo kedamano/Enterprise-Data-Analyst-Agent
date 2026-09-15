@@ -53,14 +53,14 @@ function progressOf(
 
 function StepIcon({ state }: { state: "done" | "active" | "todo" }) {
   if (state === "done") {
-    return <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />;
+    return <Check className="h-4 w-4 shrink-0 text-verified" />;
   }
   if (state === "active") {
     return (
-      <span className="h-3 w-3 shrink-0 animate-pulse rounded-full border-2 border-indigo-400" />
+      <span className="h-3 w-3 shrink-0 animate-pulse rounded-full border-2 border-brand" />
     );
   }
-  return <Circle className="h-3.5 w-3.5 shrink-0 text-slate-300" />;
+  return <Circle className="h-4 w-4 shrink-0 text-ink-3" />;
 }
 
 export function PlanCard({
@@ -82,19 +82,19 @@ export function PlanCard({
   const { done, finished } = progressOf(events, plan.workflow.length);
 
   return (
-    <div className="rounded-panel border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-small">
+    <div className="rounded-panel border border-rule bg-canvas px-3 py-2.5 text-small">
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1 text-indigo-600">
-          <Bot className="h-3.5 w-3.5" /> 任务识别
+        <span className="inline-flex items-center gap-1 text-brand">
+          <Bot className="h-4 w-4" /> 任务识别
         </span>
-        <span className="rounded-control border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700">
+        <span className="rounded-control border border-rule-strong bg-brand-soft px-2 py-0.5 font-medium text-brand">
           {label}
         </span>
         <span className="ml-auto flex flex-wrap gap-1">
           {plan.deliverable.map((d) => (
             <span
               key={d}
-              className="rounded-control border border-slate-200 bg-white px-1.5 py-0.5 text-micro text-slate-500"
+              className="rounded-control border border-rule bg-white px-1.5 py-0.5 text-micro text-ink-3"
             >
               {d}
             </span>
@@ -102,7 +102,7 @@ export function PlanCard({
         </span>
       </div>
 
-      <div className="mb-1 text-micro font-medium uppercase tracking-wider text-slate-400">
+      <div className="mb-1 text-micro font-medium text-ink-3">
         执行计划
       </div>
       <ol className="grid gap-0.5">
@@ -113,11 +113,11 @@ export function PlanCard({
             <li
               key={step}
               className={`flex items-center gap-1.5 ${
-                st === "todo" ? "text-slate-400" : "text-slate-700"
+                st === "todo" ? "text-ink-3" : "text-ink-2"
               }`}
             >
               <StepIcon state={st} />
-              <span className={st === "done" ? "line-through decoration-slate-300" : ""}>
+              <span className={st === "done" ? "line-through " : ""}>
                 {step}
               </span>
             </li>
@@ -126,7 +126,7 @@ export function PlanCard({
       </ol>
 
       {required.length > 0 && (
-        <div className="mt-1.5 text-micro text-slate-400">
+        <div className="mt-1.5 text-micro text-ink-3">
           需要：{required.join(" / ")}
         </div>
       )}

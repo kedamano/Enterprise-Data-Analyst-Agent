@@ -725,6 +725,54 @@ class KnowledgeStore:
                 "embed_failed": embed_failed, "deprecated": deprecated,
                 "abandoned": abandoned, "embed_failed_aging": aging}
 
+    def preview_source(self, source: str,
+                       kb_id: str | None = None,
+                       limit_chars: int = 50000) -> dict[str, Any]:
+        """把某个来源的分块按原始顺序拼回全文，用于前端「预览」。
+
+        只取最新版（``deprecated=0`` 且最大 version）的 chunk，按 id 升序拼接
+        （id 即入库顺序，等于原文顺序）。超出 ``limit_chars`` 截断并标记
+        ``truncated=True``，避免把几十万一整本书弹进前端。
+
+        不暴露 embedding / tokens 等内部字段；不是 knowledge_store_type 签名上的
+        必选方法（Milvus stub 暂不实现）。
+        """
+        with _lock, sqlite3.connect(self.db) as c:
+            # 取最新 version
+            row = c.execute(
+                "SELECT MAX(version) FROM chunks WHERE source=? AND kb_id IS ? "
+                "AND deprecated=0",
+                (source, kb_id),
+            ).fetchone()
+            if not row or row[0] is None:
+                return {"found": False, "text": "", "truncated": False,
+                        "chars": 0, "chunks": 0}
+            ver = int(row[0])
+            rows = c.execute(
+                "SELECT text FROM chunks WHERE source=? AND kb_id IS ? "
+                "AND version=? AND deprecated=0 ORDER BY id ASC",
+                (source, kb_id, ver),
+            ).fetchall()
+        parts: list[str] = []
+        total = 0
+        truncated = False
+        for (txt,) in rows:
+            t = txt or ""
+            if total + len(t) > limit_chars:
+                remain = max(0, limit_chars - total)
+                if remain > 0:
+                    parts.append(t[:remain])
+                    total += remain
+                truncated = True
+                break
+            parts.append(t)
+            total += len(t)
+        # 分块之间用换行接回（chunk 切分时已保留段落间的换行，这里补一个保证
+        # 相邻 chunk 的末/首不会粘成一个词）
+        text = "\n".join(parts)
+        return {"found": True, "text": text, "truncated": truncated,
+                "chars": total, "chunks": len(rows)}
+
     def list_embed_failed(self, kb_id: str | None = None,
                           limit: int = 50) -> list[dict[str, Any]]:
         """返回 embed_failed chunk 的排查信息（含 source / text 片段 / failed_count / retried_at）。"""
@@ -1114,6 +1162,13 @@ class MilvusKnowledgeStore:
     def list_embed_failed(self, kb_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
         return []
 
+    def preview_source(self, source: str,
+                       kb_id: str | None = None,
+                       limit_chars: int = 50000) -> dict[str, Any]:
+        """Milvus 后端暂不支持分块级重建全文（chunk 在 Milvus 里是无结构向量）。"""
+        return {"found": False, "text": "", "truncated": False,
+                "chars": 0, "chunks": 0, "unsupported": True}
+
     # D59 嵌入版本迁移 Milvus 后端兜底：collection 维度硬约束（创建时维度定死）；
     # Milvus 路径不直接支持「同库 / 同 collection 改维度」——真正迁移要上层建
     # 新 collection + 回灌；stub 只保 duck-typing 不抛 AttributeError。
@@ -1220,7 +1275,11 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
     top_k = int(params.get("top_k", 4))
     tenant = params.get("tenant")
     try:
-        chunks = get_store().search(query, top_k, tenant=tenant)
+        from ..rag.multihop import MultiHopRetriever
+
+        mh = MultiHopRetriever(store=get_store(), tenant=tenant)
+        result = mh.retrieve(query, top_k)
+        chunks = result.chunks
     except Exception as exc:
         # fail-closed：出错就报错，绝不伪装成一次"成功的检索"（那会让模型以为查过了）
         return {"ok": False, "error": str(exc), "chunks": []}

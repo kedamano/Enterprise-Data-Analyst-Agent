@@ -37,17 +37,20 @@ def datasources():
     与「文件库」（个人上传文件）是两类不同资产，前端分两个面板呈现。
     """
     try:
-        from ...core.tools.datasource import sources
+        from ...core.tools.datasource import local_source_names, sources
 
         raw = sources()
+        local_names = set(local_source_names())
     except Exception:
         raw = {}
+        local_names = set()
     conns = [
         DataSourceConn(
             name=name,
             dialect=info.get("dialect", "unknown"),
             url=_mask_dsn(info.get("url", "")),
             readonly=get_settings().sql_readonly,
+            origin="local" if name in local_names else "env",
         )
         for name, info in raw.items()
     ]

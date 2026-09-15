@@ -151,9 +151,9 @@ export function Report({ raw }: { raw: string }) {
 
   if (degraded) {
     return (
-      <div className="rounded-panel border border-amber-500/30 bg-amber-500/[0.06] p-4 text-body text-amber-100/90">
+      <div className="rounded-panel border border-attention bg-attention/[0.06] p-4 text-body text-attention">
         <div className="mb-1 font-medium">报告未生成</div>
-        <p className="text-small leading-relaxed text-amber-200/80">
+        <p className="text-small leading-relaxed text-attention">
           智能体在报告生成阶段未产出有效内容（可能是上游 LLM
           暂时不可用）。请稍后重试，或换一个表述更具体的问题再试。
         </p>

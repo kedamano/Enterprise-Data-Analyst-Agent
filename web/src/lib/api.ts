@@ -365,10 +365,69 @@ export interface DataSourceConn {
   dialect: string;
   url: string; // 已脱敏
   readonly: boolean;
+  /** env（服务端配置）| local（页面「新建连接」落盘，可删除） */
+  origin?: "env" | "local";
 }
 
 export interface DataSourceListResponse {
   sources: DataSourceConn[];
+}
+
+/** 「新建连接」表单字段（Navicat 式）。dialect=sqlite 用 path，其余用 host 系列。 */
+export interface DataSourceForm {
+  name?: string;
+  dialect: "sqlite" | "mysql" | "postgresql";
+  host?: string;
+  port?: number;
+  database?: string;
+  username?: string;
+  password?: string;
+  path?: string;
+}
+
+/** POST /api/v1/datasources/test —— 只探活，不落盘。 */
+export async function testDataSource(
+  form: DataSourceForm,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const res = await fetch("/api/v1/datasources/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(form),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    return { ok: false, error: detail?.detail || `测试连接失败 HTTP ${res.status}` };
+  }
+  return (await res.json()) as { ok: boolean; message?: string; error?: string };
+}
+
+/** POST /api/v1/datasources —— 探活通过才落盘；返回脱敏连接。 */
+export async function createDataSource(form: DataSourceForm): Promise<DataSourceConn> {
+  const res = await fetch("/api/v1/datasources", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(form),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `新建连接失败 HTTP ${res.status}`);
+  }
+  return (await res.json()) as DataSourceConn;
+}
+
+/** DELETE /api/v1/datasources/{name} —— 仅页面新建（local）的连接可删。 */
+export async function deleteDataSource(
+  name: string,
+): Promise<{ ok: boolean; name: string }> {
+  const res = await fetch(`/api/v1/datasources/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `删除连接失败 HTTP ${res.status}`);
+  }
+  return (await res.json()) as { ok: boolean; name: string };
 }
 
 /** GET /api/v1/datasources —— 已配置的数据库连接清单（与「文件库」是两类资产）。 */

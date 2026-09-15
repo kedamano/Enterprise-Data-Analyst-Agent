@@ -12,12 +12,15 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import type { Attachment } from "@/lib/types";
 
-const PLACEHOLDERS = [
-  "对比各区域营收表现，找出增长最快的地区",
-  "分析最近半年的月度销售趋势并预测下个月",
-  "诊断数据质量：缺失值、重复记录与异常分布",
-  "把示例数据画成趋势图（上传 CSV 我帮你分析）",
-];
+/**
+ * 占位提示固定为一句。
+ *
+ * 原先这里是 3.5 秒轮播的多条示例问题——那属于「非用户触发的持续动效」：
+ * 输入框里每隔几秒自行变化，容易被误读成「框里已经有内容」；
+ * 示例问题本该出现在落地页（那里用户有充足的空间挑选），
+ * 输入框只该安静地说明「这里能做什么」。
+ */
+const PLACEHOLDER = "描述你的业务问题，或上传 CSV / Excel 文件让智能体分析";
 
 const ACCEPT = "image/*,.pdf,.csv,.tsv,.txt,.md,.json,.xlsx,.xls,.docx,.doc,.log,.py,.sql";
 
@@ -38,9 +41,9 @@ function fmtSize(n: number): string {
 
 function extIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  if (["csv", "tsv", "xlsx", "xls"].includes(ext)) return <FileText className="h-3.5 w-3.5" />;
-  if (["json", "py", "sql", "md", "log"].includes(ext)) return <FileCode2 className="h-3.5 w-3.5" />;
-  return <FileText className="h-3.5 w-3.5" />;
+  if (["csv", "tsv", "xlsx", "xls"].includes(ext)) return <FileText className="h-4 w-4" />;
+  if (["json", "py", "sql", "md", "log"].includes(ext)) return <FileCode2 className="h-4 w-4" />;
+  return <FileText className="h-4 w-4" />;
 }
 
 export function Composer({
@@ -54,7 +57,6 @@ export function Composer({
 }) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [dragging, setDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,12 +71,6 @@ export function Composer({
       previewUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
     };
   }, [attachments]);
-
-  // 跑马灯占位符
-  useEffect(() => {
-    const id = setInterval(() => setPlaceholderIdx((i) => (i + 1) % PLACEHOLDERS.length), 3500);
-    return () => clearInterval(id);
-  }, []);
 
   // 自动撑高 textarea（1~8 行）
   useEffect(() => {
@@ -190,17 +186,17 @@ export function Composer({
   // 流式：只显示「停止」控件，不允许编辑
   if (streaming) {
     return (
-      <div className="flex items-center gap-3 rounded-panel border border-indigo-200/70 bg-indigo-50/70 px-4 py-3.5 shadow-sm">
+      <div className="flex items-center gap-3 rounded-panel border border-rule-strong bg-brand-soft px-4 py-3.5 shadow-sm">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-70" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-500" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-70" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand" />
         </span>
-        <span className="text-body font-medium text-indigo-900">智能体正在分析，请稍候…</span>
+        <span className="text-body font-medium text-brand">智能体正在分析，请稍候…</span>
         <button
           onClick={onStop}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-control border border-indigo-200 bg-white px-3.5 py-2 text-small font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-control border border-rule-strong bg-white px-3.5 py-2 text-small font-medium text-brand shadow-sm transition hover:bg-brand-soft"
         >
-          <Square className="h-3.5 w-3.5" /> 停止
+          <Square className="h-4 w-4" /> 停止
         </button>
       </div>
     );
@@ -215,8 +211,8 @@ export function Composer({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "relative rounded-panel border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50 transition",
-        dragging && "ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-50",
+        "relative rounded-panel border border-rule bg-white shadow-sm  transition",
+        dragging && "ring-2 ring-brand ring-offset-2 ring-offset-slate-50",
       )}
     >
       {/* 拖拽时的全屏提示层 */}
@@ -226,23 +222,23 @@ export function Composer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center rounded-panel border-2 border-dashed border-indigo-400 bg-indigo-50/80 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center rounded-panel border-2 border-dashed border-brand bg-brand-soft backdrop-blur-sm"
           >
-            <Paperclip className="h-6 w-6 text-indigo-500" />
-            <p className="mt-2 text-body font-medium text-indigo-700">松开即可上传文件或图片</p>
-            <p className="mt-0.5 text-small text-indigo-500/80">支持图片 · CSV · Excel · PDF · JSON · 代码文件</p>
+            <Paperclip className="h-6 w-6 text-brand" />
+            <p className="mt-2 text-body font-medium text-brand">松开即可上传文件或图片</p>
+            <p className="mt-0.5 text-small text-brand">支持图片 · CSV · Excel · PDF · JSON · 代码文件</p>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* 已选附件预览行 */}
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-b border-slate-200/70 px-3 pt-3 pb-2">
+        <div className="flex flex-wrap gap-2 border-b border-rule px-3 pt-3 pb-2">
           {attachments.map((a) =>
             a.kind === "image" && a.previewUrl ? (
               <div
                 key={a.id}
-                className="group relative h-16 w-16 overflow-hidden rounded-control border border-slate-200 bg-slate-50"
+                className="group relative h-16 w-16 overflow-hidden rounded-control border border-rule bg-canvas"
                 title={`${a.name} · ${fmtSize(a.size)}`}
               >
                 <img
@@ -254,27 +250,27 @@ export function Composer({
                   type="button"
                   onClick={() => removeAttachment(a.id)}
                   aria-label="移除附件"
-                  className="absolute right-0.5 top-0.5 rounded-full bg-slate-900/70 p-0.5 text-white opacity-0 transition group-hover:opacity-100"
+                  className="absolute right-0.5 top-0.5 rounded-full bg-ink p-0.5 text-white opacity-0 transition group-hover:opacity-100"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             ) : (
               <div
                 key={a.id}
-                className="group inline-flex max-w-[200px] items-center gap-1.5 rounded-control border border-slate-200 bg-slate-50 px-2 py-1.5 text-small text-slate-700"
+                className="group inline-flex max-w-[200px] items-center gap-1.5 rounded-control border border-rule bg-canvas px-2 py-1.5 text-small text-ink-2"
                 title={`${a.name} · ${fmtSize(a.size)}`}
               >
                 {extIcon(a.name)}
                 <span className="truncate font-medium">{a.name}</span>
-                <span className="shrink-0 text-slate-400">{fmtSize(a.size)}</span>
+                <span className="shrink-0 text-ink-3">{fmtSize(a.size)}</span>
                 <button
                   type="button"
                   onClick={() => removeAttachment(a.id)}
                   aria-label="移除附件"
-                  className="ml-0.5 rounded p-0.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                  className="ml-0.5 rounded p-0.5 text-ink-3 transition hover:bg-rule hover:text-ink-2"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             ),
@@ -297,7 +293,7 @@ export function Composer({
           onClick={() => fileInputRef.current?.click()}
           aria-label="上传文件或图片"
           title="上传文件或图片（支持拖拽 / Ctrl+V 粘贴）"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-panel text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-panel text-ink-3 transition hover:bg-canvas hover:text-brand"
         >
           <Paperclip className="h-5 w-5" />
         </button>
@@ -311,9 +307,9 @@ export function Composer({
             onPaste={onPaste}
             rows={1}
             aria-label="提问输入框"
-            placeholder={PLACEHOLDERS[placeholderIdx]}
+            placeholder={PLACEHOLDER}
             className={cn(
-              "block w-full resize-none bg-transparent px-1 py-2 text-body leading-[22px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0",
+              "block w-full resize-none bg-transparent px-1 py-2 text-body leading-[22px] text-ink placeholder:text-ink-3 focus:outline-none focus:ring-0",
             )}
           />
         </div>
@@ -325,10 +321,10 @@ export function Composer({
           aria-label="发送"
           title="发送（⌘/Ctrl + Enter）"
           className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300",
+            "grid h-9 w-9 shrink-0 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
             canSubmit
-              ? "bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30 hover:from-indigo-600 hover:to-violet-700"
-              : "bg-slate-100 text-slate-300",
+              ? "bg-brand text-white hover:bg-brand-hover"
+              : "bg-canvas text-ink-3",
           )}
         >
           <Send className="h-4 w-4" />
@@ -336,13 +332,13 @@ export function Composer({
       </div>
 
       {/* 底部小提示行 */}
-      <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-2 text-small text-slate-400">
+      <div className="flex items-center justify-between border-t border-rule px-3.5 py-2 text-small text-ink-3">
         <span className="inline-flex items-center gap-1.5">
-          <ImageIcon className="h-3.5 w-3.5" />
+          <ImageIcon className="h-4 w-4" />
           支持图片、CSV、Excel、PDF、文本、代码文件
         </span>
         <span className="hidden sm:inline">
-          Enter 换行 · <span className="rounded bg-slate-100 px-1 py-0.5 font-mono">⌘/Ctrl</span> + Enter 发送
+          Enter 换行 · <span className="rounded bg-canvas px-1 py-0.5 font-mono">⌘/Ctrl</span> + Enter 发送
         </span>
       </div>
     </div>

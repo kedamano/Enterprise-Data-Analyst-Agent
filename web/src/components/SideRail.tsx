@@ -32,7 +32,7 @@ function Logo() {
       width={32}
       height={32}
       draggable={false}
-      className="h-8 w-8 select-none rounded-control object-contain shadow-sm ring-1 ring-slate-200/80"
+      className="h-8 w-8 select-none rounded-control object-contain shadow-sm ring-1 ring-rule"
     />
   );
 }
@@ -56,13 +56,13 @@ function RailLink({
   children: ReactNode;
 }) {
   const colors: Record<string, string> = {
-    indigo: "bg-indigo-50 text-indigo-600",
-    sky: "bg-sky-50 text-sky-600",
-    amber: "bg-amber-50 text-amber-600",
-    rose: "bg-rose-50 text-rose-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    violet: "bg-violet-50 text-violet-600",
-    slate: "bg-slate-100 text-slate-600",
+    indigo: "bg-brand-soft text-brand",
+    sky: "bg-brand-soft text-brand",
+    amber: "bg-attention-soft text-attention",
+    rose: "bg-danger-soft text-danger",
+    emerald: "bg-verified-soft text-verified",
+    violet: "bg-brand-soft text-brand",
+    slate: "bg-canvas text-ink-2",
   };
   return (
     <button
@@ -71,10 +71,10 @@ function RailLink({
       title={title}
       aria-label={title}
       aria-current={active ? "page" : undefined}
-      className={`grid h-9 w-9 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${
+      className={`grid h-9 w-9 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
         active
           ? colors[accent ?? "indigo"]
-          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+          : "text-ink-3 hover:bg-canvas hover:text-ink"
       }`}
     >
       {children}
@@ -99,7 +99,7 @@ function UserEntry({
   const { user, ready } = useAuth();
 
   if (!ready) {
-    return <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100" />;
+    return <span className="grid h-9 w-9 place-items-center rounded-full bg-canvas" />;
   }
 
   if (!user) {
@@ -109,7 +109,7 @@ function UserEntry({
         onClick={onClick}
         title="登录 / 注册"
         aria-label="登录 / 注册"
-        className="grid h-9 w-9 place-items-center rounded-panel text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+        className="grid h-9 w-9 place-items-center rounded-panel text-ink-3 transition hover:bg-canvas hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <LogIn className="h-5 w-5" strokeWidth={2.25} />
       </button>
@@ -124,8 +124,8 @@ function UserEntry({
       title={`${name} · ${roleLabel(user.role)}`}
       aria-label={`账号设置：${name}`}
       aria-current={active ? "page" : undefined}
-      className={`grid h-9 w-9 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${
-        active ? "bg-indigo-50 ring-1 ring-indigo-200" : "hover:bg-slate-100"
+      className={`grid h-9 w-9 place-items-center rounded-panel transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+        active ? "bg-brand-soft ring-1 ring-brand" : "hover:bg-canvas"
       }`}
     >
       <Avatar user={user} size="xs" />
@@ -153,7 +153,7 @@ export function SideRail({
   return (
     <Sidebar open={false} setOpen={() => undefined} animate={false}>
       <SidebarBody
-        className="w-[56px] !w-[56px] shrink-0 flex-col items-center border-r border-slate-200 bg-white px-1.5 py-3"
+        className="w-[56px] !w-[56px] shrink-0 flex-col items-center border-r border-rule bg-white px-1.5 py-3"
         style={{ width: 56 }}
       >
         <Logo />
@@ -232,7 +232,7 @@ export function SideRail({
             <FolderOpen className="h-5 w-5" strokeWidth={2.25} />
           </RailLink>
 
-          <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-slate-200" />
+          <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-rule" />
 
           <RailLink
             onClick={(e) => {
@@ -256,7 +256,7 @@ export function SideRail({
             <Settings className="h-5 w-5" strokeWidth={2.25} />
           </RailLink>
 
-          <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-slate-200" />
+          <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-rule" />
 
           {/* 账号：未登录=登录入口，已登录=头像（点击进设置） */}
           <UserEntry active={view === "settings"} onClick={() => onNavigate("settings")} />

@@ -76,8 +76,11 @@ def _reset_state():
     from app.core.tools.knowledge_tool import set_emv_override
 
     reset_llm()
-    get_settings.cache_clear()
+    # 顺序不能反：set_emv_override 内部 _resolve_emv() 会调 get_settings()，
+    # 若放在 cache_clear() 之后，会把「测试 monkeypatch 之前」的旧 env
+    # 回填进 lru_cache，导致后续测试读到陈旧配置（2026-09-15 实测踩坑）。
     set_emv_override(None)
+    get_settings.cache_clear()
     yield
     set_emv_override(None)
     reset_llm()

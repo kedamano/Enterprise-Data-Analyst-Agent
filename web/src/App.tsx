@@ -13,8 +13,8 @@ import { Welcome } from "@/components/Welcome";
 import { Composer } from "@/components/Composer";
 import { ChatMessage } from "@/components/ChatMessage";
 import { useLocalStorage, uid } from "@/lib/storage";
-import { streamAnalyze, isTerminal, uploadAttachments } from "@/lib/api";
-import type { AgentEvent } from "@/lib/api";
+import { streamAnalyze, isTerminal, uploadAttachments, fetchHealth } from "@/lib/api";
+import type { AgentEvent, HealthInfo } from "@/lib/api";
 import { AuthError } from "@/lib/api";
 import { AuthGate } from "@/components/AuthGate";
 import { HistoryModal } from "@/components/RailPanels";
@@ -33,12 +33,12 @@ function DocsModal({ open, onClose }: { open: boolean; onClose?: () => void }) {
     <Modal open={open} onClose={onClose}>
       <ModalBody className="max-w-xl">
         <ModalContent>
-          <h2 className="text-title font-semibold text-slate-900">使用指南</h2>
-          <p className="mt-3 text-body leading-relaxed text-slate-500">
+          <h2 className="text-title font-semibold text-ink">使用指南</h2>
+          <p className="mt-3 text-body leading-relaxed text-ink-3">
             这是一个企业级数据分析智能体的可视化控制台。你可以用自然语言提出业务问题，
             智能体会自动完成以下六阶段编排：
           </p>
-          <ul className="mt-4 space-y-2 text-body text-slate-700">
+          <ul className="mt-4 space-y-2 text-body text-ink-2">
             {[
               "意图理解 — 解析你的业务目标与约束",
               "制定计划 — 规划需要调用的工具与步骤",
@@ -48,17 +48,95 @@ function DocsModal({ open, onClose }: { open: boolean; onClose?: () => void }) {
               "生成报告 — 输出结构化、可读的分析结论",
             ].map((s) => (
               <li key={s} className="flex gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                 {s}
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-small text-slate-400">
+          <p className="mt-4 text-small text-ink-3">
             所有工具均为只读 / 计算，不会对数据源产生写操作。
           </p>
         </ModalContent>
       </ModalBody>
     </Modal>
+  );
+}
+
+/**
+ * 页头运行状态徽章。
+ *
+ * 这里刻意**不写死**「已就绪」——模型降级或离线时那句话就是在骗人，
+ * 而用户会据此误判结论的可信度。文案只陈述可观测事实：
+ * 探活失败就说「状态未知」，降级就说「降级中」，不发明好听的措辞。
+ */
+/**
+ * 把 /health 的探活结果翻成一句用户读得懂的状态。
+ *
+ * 抽成函数是因为同一个状态要在两处呈现（页头徽章 + 会话侧栏底部状态条），
+ * 两处各写一遍就会对不上——页头说"降级中"、侧栏说"正常"是最糟的界面。
+ */
+function runtimeState(
+  health: HealthInfo | null,
+  failed: boolean,
+): { label: string; tone: "neutral" | "ok" | "warn"; detail: string } {
+  if (failed) {
+    return {
+      label: "模型状态未知",
+      tone: "neutral",
+      detail: "无法连接后端服务，页面功能可能不可用",
+    };
+  }
+  if (health?.llm_degraded) {
+    return {
+      label: "模型降级中",
+      tone: "warn",
+      detail: "模型调用失败，已回退到降级通道，结论可信度可能下降",
+    };
+  }
+  if (health?.mock_llm) {
+    return {
+      label: "模拟模式",
+      tone: "warn",
+      detail: "当前使用模拟模型，输出仅用于演示，不代表真实分析",
+    };
+  }
+  if (health) {
+    return {
+      label: "模型正常",
+      tone: "ok",
+      detail: "模型响应正常，数据源已连接",
+    };
+  }
+  return { label: "正在连接模型", tone: "neutral", detail: "" };
+}
+
+function RuntimeBadge({
+  health,
+  failed,
+}: {
+  health: HealthInfo | null;
+  failed: boolean;
+}) {
+  const { label, tone, detail } = runtimeState(health, failed);
+
+  const cls =
+    tone === "ok"
+      ? "border-verified bg-verified-soft text-verified"
+      : tone === "warn"
+        ? "border-attention bg-attention-soft text-attention"
+        : "border-rule bg-canvas text-ink-3";
+  const dot =
+    tone === "ok" ? "bg-verified" : tone === "warn" ? "bg-attention" : "bg-ink-3";
+
+  return (
+    <span
+      role="status"
+      title={detail}
+      className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-micro font-medium sm:inline-flex ${cls}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+      {label}
+    </span>
   );
 }
 
@@ -77,6 +155,21 @@ export default function App() {
   // 知识库与文件库是有目录结构、需要大面积操作的重功能，用页面承载而非弹窗。
   const [view, setView] = useState<RailView>("chat");
   const [historyOpen, setHistoryOpen] = useState(false);
+  // 页头的运行状态徽章要反映**真实**后端状态，不能写死一句「已就绪」——
+  // 模型降级/离线时那句话就是在骗人。探活失败就退回中性表述，不谎报。
+  const [health, setHealth] = useState<HealthInfo | null>(null);
+  const [healthFailed, setHealthFailed] = useState(false);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchHealth(ac.signal)
+      .then((h) => {
+        setHealth(h);
+        setHealthFailed(false);
+      })
+      .catch(() => setHealthFailed(true));
+    return () => ac.abort();
+  }, []);
 
   // AUTH/02：启动时探一次"我是谁"。
   // 放在 App 而非设置页——令牌可能在别处失效，导航栏的用户头像要能反映真实登录态。
@@ -307,7 +400,7 @@ export default function App() {
   return (
     <ModalProvider>
       <SidebarProvider>
-        <div className="flex h-full w-full overflow-hidden bg-slate-50 text-slate-800">
+        <div className="flex h-full w-full overflow-hidden bg-canvas text-ink">
           <SideRail
             view={view}
             onNavigate={setView}
@@ -332,9 +425,14 @@ export default function App() {
             }}
             onDelete={deleteConversation}
             onToggle={() => setShowList((s) => !s)}
+            onPick={(q) => {
+              setView("chat");
+              void send(q);
+            }}
+            runtime={runtimeState(health, healthFailed)}
           />
 
-          <main className="relative flex min-w-0 flex-1 flex-col bg-slate-50">
+          <main className="relative flex min-w-0 flex-1 flex-col bg-canvas">
             {view !== "chat" ? (
               <div className="min-h-0 flex-1 overflow-hidden">
                 {view === "knowledge" && <KnowledgeView />}
@@ -347,7 +445,7 @@ export default function App() {
             ) : (
               <>
                 {/* 顶部 header：白色 + 细线分隔（h-52px 与会话侧栏头部齐平） */}
-            <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/80 px-4 backdrop-blur sm:px-5">
+            <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-rule bg-white/80 px-4 backdrop-blur sm:px-5">
               <div className="flex min-w-0 items-center gap-2.5">
                 <img
                   src="/logo.png"
@@ -355,35 +453,32 @@ export default function App() {
                   width={28}
                   height={28}
                   draggable={false}
-                  className="h-7 w-7 shrink-0 select-none rounded-control object-contain shadow-sm ring-1 ring-slate-200/80"
+                  className="h-7 w-7 shrink-0 select-none rounded-control object-contain shadow-sm ring-1 ring-rule"
                 />
                 <div className="flex min-w-0 flex-col leading-tight">
-                  <span className="truncate text-body font-semibold text-slate-900">
+                  <span className="truncate text-body font-semibold text-ink">
                     {active?.title || "企业数据分析智能体"}
                   </span>
-                  <span className="truncate text-micro text-slate-500">
-                    数据分析 · 自然语言驱动六阶段编排
+                  <span className="truncate text-micro text-ink-3">
+                    自然语言驱动的数据分析
                   </span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-micro font-medium text-emerald-700 sm:inline-flex">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  deepseek-chat 已就绪
-                </span>
+                <RuntimeBadge health={health} failed={healthFailed} />
                 <button
                   onClick={newConversation}
-                  className="inline-flex items-center gap-1.5 rounded-control border border-slate-200 bg-white px-3 py-1.5 text-small font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-control border border-rule bg-white px-3 py-1.5 text-small font-medium text-ink-2 shadow-sm transition hover:border-rule-strong hover:bg-canvas"
                 >
                   <History className="h-4 w-4" /> 新对话
                 </button>
                 <button
                   onClick={() => setDocsOpen(true)}
-                  className="grid h-8 w-8 place-items-center rounded-control border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-slate-800"
+                  className="grid h-8 w-8 place-items-center rounded-control border border-rule bg-white text-ink-3 shadow-sm transition hover:text-ink"
                   title="使用文档"
                   aria-label="使用文档"
                 >
-                  <Settings2 className="h-[17px] w-[17px]" />
+                  <Settings2 className="h-4 w-4" />
                 </button>
               </div>
             </header>
@@ -418,7 +513,7 @@ export default function App() {
             </div>
 
             {/* 底部 composer —— 白底 + 阴影 + 顶部细线（宽度与消息流对齐，避免上下错位） */}
-            <div className="shrink-0 border-t border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur sm:px-5">
+            <div className="shrink-0 border-t border-rule bg-white/80 px-4 py-3 backdrop-blur sm:px-5">
               <div className="mx-auto max-w-5xl">
                 <Composer onSubmit={send} onStop={stop} streaming={streaming} />
               </div>

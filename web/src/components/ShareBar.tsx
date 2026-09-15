@@ -25,21 +25,21 @@ export function ShareBar({ sessionId }: { sessionId: string | null }) {
   const permission = () => setNote("数据权限：接 #1 Principal 范围（allowed_tables / row_filters）");
 
   const btn =
-    "inline-flex items-center gap-1 rounded-control border border-slate-200 bg-white px-2 py-1 text-small text-slate-500 transition hover:border-slate-300 hover:text-slate-800";
+    "inline-flex items-center gap-1 rounded-control border border-rule bg-white px-2 py-1 text-small text-ink-3 transition hover:border-rule-strong hover:text-ink";
 
   return (
     <div className="flex items-center gap-1.5">
       <button onClick={share} className={btn} aria-label="分享">
-        <Share2 className="h-3.5 w-3.5" /> 分享
+        <Share2 className="h-4 w-4" /> 分享
       </button>
       <button onClick={comment} className={btn} aria-label="评论">
-        <MessageSquare className="h-3.5 w-3.5" /> 评论
+        <MessageSquare className="h-4 w-4" /> 评论
       </button>
       <button onClick={permission} className={btn} aria-label="权限">
-        <ShieldCheck className="h-3.5 w-3.5" /> 权限
+        <ShieldCheck className="h-4 w-4" /> 权限
       </button>
       {note && (
-        <span className="ml-1 text-micro text-slate-400" role="status">
+        <span className="ml-1 text-micro text-ink-3" role="status">
           {note}
         </span>
       )}

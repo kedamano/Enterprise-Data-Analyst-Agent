@@ -40,17 +40,27 @@ export function collectQualityIssues(events?: AgentEvent[] | null): QualityIssue
   );
 }
 
+/**
+ * 严重度标签：不把 `BLOCK` / `REPLAN` / `ANNOTATE` 这些内部枚举摆给用户。
+ * 使用者需要知道的是「这条提示有多要紧、我该做什么」，而不是门禁的代码名。
+ */
+const SEVERITY_LABEL: Record<string, string> = {
+  BLOCK: "结论有误",
+  REPLAN: "需重跑",
+  ANNOTATE: "提示",
+};
+
 function IssueRow({ issue }: { issue: QualityIssue }) {
   const tone =
     issue.severity === "BLOCK"
-      ? "text-rose-700"
+      ? "text-danger"
       : issue.severity === "REPLAN"
-        ? "text-amber-700"
-        : "text-slate-600";
+        ? "text-attention"
+        : "text-ink-2";
   return (
     <li className={`flex items-start gap-1.5 ${tone}`}>
-      <span className="mt-0.5 shrink-0 font-mono text-micro uppercase opacity-70">
-        {issue.severity}
+      <span className="mt-0.5 shrink-0 rounded-control border border-current px-1 py-px text-micro font-medium opacity-80">
+        {SEVERITY_LABEL[issue.severity] ?? issue.severity}
       </span>
       <span className="min-w-0">{issue.detail}</span>
     </li>
@@ -71,9 +81,9 @@ export function RunBadges({ events }: { events?: AgentEvent[] | null }) {
         {iteration && (
           <span
             aria-label={`增量执行：${iterationLabel(iteration.kind)}`}
-            className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-micro font-medium text-indigo-700"
+            className="inline-flex items-center gap-1 rounded-full border border-rule-strong bg-brand-soft px-2 py-0.5 text-micro font-medium text-brand"
           >
-            <GitBranch className="h-3 w-3" />
+            <GitBranch className="h-4 w-4" />
             增量 · {iterationLabel(iteration.kind)}
             {iteration.attempts && iteration.attempts > 1
               ? `（第 ${iteration.attempts} 次）`
@@ -82,14 +92,14 @@ export function RunBadges({ events }: { events?: AgentEvent[] | null }) {
         )}
         {iteration && (
           // 增量轮不重新取数——把"基于上一结果"写明，避免误读为全量结论。
-          <span className="text-micro text-slate-400">基于上一结果，未重新取数</span>
+          <span className="text-micro text-ink-3">基于上一结果，未重新取数</span>
         )}
         {degraded && (
           <span
             aria-label="本轮为模板兜底"
-            className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-micro font-medium text-amber-700"
+            className="inline-flex items-center gap-1 rounded-full border border-attention bg-attention-soft px-2 py-0.5 text-micro font-medium text-attention"
           >
-            <AlertTriangle className="h-3 w-3" />
+            <AlertTriangle className="h-4 w-4" />
             模板兜底（LLM 降级）
           </span>
         )}
@@ -100,16 +110,16 @@ export function RunBadges({ events }: { events?: AgentEvent[] | null }) {
           aria-label="数据质量提示"
           className={`rounded-panel border p-3 text-small ${
             hasBlock
-              ? "border-rose-200 bg-rose-50"
-              : "border-amber-200 bg-amber-50"
+              ? "border-danger bg-danger-soft"
+              : "border-attention bg-attention-soft"
           }`}
         >
           <div
             className={`mb-1.5 flex items-center gap-1.5 font-medium ${
-              hasBlock ? "text-rose-800" : "text-amber-800"
+              hasBlock ? "text-danger" : "text-attention"
             }`}
           >
-            <ShieldAlert className="h-3.5 w-3.5" />
+            <ShieldAlert className="h-4 w-4" />
             {hasBlock ? "数据质量：存在结论级问题" : "数据质量提示"}
           </div>
           <ul className="space-y-1">

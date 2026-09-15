@@ -19,6 +19,7 @@ from .api.routes import (
     auth,
     caliber,
     chat,
+    datasources,
     debug,
     document,
     export,
@@ -117,9 +118,20 @@ def prometheus_metrics():
     """Prometheus 抓取端点（文本 exposition 格式，与 prometheus_client 同构）。"""
     from fastapi.responses import PlainTextResponse
 
-    return PlainTextResponse(_metrics_mod.metrics.render_prometheus(), media_type="text/plain; version=0.0.4")
+    body = _metrics_mod.metrics.render_prometheus()
+    # D60：多跳检索计数器（multihop.py 模块级快照）
+    try:
+        from .core.rag.multihop import multihop_metrics as _mh_metrics
+        snap = _mh_metrics()
+        if snap:
+            body += "\n# TYPE rag_multi_hop_splits_total counter\n"
+            body += f"rag_multi_hop_splits_total {snap.get('rag_multi_hop_splits_total', 0.0)}\n"
+    except Exception:
+        pass
+    return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
 
 app.include_router(health.router, prefix=settings.api_prefix)
+app.include_router(datasources.router, prefix=settings.api_prefix)
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(chat.router, prefix=settings.api_prefix)
 app.include_router(document.router, prefix=settings.api_prefix)

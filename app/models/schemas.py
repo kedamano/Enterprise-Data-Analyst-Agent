@@ -103,10 +103,37 @@ class DataSourceConn(BaseModel):
     dialect: str
     url: str                     # 已脱敏（密码打码），前端直接展示
     readonly: bool = True
+    origin: str = "env"          # env（服务端配置）| local（页面「新建连接」落盘）
 
 
 class DataSourceListResponse(BaseModel):
     sources: list[DataSourceConn] = Field(default_factory=list)
+
+
+class DataSourceTestRequest(BaseModel):
+    """「新建连接」表单字段（Navicat 式）。dialect=sqlite 时用 path，其余用 host 系列。"""
+    dialect: str                 # sqlite | mysql | postgresql
+    host: str = ""
+    port: int = 0
+    database: str = ""
+    username: str = ""
+    password: str = ""
+    path: str = ""
+
+
+class DataSourceTestResponse(BaseModel):
+    ok: bool
+    message: str = ""
+    error: str = ""
+
+
+class DataSourceCreateRequest(DataSourceTestRequest):
+    name: str = ""
+
+
+class DataSourceDeleteResponse(BaseModel):
+    ok: bool
+    name: str
 
 
 # --- 多知识库（KB）：一个知识库是一份独立的 RAG 资产 ---
@@ -220,6 +247,19 @@ class FsSearchResponse(BaseModel):
 class FsDeleteResponse(BaseModel):
     ok: bool = True
     deleted: int = 0
+
+
+class FsPreviewResponse(BaseModel):
+    """文件预览响应：预览类文件返回全文，非预览类文件返回不可预览原因。"""
+    id: str
+    name: str
+    mime: str = ""
+    previewable: bool
+    truncated: bool = False
+    text: Optional[str] = None
+    chars: int = 0
+    encoding: Optional[str] = None
+    reason: Optional[str] = None
 
 
 # P0-4：降级事件按阶段聚合后的可读摘要

@@ -4,7 +4,7 @@ import json
 from functools import lru_cache
 from typing import Annotated, Any, Optional
 
-from pydantic import Json, field_validator
+from pydantic import Json, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -170,6 +170,9 @@ class Settings(BaseSettings):
     # 不填 = 只用主源；配置写坏会被忽略并 warning（不阻塞启动）。
     # 明确不做跨源 JOIN —— 需要跨源请在各自源取数后用 python_analysis 合并。
     data_sources: str = ""
+    # E7/02 页面「新建连接」的落盘文件：与 DATA_SOURCES 合并（local 同名覆盖 env，
+    # default 主源不可覆盖）。明文密码信任边界与 .env 相同。
+    datasource_store_path: str = "data/datasources.json"
 
     # --- Knowledge base (RAG) ---
     knowledge_enabled: bool = True
@@ -212,6 +215,24 @@ class Settings(BaseSettings):
     embed_retry_max: int = 3        # 失败次数超过此值 → abandoned
     embed_retry_batch: int = 100    # 单次 scheduler tick 最多重试的 chunk 数
     embed_retry_interval_s: int = 3600  # 后台 scheduler 运行间隔（秒），0=禁用
+    # D60 多跳检索 + 子问题拆分
+    rag_multi_hop_enabled: bool = True          # 总开关；关闭 → 单跳直通
+    rag_multi_hop_max_splits: int = 3            # 单 query 最多拆成几个子 query
+    rag_multi_hop_min_query_len: int = 20        # query 低于此长度不拆
+    rag_multi_hop_min_piece_len: int = 4         # 每段至少这么多字符才算有效段
+
+    @field_validator("rag_multi_hop_max_splits", "rag_multi_hop_min_query_len",
+                     "rag_multi_hop_min_piece_len", mode="before")
+    @classmethod
+    def _coerce_positive_int(cls, v: Any, info: ValidationInfo) -> int:
+        try:
+            n = int(v)
+        except (TypeError, ValueError):
+            # 非法 → 退回该字段默认值（这里简单退回 3/20/4 中的合理值）
+            return {"rag_multi_hop_max_splits": 3,
+                    "rag_multi_hop_min_query_len": 20,
+                    "rag_multi_hop_min_piece_len": 4}.get(info.field_name, 3)
+        return max(1, n)
     embed_failed_ttl_s: int = 2592000   # embed_failed chunk 最长存活（秒），默认 30 天
 
     @field_validator("rag_min_confidence", mode="before")

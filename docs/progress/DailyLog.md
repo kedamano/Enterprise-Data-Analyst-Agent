@@ -3494,7 +3494,54 @@ D57 加 `status='ok'` 过滤时，**没感觉到 "embed_failed 的 chunk 该不�
 * **跨版本检索对齐**：不同版本的向量空间仍用同一内积打分（没有版本对齐 / 距离归一化，留给后续多跳/EN 链路时考虑）
 
 ### 六、遗留
-* **`test_agent_real.py`（13 条）的欠账**自 D54 起未重跑
+* **`test_agent_real.py`（13 条）的欠账**自 D54 起未重跑，同 D57
 * **Milvus 真后端接入**后补全 `reembed_chunk / reembed_batch / version_stats` 的 Milvus 实现
 * **`conftest._reset_state`** 把 D59 EMV override 夹具耦合进 base conftest，后续若新增其它 module-level 跨界状态，按同样模式追加
+
+---
+
+## Day 60（2026-09-15 · E9/01 多跳检索 + query 子问题拆分）
+
+**任务**
+1. **SDD**：`docs/specs/E9/01-multi-hop.md`——新增模块 `app/core/rag/multihop.py`，包含 `QuerySplitter`（规则拆分）+ `MultiHopRetriever`（拆分→fan-out→合并去重→全查询rerank）。
+
+2. **TDD 红→绿**：`tests/test_e9_multi_hop.py`（16 条 7 类）— 覆盖 T1–T15 全部矩阵 + D53 门保持 + Milvus 兼容 + 单跳回归。
+
+3. **实现**
+   - `app/core/rag/multihop.py`：新增；`_SPLIT_RE` 枚举符+中/英连词；`MultiHopRetriever.retrieve` 拆分→fan-out 独立 try/except per 子 query（fail-open per sub-query）→ 按 `chunk.id` 去重 → `reranker.rerank(full_query, candidates, top_k)`。
+   - `app/config.py`：加 `rag_multi_hop_enabled`、`rag_multi_hop_max_splits`、`rag_multi_hop_min_query_len`、`rag_multi_hop_min_piece_len` + validator。
+   - `app/core/tools/knowledge_tool.py:run()`：优先走 `MultiHopRetriever`；D53 置信门不动。
+   - `app/main.py:/metrics`：追加 D60 `rag_multi_hop_splits_total` Prometheus 计数器。
+
+4. **回归**
+   - **D60 本体**：**15 passed / 1 skipped / 0 failed** in 1.71s
+   - **E8 回归**：**39 passed / 2 skipped** in 36.05s
+   - **D53 + rag 回归**：**20 passed** in 2.29s（含此前 D60 修出的 fail-closed 回归）
+   - **离线全量**：**1380 passed / 36 skipped / 1 failed** in 513.49s
+     - 唯一失败 	est_auth_permissions::test_enabled_without_keys_is_503 (401 vs 503) 是 **pre-existing** 与 D60 无关（该用例独自跑也红）
+     - D60 引入并修掉 1 个回归 	est_rag_confidence::test_tool_search_failure_stays_fail_closed——单跳路径不应吞异常
+   - **mock eval**：--mode mock 门禁 **PASS**（FINISH 1.0 / 断言 1.0 / 溯源 1.0 / 幻觉率 0.0 / scored_cases=8）
+
+### 三、RED 与踩坑
+* **中文连词切不动**：原 `\s+(?:和|与|及)\s+` 要求左右空白；中文语法连词紧接字符 → 改裸捕获无空白要求。
+* **T8/T10 判单跳**：默认 `min_query_len=20`，测试 query 仅 12 字符 → 测试 fixture 显式低阈值。
+* **测试真嵌入过慢**：首次 `add()` 会试加载 sentence-transformers → 模块级 `patch.object(kt, "_embed", ...)` autouse。
+
+
+### 四、回归门禁（D60 DOD 全部通过）
+* **E9/01 本体**：15 passed / 1 skipped（Milvus stub without pymilvus）
+* **E8 回归**：39 passed / 2 skipped（D57+D58+D59 全绿）
+* **D53 + rag 全频**：20 passed in 2.29s
+* **离线全量**：1380 passed / 36 skipped / 1 pre-existing auth 失败（非 D60 引入）
+* **mock eval**：退出码 0 · PASS · FINISH/Pass/溯源/幻觉 全部 PASS
+
+### 五、SDD 边界（**不做**）
+* **Query 改写**（同义重述）：D60 只覆盖**切分**；改写需 LLM + prompt + golden set，留 E9/02
+* **字面重合同语义误判**（如"华东区域的年会在哪里办"判 high）属 D53 置信门范畴，不本卡动
+* **跨 chunk 推理 / Graph RAG**：拆 → fan-out → merge 送 LLM，不做推理链
+
+### 六、遗留
+* **`test_agent_real.py`（13 条）的欠账**自 D54 起未重跑
+* **Milvus 真后端**接入时补全 `MultiHopRetriever` 的 duck-typing 路径（`search` 已共用，新增也无 stub）
+* **E9/02 query 改写**：独立卡，需 LLM-based rephrasing prompt + golden set
 
