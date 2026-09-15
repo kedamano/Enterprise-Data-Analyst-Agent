@@ -15,6 +15,7 @@ import os
 import re
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -37,20 +38,49 @@ def _sha1(text: str) -> str:
 
 # \u5d4c\u5165\u6a21\u578b\u8fdb\u7a0b\u7ea7\u7f13\u5b58 + \u5931\u8d25\u5373\u7981\u7528\uff08\u907f\u514d\u6bcf\u6b21\u8c03\u7528\u91cd\u65b0\u52a0\u8f7d ~13s\uff0c\u6216\u8054\u7f51\u6821\u9a8c\u6302\u8d77\uff09
 _embed_model = None
+# ``_embed_error`` 只记录**确定性失败**（依赖缺失 / 加载抛异常）——这类重试也没用。
+# ⚠️ **超时绝不能写进它**：超时只说明"还没加载完"，加载线程仍在后台跑；一旦写进去，
+#    整个进程此后所有检索都静默退化成纯 BM25，只能重启恢复。这是真实踩过的坑：
+#    启动预热遇上慢加载（本机缓存模型要 ~17s，超时阈值 25s）→ 服务永久降级。
 _embed_error: str | None = None
+# 后台加载线程与它的结果容器：超时返回后线程可能仍在跑，下次调用据此接管结果。
+_embed_thread: threading.Thread | None = None
+_embed_holder: dict[str, object] = {}
 
 
 def _get_embed_model():
-    """\u61d2\u52a0\u8f7d\u5d4c\u5165\u6a21\u578b\uff0c\u5e26\u5899\u949f\u9884\u7b97\u2014\u2014\u7edd\u4e0d\u8ba9\u5165\u5e93/\u68c0\u7d22\u88ab\u6a21\u578b\u52a0\u8f7d\u65e0\u9650\u963b\u585e\u3002
+    """懒加载嵌入模型，带墙钟预算——绝不让入库/检索被模型加载无限阻塞。
 
-    \u540e\u53f0\u7ebf\u7a0b\u52a0\u8f7d\uff08\u5148\u79bb\u7ebf\u7f13\u5b58\uff0c\u7f13\u5b58\u7f3a\u5931\u518d\u5728\u7ebf\uff09\uff0c\u4e3b\u7ebf\u7a0b ``join(timeout)``\uff1b
-    \u8d85\u65f6\u6216\u5931\u8d25\u5219\u6c38\u4e45\u7981\u7528\u5d4c\u5165\uff0c\u6df7\u5408\u68c0\u7d22\u7684 BM25 \u901a\u9053\u53ef\u72ec\u7acb\u5de5\u4f5c\uff08\u964d\u7ea7\u800c\u975e\u6302\u8d77\uff09\u3002
+    后台线程加载（先离线缓存，缓存缺失再在线），主线程 ``join(timeout)``：
+
+    * 加载成功 → 进程级缓存，后续零成本。
+    * **超时 → 不阻塞、不永久禁用**：加载线程继续在后台跑，本次返回 ``None``
+      （这一轮退化为纯 BM25），下次调用若线程已跑完会自动接管结果。
+      把超时当成永久失败写入 ``_embed_error``，会让整个进程此后静默降级——
+      实测本机缓存模型加载约 17s、超时阈值 25s，边距很小，一旦抖动就中招。
+    * 仅**确定性失败**（sentence_transformers 不可用 / 加载抛异常）才置
+      ``_embed_error`` 永久禁用，避免每次请求反复重试白等。
+    * 已有加载线程在跑时，其他调用**立即返回 None**、不重复 ``join``。
     """
-    global _embed_model, _embed_error
+    global _embed_model, _embed_error, _embed_thread, _embed_holder
     if _embed_model is not None:
         return _embed_model
     if _embed_error is not None:
         return None
+    # 已有加载线程在跑 → 立即降级返回，**不再 join**。否则每个并发调用各付一次
+    # embed_load_timeout_s：实测多个 TestClient 启动预热会让套件从 ~50s 涨到 450s+。
+    if _embed_thread is not None:
+        if _embed_thread.is_alive():
+            return None
+        # 线程已结束但还没人接管结果（上一轮超时留下的）→ 在此补齐
+        _late = _embed_holder.get("model")
+        if _late is not None:
+            _embed_model = _late
+            return _embed_model
+        _late_err = _embed_holder.get("error")
+        if _late_err is not None:
+            _embed_error = f"嵌入模型加载失败（已降级为纯 BM25 检索）: {_late_err}"
+            return None
     try:
         from sentence_transformers import SentenceTransformer  # lazy
     except Exception as exc:
@@ -75,15 +105,19 @@ def _get_embed_model():
         holder["error"] = last or RuntimeError("embed load failed")
 
     t = threading.Thread(target=_load, daemon=True)
+    _embed_thread = t
+    _embed_holder = holder      # 同一个 dict 对象：加载线程的写入随后对外可见
     t.start()
     t.join(get_settings().embed_load_timeout_s)
+    if t.is_alive():
+        # ⚠️ 超时**不置 _embed_error**：线程仍在后台加载，写进去等于把整个进程
+        #    永久降级为纯 BM25（无声的检索质量下降）。下次调用自动接管加载结果。
+        return None
     if "model" in holder:
         _embed_model = holder["model"]
         return _embed_model
     if "error" in holder:
-        _embed_error = f"\u5d4c\u5165\u6a21\u578b\u52a0\u8f7d\u5931\u8d25\uff08\u5df2\u964d\u7ea7\u4e3a\u7eaf BM25 \u68c0\u7d22\uff09: {holder['error']}"
-    else:
-        _embed_error = f"\u5d4c\u5165\u6a21\u578b\u52a0\u8f7d\u8d85\u65f6\uff08>{get_settings().embed_load_timeout_s}s\uff0c\u5df2\u964d\u7ea7\u4e3a\u7eaf BM25 \u68c0\u7d22\uff09"
+        _embed_error = f"嵌入模型加载失败（已降级为纯 BM25 检索）: {holder['error']}"
     return None
 
 
@@ -98,11 +132,13 @@ def _embed(text: str) -> list[float] | None:
 def warm_up_embedder() -> None:
     """后台预热嵌入模型（幂等）。
 
-    首次碰 ``_embed`` 时才会去加载模型，而加载要么成功缓存、要么等满
-    ``embed_load_timeout_s`` 后永久禁用（离线缓存缺失时会转在线下载而挂起）。
-    把这次「一次性的首帧代价」提前到服务启动后的后台线程里付掉，用户第一次
-    「入库」或「检索」就不会干等数十秒。失败也无所谓——混合检索的 BM25 通道
-    可独立工作，服务不受影响。
+    首次碰 ``_embed`` 时才会去加载模型，本机实测要 ~17s（离线缓存优先，缺失才在线
+    下载）。把这次「一次性首帧代价」提前到服务启动后的后台线程里付掉，用户第一次
+    「入库」或「检索」就不必干等。
+
+    预热**只负责提速，绝不影响可用性**：超时不代表失败，加载线程会继续在后台跑，
+    后续调用会自动接管结果（见 ``_get_embed_model``）。失败也无所谓——混合检索的
+    BM25 通道可独立工作。
     """
     try:
         _get_embed_model()
@@ -176,16 +212,47 @@ def _resolve_tenant(tenant: str | None) -> str:
     return (tenant or "").strip() or (get_settings().default_tenant or "").strip()
 
 
+# ── D59 嵌入版本（EMV）运行时覆盖 ────────────────────────────────────────────
+# 版本号是**字符串标签**（"v1"/"bge-v1.5"），不是数值。写入分块时把当时的标签快照
+# 进 embed_model_version 列；检索只用「当前版本」的分块，stale 分块不参与 RRF 融合
+# ——否则不同嵌入空间算出的余弦相似度会混在一起，得到无意义的排序。
+#
+# rotate 只改这里的**进程内存态**，重启即恢复 settings 默认。这是有意设计：版本迁移
+# 是需要人工决策的运维动作（先 rotate 观察分布，再批量 re-embed），不该在某次重启后
+# 自动对全库生效。
+_emv_override: str | None = None
+
+
+def _resolve_emv() -> str:
+    """当前活跃的嵌入模型版本标签：运行时覆盖优先，否则用 settings 默认。"""
+    return _emv_override or get_settings().embed_model_version
+
+
+def set_emv_override(version: str) -> str:
+    """设置运行时版本覆盖，返回设置**之后**的当前版本（rotate 接口据此回报 current）。
+
+    空值视为清除覆盖、回到 settings 默认——避免 rotate 传空串把库悬空在一个既非默认、
+    也不存在于任何分块的标签上（那会让检索结果恒为空）。
+    """
+    global _emv_override
+    _emv_override = (version or "").strip() or None
+    return _resolve_emv()
+
+
 class KnowledgeStore:
     """SQLite-backed knowledge store with table-aware chunking, versioning, and
     chunk-quality tracking.
 
     Schema (lazy-migrated):
         id, source, text, tokens, vec, tenant,
-        version INTEGER DEFAULT 1,
+        version INTEGER DEFAULT 1,         # D57 chunk 内容版本（rebuild 自增）
         status TEXT DEFAULT 'ok', status_reason TEXT,
         deprecated INTEGER DEFAULT 0,
-        content_hash TEXT
+        content_hash TEXT,
+        failed_count INTEGER DEFAULT 0,     # D58 嵌入失败计数
+        retried_at INTEGER,                 # D58 最近重试时间
+        kb_id TEXT,                         # D57 所属知识库
+        embed_model_version TEXT            # D59 写入时嵌入模型版本快照
     """
 
     # status values
@@ -193,6 +260,8 @@ class KnowledgeStore:
     STATUS_EMPTY = "empty"
     STATUS_NOISE = "noise"
     STATUS_EMBED_FAILED = "embed_failed"
+    STATUS_ABANDONED = "abandoned"
+
 
     def __init__(self, db_path: Path | None = None) -> None:
         self.db = str(db_path or _DB_PATH)
@@ -217,12 +286,23 @@ class KnowledgeStore:
                 c.execute("ALTER TABLE chunks ADD COLUMN deprecated INTEGER NOT NULL DEFAULT 0")
             if "content_hash" not in cols:
                 c.execute("ALTER TABLE chunks ADD COLUMN content_hash TEXT")
+            if "failed_count" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN failed_count INTEGER NOT NULL DEFAULT 0")
+            if "retried_at" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN retried_at INTEGER")
             # 多知识库（KB）：分块归属某个知识库；NULL = 历史遗留分块，由
             # KnowledgeCatalog.ensure_seed() 在首次使用时接管到默认库。
             # 建索引是因为「按库检索 / 按库统计」是知识库详情页的主路径。
             if "kb_id" not in cols:
                 c.execute("ALTER TABLE chunks ADD COLUMN kb_id TEXT")
             c.execute("CREATE INDEX IF NOT EXISTS chunks_kb ON chunks(kb_id)")
+            # D59 嵌入版本迁移：写入时的嵌入模型版本；独立于 content version。
+            # WHERE embed_model_version=current OR IS NULL 隔离检索，stale chunk 不贡献 RRF。
+            if "embed_model_version" not in cols:
+                c.execute("ALTER TABLE chunks ADD COLUMN embed_model_version TEXT")
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS chunks_emv "
+                "ON chunks(embed_model_version, kb_id)")
 
     @staticmethod
     def _resolve_tenant(tenant: str | None) -> str:
@@ -245,6 +325,7 @@ class KnowledgeStore:
         status, status_reason = self._classify_chunk(stripped)
         ten = self._resolve_tenant(tenant)
         content_hash = _sha1(stripped)
+        now_ts = int(time.time())
         # dedup check (same version only)
         with _lock, sqlite3.connect(self.db) as c:
             dup = c.execute(
@@ -256,6 +337,7 @@ class KnowledgeStore:
                 return int(dup[0])
             vec = None
             reason = status_reason
+            failed_count = 0
             if status == self.STATUS_OK:
                 emb = _embed(stripped)
                 if emb is not None:
@@ -263,13 +345,20 @@ class KnowledgeStore:
                 else:
                     status = self.STATUS_EMBED_FAILED
                     reason = "embed_unavailable"
+                    failed_count = 1
             tokens = " ".join(_tokenize(stripped))
+            retried_at = now_ts if status == self.STATUS_EMBED_FAILED else None
+            # D59 版本快照：通过 _resolve_emv() 让 rotate 接口即时生效，
+            # 无需重启进程。embed_failed 也记（retry 成功后会被覆盖为新版）。
+            current_emv = _resolve_emv()
             cur = c.execute(
                 "INSERT INTO chunks(source, text, tokens, vec, tenant, "
-                "version, status, status_reason, content_hash, kb_id) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "version, status, status_reason, content_hash, kb_id, "
+                "failed_count, retried_at, embed_model_version) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (source, stripped, tokens, vec, ten or None, version,
-                 status, reason, content_hash, kb_id),
+                 status, reason, content_hash, kb_id, failed_count, retried_at,
+                 current_emv),
             )
             return int(cur.lastrowid)
 
@@ -326,6 +415,226 @@ class KnowledgeStore:
             existing_hashes = {r[0] for r in existing if r[0]}
         return bool(new_hashes) and new_hashes == existing_hashes
 
+    def retry_embed(self, kb_id: str | None = None, limit: int | None = None) -> dict[str, int]:
+        """Attempt to re-embed ``embed_failed`` chunks.
+
+        Returns ``{retried, fixed, still_failed, abandoned_now}``.
+        Chunks exceeding ``embed_retry_max`` are flipped to
+        ``STATUS_ABANDONED`` (no longer considered for retry or search).
+        """
+        max_retries = get_settings().embed_retry_max
+        batch = get_settings().embed_retry_batch if limit is None else limit
+        ten = self._resolve_tenant(None)
+        with _lock, sqlite3.connect(self.db) as c:
+            # Fetch candidate ids (oldest retried_at first — they were failed longest)
+            base_where = "status=? AND failed_count<=? AND deprecated=0"
+            params: list = [self.STATUS_EMBED_FAILED, max_retries]
+            if kb_id:
+                base_where += " AND kb_id IS ?"
+                params.append(kb_id)
+            if ten:
+                base_where += " AND tenant IS ?"
+                params.append(ten)
+            rows = c.execute(
+                f"SELECT id, text FROM chunks WHERE {base_where} "
+                f"ORDER BY retried_at ASC LIMIT ?",
+                params + [batch],
+            ).fetchall()
+            if not rows:
+                return {"retried": 0, "fixed": 0, "still_failed": 0, "abandoned_now": 0}
+
+            ids = [r[0] for r in rows]
+            placeholders = ",".join("?" * len(ids))
+            full = c.execute(
+                f"SELECT id, text, failed_count FROM chunks WHERE id IN ({placeholders})",
+                ids,
+            ).fetchall()
+
+        retried = fixed = still_failed = abandoned_now = 0
+        now_ts = int(time.time())
+        current_emv = _resolve_emv()
+        for _id, text, prev_count in full:
+            retried += 1
+            vec = _embed(text)
+            new_count = prev_count + 1
+            with _lock, sqlite3.connect(self.db) as c:
+                if vec is not None:
+                    # D59 顺带升级 embed_model_version：retry 成功后 chunk 视为
+                    # 已用当前活跃版本重新嵌入，自然归属到最新版，下次不再被
+                    # search 隔离；让旧版 chunk 被 D58 scheduler 自然消化。
+                    c.execute(
+                        "UPDATE chunks SET status=?, vec=?, failed_count=0, "
+                        "status_reason=NULL, retried_at=?, embed_model_version=? "
+                        "WHERE id=?",
+                        (self.STATUS_OK, json.dumps(vec), now_ts, current_emv, _id),
+                    )
+                    fixed += 1
+                elif new_count > max_retries:
+                    c.execute(
+                        "UPDATE chunks SET status=?, failed_count=?, "
+                        "status_reason='max_retries_exceeded', retried_at=? WHERE id=?",
+                        (self.STATUS_ABANDONED, new_count, now_ts, _id),
+                    )
+                    abandoned_now += 1
+                else:
+                    c.execute(
+                        "UPDATE chunks SET failed_count=?, retried_at=? WHERE id=?",
+                        (new_count, now_ts, _id),
+                    )
+                    still_failed += 1
+        return {"retried": retried, "fixed": fixed,
+                "still_failed": still_failed, "abandoned_now": abandoned_now}
+
+    def abandon_expired(self, ttl_s: int | None = None,
+                        kb_id: str | None = None) -> int:
+        """Mark ``embed_failed`` chunks older than ``ttl_s`` as abandoned."""
+        ttl = ttl_s if ttl_s is not None else get_settings().embed_failed_ttl_s
+        cutoff = int(time.time()) - ttl
+        ten = self._resolve_tenant(None)
+        with _lock, sqlite3.connect(self.db) as c:
+            where = "status=? AND retried_at IS NOT NULL AND retried_at<?"
+            params: list = [self.STATUS_EMBED_FAILED, cutoff]
+            if kb_id:
+                where += " AND kb_id IS ?"
+                params.append(kb_id)
+            if ten:
+                where += " AND tenant IS ?"
+                params.append(ten)
+            cur = c.execute(
+                f"UPDATE chunks SET status=? WHERE {where}",
+                [self.STATUS_ABANDONED] + params,
+            )
+            return int(cur.rowcount)
+
+    # --------------------------------------------------------------------- #
+    # D59 嵌入版本迁移
+    # --------------------------------------------------------------------- #
+
+    def reembed_chunk(self, chunk_id: int) -> dict[str, int | str]:
+        """单条 chunk 升级到当前 ``embed_model_version``。
+
+        返回 ``{"status_before","version_before","version_after", "ok": 0|1,
+        "reason":...}``。embed 失败返回 ``{ok:0, reason:"embed_error"}``（不扣
+        failed_count，因为版本维度是自然失效不是 embed 失败）；找不到返回
+        ``{ok:0, reason:"missing"}``。
+        """
+        now_ts = int(time.time())
+        current_emv = _resolve_emv()
+        with _lock, sqlite3.connect(self.db) as c:
+            row = c.execute(
+                "SELECT text, status, embed_model_version FROM chunks WHERE id=?",
+                (chunk_id,)).fetchone()
+            if not row:
+                return {"ok": 0, "reason": "missing"}
+            text, status_before, emv_before = row[0], row[1], row[2]
+            emb = _embed(text)
+            if emb is None:
+                return {"ok": 0, "reason": "embed_error",
+                        "status_before": status_before,
+                        "version_before": emv_before,
+                        "version_after": emv_before}
+            c.execute(
+                "UPDATE chunks SET vec=?, embed_model_version=?, "
+                "status='ok', failed_count=0, retried_at=? "
+                "WHERE id=?",
+                (json.dumps(emb), current_emv, now_ts, chunk_id),
+            )
+            return {"ok": 1, "status_before": status_before,
+                    "version_before": emv_before,
+                    "version_after": current_emv}
+
+    def reembed_batch(self, kb_id: str | None = None,
+                      target_version: str | None = None,
+                      limit: int | None = None) -> dict[str, int]:
+        """批量把旧版本 chunk 升级到当前（或 ``target_version``）embed 版本。
+
+        候选 = ``status='ok' AND embed_model_version IS NOT NULL
+               AND embed_model_version < >current`` — 已新版 / NULL 老数据不动。
+        返回 ``{"migrated","failed","skipped"}``。skipped = 已是新版或 embed_failed。
+        """
+        target = target_version if target_version is not None \
+            else _resolve_emv()
+        batch = limit if (limit is not None and limit > 0) else 200
+        now_ts = int(time.time())
+        ten = self._resolve_tenant(None)
+        with _lock, sqlite3.connect(self.db) as c:
+            where = ("status=? AND embed_model_version IS NOT NULL "
+                     "AND embed_model_version <> ?")
+            params: list = [self.STATUS_OK, target]
+            if kb_id:
+                where += " AND kb_id IS ?"
+                params.append(kb_id)
+            if ten:
+                where += " AND tenant IS ?"
+                params.append(ten)
+            rows = c.execute(
+                f"SELECT id, text FROM chunks WHERE {where} "
+                f"ORDER BY id LIMIT ?",
+                params + [batch],
+            ).fetchall()
+            if not rows:
+                return {"migrated": 0, "failed": 0, "skipped": 0}
+            ids = [r[0] for r in rows]
+            placeholders = ",".join("?" * len(ids))
+            full = c.execute(
+                f"SELECT id, text FROM chunks WHERE id IN ({placeholders})",
+                ids,
+            ).fetchall()
+        migrated = failed = skipped = 0
+        for _id, text in full:
+            emb = _embed(text)
+            with _lock, sqlite3.connect(self.db) as c:
+                if emb is None:
+                    failed += 1
+                    continue
+                c.execute(
+                    "UPDATE chunks SET vec=?, embed_model_version=?, "
+                    "failed_count=0, retried_at=? WHERE id=?",
+                    (json.dumps(emb), target, now_ts, _id),
+                )
+                migrated += 1
+        return {"migrated": migrated, "failed": failed, "skipped": skipped}
+
+    def get_current_embed_version(self) -> str:
+        """返回当前生效 ``embed_model_version``（运行时覆盖 > settings 默认）。"""
+        return _resolve_emv()
+
+    def version_stats(self, kb_id: str | None = None) -> dict[str, Any]:
+        """版本分布统计：``{current, distribution:{ver count}, stale_count, total}``。
+
+        stale = 行数中 ``embed_model_version IS NOT NULL`` 且
+        ``!= current`` 的数量。
+        """
+        current_emv = _resolve_emv()
+        ten = self._resolve_tenant(None)
+        with _lock, sqlite3.connect(self.db) as c:
+            args: list = []
+            where = ""
+            if ten:
+                where = "WHERE tenant IS ?"
+                args = [ten]
+            if kb_id:
+                where = f"{where} {'AND' if where else 'WHERE'} kb_id IS ?"
+                args = args + [kb_id]
+            total = c.execute(
+                f"SELECT COUNT(*) FROM chunks {where}", args
+            ).fetchone()[0] or 0
+            dist = {
+                r[0] or "v1": r[1] for r in c.execute(
+                    f"SELECT embed_model_version, COUNT(*) FROM chunks "
+                    f"{where} GROUP BY embed_model_version",
+                    args,
+                ).fetchall()
+            }
+            stale = c.execute(
+                f"SELECT COUNT(*) FROM chunks "
+                f"{where} {'AND' if where else 'WHERE'} embed_model_version "
+                f"IS NOT NULL AND embed_model_version <> ?",
+                args + [current_emv],
+            ).fetchone()[0] or 0
+        return {"current": current_emv, "distribution": dist,
+                "stale_count": stale, "total": total}
+
     def cleanup_old_versions(self, source: str, keep: int = 2,
                              tenant: str | None = None,
                              kb_id: str | None = None) -> int:
@@ -355,15 +664,23 @@ class KnowledgeStore:
             ).fetchone()[0]
             return int(remaining)
 
-    def chunk_diagnostics(self, tenant: str | None = None) -> dict[str, Any]:
-        """Return quality stats: {total, ok, empty, noise, embed_failed, deprecated}."""
+    def chunk_diagnostics(self, tenant: str | None = None,
+                          kb_id: str | None = None) -> dict[str, Any]:
+        """Return quality stats: {total, ok, empty, noise, embed_failed, deprecated,
+        abandoned, embed_failed_aging: {1h, 1d, 7d, older}}.
+
+        可按 ``tenant`` 或 ``kb_id`` 过滤（两者均为 None = 全局）。"""
         ten = self._resolve_tenant(tenant)
+        now = int(time.time())
         with _lock, sqlite3.connect(self.db) as c:
             args: list = []
             where = ""
             if ten:
                 where = "WHERE tenant IS ?"
                 args = [ten]
+            if kb_id:
+                where = f"{where} {'AND' if where else 'WHERE'} kb_id IS ?"
+                args = args + [kb_id]
             total = c.execute(f"SELECT COUNT(*) FROM chunks {where}", args).fetchone()[0]
             ok = c.execute(
                 f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} status='ok'", args
@@ -380,8 +697,55 @@ class KnowledgeStore:
             deprecated = c.execute(
                 f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} deprecated=1", args
             ).fetchone()[0]
+            abandoned = c.execute(
+                f"SELECT COUNT(*) FROM chunks {where} {'AND' if where else 'WHERE'} status='abandoned'", args
+            ).fetchone()[0]
+            # embed_failed_aging histogram (only rows that ARE embed_failed)
+            aging = {"1h": 0, "1d": 0, "7d": 0, "older": 0}
+            ef_where = f"{'WHERE' if not where else where + ' AND'} status='embed_failed'"
+            ef_args = list(args)
+            # 1h = last 3600s, 1d = last 86400s, 7d = last 604800s, older = rest
+            h1 = c.execute(
+                f"SELECT COUNT(*) FROM chunks {ef_where} {'AND' if ef_where else 'WHERE'} retried_at >= ?",
+                ef_args + [now - 3600],
+            ).fetchone()[0]
+            h24 = c.execute(
+                f"SELECT COUNT(*) FROM chunks {ef_where} {'AND' if ef_where else 'WHERE'} retried_at >= ?",
+                ef_args + [now - 86400],
+            ).fetchone()[0]
+            h7d = c.execute(
+                f"SELECT COUNT(*) FROM chunks {ef_where} {'AND' if ef_where else 'WHERE'} retried_at >= ?",
+                ef_args + [now - 604800],
+            ).fetchone()[0]
+            older_ = embed_failed - h7d  # embed_failed bucketed by oldest-first already counted
+            aging = {"1h": h1, "1d": h24 - h1, "7d": h7d - h24, "older": older_}
         return {"total": total, "ok": ok, "empty": empty, "noise": noise,
-                "embed_failed": embed_failed, "deprecated": deprecated}
+                "embed_failed": embed_failed, "deprecated": deprecated,
+                "abandoned": abandoned, "embed_failed_aging": aging}
+
+    def list_embed_failed(self, kb_id: str | None = None,
+                          limit: int = 50) -> list[dict[str, Any]]:
+        """返回 embed_failed chunk 的排查信息（含 source / text 片段 / failed_count / retried_at）。"""
+        ten = self._resolve_tenant(None)
+        with _lock, sqlite3.connect(self.db) as c:
+            where = "WHERE status=? AND deprecated=0"
+            params: list = [self.STATUS_EMBED_FAILED]
+            if kb_id:
+                where += " AND kb_id IS ?"
+                params.append(kb_id)
+            if ten:
+                where += " AND tenant IS ?"
+                params.append(ten)
+            rows = c.execute(
+                f"SELECT id, source, text, failed_count, retried_at "
+                f"FROM chunks {where} ORDER BY retried_at ASC LIMIT ?",
+                params + [limit],
+            ).fetchall()
+        return [
+            {"id": r[0], "source": r[1], "text": (r[2] or "")[:200],
+             "failed_count": r[3], "retried_at": r[4]}
+            for r in rows
+        ]
 
     # ── helpers ────────────────────────────────────────────────────────────
 
@@ -429,30 +793,46 @@ class KnowledgeStore:
             )
 
     def search(self, query: str, top_k: int = 4, tenant: str | None = None,
-               kb_id: str | None = None) -> list[dict[str, Any]]:
+               kb_id: str | None = None,
+               include_stale_versions: bool = False) -> list[dict[str, Any]]:
         """混合检索（BM25 + 向量 → RRF 融合 → 可选重排）。
 
         ``kb_id``：指定则**只在该知识库内**召回（知识库详情页的「检索预览」走这条）；
         不指定则跨库全局检索（agent 的 ``knowledge_search`` 工具保持原行为）。
+
+        ``include_stale_versions``（D59）：默认 False → 仅命当前 model_version 档
+        的 chunk（``embed_model_version IS NULL`` 的旧数据仍保留可见，避免一升级就
+        整库空）；True 时回退到不过滤旧版本（兼容期兜底）。
         """
+        # D59 version gate：仅过滤"版本号非空且不等于当前活跃版本"的行；
+        # NULL chunk = 老库默认兼容保留。
+        emv_where = ("" if include_stale_versions
+                     else " AND (embed_model_version IS NULL"
+                          " OR embed_model_version=? )")
+        emv_arg: list = ([] if include_stale_versions
+                         else [get_settings().embed_model_version])
         q_vec = _embed(query)
         ten = self._resolve_tenant(tenant)
         with _lock, sqlite3.connect(self.db) as c:
             if kb_id:
                 rows = c.execute(
                     "SELECT id, source, text, vec FROM chunks "
-                    "WHERE kb_id IS ? AND deprecated=0 AND status IN ('ok','embed_failed')",
-                    (kb_id,)).fetchall()
+                    "WHERE kb_id IS ? AND deprecated=0 AND status IN ('ok','embed_failed')"
+                    + emv_where,
+                    [kb_id, *emv_arg]).fetchall()
             elif ten:
                 rows = c.execute(
                     "SELECT id, source, text, vec FROM chunks "
-                    "WHERE tenant IS ? AND deprecated=0 AND status IN ('ok','embed_failed')",
-                    (ten,)).fetchall()
+                    "WHERE tenant IS ? AND deprecated=0 AND status IN ('ok','embed_failed')"
+                    + emv_where,
+                    [ten, *emv_arg]).fetchall()
             else:
-                # 全局模式：不过滤（兼容既有无 tenant 数据）
+                # 全局模式：不过滤（兼容既有无 tenant 数据；D59 仍然隔离 stale version）
                 rows = c.execute(
                     "SELECT id, source, text, vec FROM chunks "
                     "WHERE deprecated=0 AND status IN ('ok','embed_failed')"
+                    + emv_where,
+                    emv_arg,
                 ).fetchall()
         if not rows:
             return []
@@ -720,6 +1100,36 @@ class MilvusKnowledgeStore:
         except Exception:
             return 0
         return int(res.get("delete_count", 0) or 0) if isinstance(res, dict) else 0
+
+    # Milvus 后端没有「分块状态」概念（status / failed_count / retried_at 不在 schema 里）；
+    # 这些方法保证管理面在 Milvus 模式下也能调用而不抛 AttributeError。
+    def retry_embed(self, kb_id: str | None = None, limit: int | None = None) -> dict[str, int]:
+        return {"retried": 0, "fixed": 0, "still_failed": 0, "abandoned_now": 0}
+
+    def abandon_expired(self, ttl_s: int | None = None, kb_id: str | None = None) -> int:
+        return 0
+
+    def list_embed_failed(self, kb_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        return []
+
+    # D59 嵌入版本迁移 Milvus 后端兜底：collection 维度硬约束（创建时维度定死）；
+    # Milvus 路径不直接支持「同库 / 同 collection 改维度」——真正迁移要上层建
+    # 新 collection + 回灌；stub 只保 duck-typing 不抛 AttributeError。
+    def get_current_embed_version(self) -> str:
+        return _resolve_emv()
+
+    def version_stats(self, kb_id: str | None = None) -> dict[str, Any]:
+        return {"current": _resolve_emv(),
+                "distribution": {}, "stale_count": 0, "total": 0}
+
+    def reembed_chunk(self, chunk_id: int) -> dict[str, int | str]:
+        return {"ok": 0, "reason": "milvus_not_implemented"}
+
+    def reembed_batch(self, kb_id: str | None = None,
+                      target_version: str | None = None,
+                      limit: int | None = None) -> dict[str, int]:
+        return {"migrated": 0, "failed": 0, "skipped": 0,
+                "reason": "milvus_collection_dimension_fixed"}
 
 
 def get_store() -> knowledge_store_type:

@@ -6,7 +6,7 @@ import {
   ModalBody,
   ModalContent,
 } from "@/components/ui/animated-modal";
-import { Sparkles, History, Settings2 } from "lucide-react";
+import { History, Settings2 } from "lucide-react";
 import { SideRail } from "@/components/SideRail";
 import { ConversationList } from "@/components/ConversationList";
 import { Welcome } from "@/components/Welcome";
@@ -17,10 +17,12 @@ import { streamAnalyze, isTerminal, uploadAttachments } from "@/lib/api";
 import type { AgentEvent } from "@/lib/api";
 import { AuthError } from "@/lib/api";
 import { AuthGate } from "@/components/AuthGate";
-import { HistoryModal, SettingsModal } from "@/components/RailPanels";
+import { HistoryModal } from "@/components/RailPanels";
 import { KnowledgeView } from "@/components/KnowledgeView";
 import { FilesView } from "@/components/FilesView";
 import { DataSourcesView } from "@/components/DataSourcesView";
+import { SettingsView } from "@/components/SettingsView";
+import { refreshAuth } from "@/lib/user";
 import type { RailView } from "@/components/SideRail";
 import type { Conversation, Message, Attachment } from "@/lib/types";
 
@@ -75,7 +77,12 @@ export default function App() {
   // 知识库与文件库是有目录结构、需要大面积操作的重功能，用页面承载而非弹窗。
   const [view, setView] = useState<RailView>("chat");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // AUTH/02：启动时探一次"我是谁"。
+  // 放在 App 而非设置页——令牌可能在别处失效，导航栏的用户头像要能反映真实登录态。
+  useEffect(() => {
+    void refreshAuth();
+  }, []);
 
   const clearAllConversations = useCallback(() => {
     setConversations([]);
@@ -309,7 +316,6 @@ export default function App() {
             showList={showList}
             onOpenDocs={() => setDocsOpen(true)}
             onOpenHistory={() => setHistoryOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
           />
 
           <ConversationList
@@ -334,34 +340,42 @@ export default function App() {
                 {view === "knowledge" && <KnowledgeView />}
                 {view === "files" && <FilesView />}
                 {view === "datasources" && <DataSourcesView />}
+                {view === "settings" && (
+                  <SettingsView onClearAll={clearAllConversations} />
+                )}
               </div>
             ) : (
               <>
-                {/* 顶部 header：白色 + 细线分隔 */}
-            <header className="flex items-center justify-between border-b border-slate-200/80 bg-white/80 px-5 py-3 backdrop-blur">
-              <div className="flex items-center gap-2.5">
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm shadow-indigo-500/30">
-                  <Sparkles className="h-4 w-4 text-white" />
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold leading-tight text-slate-900">
+                {/* 顶部 header：白色 + 细线分隔（h-52px 与会话侧栏头部齐平） */}
+            <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/80 px-4 backdrop-blur sm:px-5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <img
+                  src="/logo.png"
+                  alt=""
+                  width={28}
+                  height={28}
+                  draggable={false}
+                  className="h-7 w-7 shrink-0 select-none rounded-lg object-contain shadow-sm ring-1 ring-slate-200/80"
+                />
+                <div className="flex min-w-0 flex-col leading-tight">
+                  <span className="truncate text-[14px] font-semibold text-slate-900">
                     {active?.title || "企业数据分析智能体"}
                   </span>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="truncate text-[11.5px] text-slate-500">
                     数据分析 · 自然语言驱动六阶段编排
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 sm:inline-flex">
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-[11.5px] font-medium text-emerald-700 sm:inline-flex">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   deepseek-chat 已就绪
                 </span>
                 <button
                   onClick={newConversation}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12.5px] font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
                 >
-                  <History className="h-3.5 w-3.5" /> 新对话
+                  <History className="h-4 w-4" /> 新对话
                 </button>
                 <button
                   onClick={() => setDocsOpen(true)}
@@ -369,7 +383,7 @@ export default function App() {
                   title="使用文档"
                   aria-label="使用文档"
                 >
-                  <Settings2 className="h-4 w-4" />
+                  <Settings2 className="h-[17px] w-[17px]" />
                 </button>
               </div>
             </header>
@@ -383,7 +397,7 @@ export default function App() {
                   onDataSources={() => setView("datasources")}
                 />
               ) : (
-                <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
+                <div className="mx-auto flex max-w-5xl flex-col gap-4 px-5 py-6">
                   {active.messages.map((m) => (
                     <ChatMessage
                       key={m.id}
@@ -403,9 +417,9 @@ export default function App() {
               )}
             </div>
 
-            {/* 底部 composer —— 白底 + 阴影 + 顶部细线 */}
-            <div className="border-t border-slate-200/80 bg-white/80 px-4 py-4 sm:px-6 backdrop-blur">
-              <div className="mx-auto max-w-3xl">
+            {/* 底部 composer —— 白底 + 阴影 + 顶部细线（宽度与消息流对齐，避免上下错位） */}
+            <div className="shrink-0 border-t border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur sm:px-5">
+              <div className="mx-auto max-w-5xl">
                 <Composer onSubmit={send} onStop={stop} streaming={streaming} />
               </div>
             </div>
@@ -422,11 +436,6 @@ export default function App() {
         conversations={conversations}
         onSelect={setActiveId}
         onDelete={deleteConversation}
-      />
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onClearAll={clearAllConversations}
       />
       <AuthGate
         open={authOpen}

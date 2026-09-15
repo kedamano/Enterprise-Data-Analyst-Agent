@@ -190,15 +190,15 @@ export function Composer({
   // 流式：只显示「停止」控件，不允许编辑
   if (streaming) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-3 rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-4 py-3.5 shadow-sm">
         <span className="relative flex h-2.5 w-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-70" />
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-500" />
         </span>
-        <span className="text-sm font-medium text-indigo-900">智能体正在分析，请稍候…</span>
+        <span className="text-[14.5px] font-medium text-indigo-900">智能体正在分析，请稍候…</span>
         <button
           onClick={onStop}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3.5 py-2 text-[13px] font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
         >
           <Square className="h-3.5 w-3.5" /> 停止
         </button>
@@ -336,9 +336,9 @@ export function Composer({
       </div>
 
       {/* 底部小提示行 */}
-      <div className="flex items-center justify-between border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-400">
-        <span className="inline-flex items-center gap-1">
-          <ImageIcon className="h-3 w-3" />
+      <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-2 text-[12px] text-slate-400">
+        <span className="inline-flex items-center gap-1.5">
+          <ImageIcon className="h-3.5 w-3.5" />
           支持图片、CSV、Excel、PDF、文本、代码文件
         </span>
         <span className="hidden sm:inline">

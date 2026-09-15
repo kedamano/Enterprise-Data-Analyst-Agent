@@ -19,28 +19,28 @@ function StepCard({ step }: { step: StepInfo }) {
   const ok = step.status === "SUCCESS";
   const fail = step.status === "FAILED" || step.status === "ERROR";
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[12.5px] leading-snug">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-[13.5px] leading-snug">
       <div className="flex items-center gap-2">
-        <Wrench className="h-3.5 w-3.5 text-indigo-500" />
+        <Wrench className="h-4 w-4 text-indigo-500" />
         <span className="font-medium text-slate-800">{step.tool}</span>
-        {ok && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-        {fail && <XCircle className="h-3.5 w-3.5 text-rose-500" />}
+        {ok && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+        {fail && <XCircle className="h-4 w-4 text-rose-500" />}
         {!ok && !fail && (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
         )}
         {typeof step.execution_time_ms === "number" && (
-          <span className="ml-auto text-[11px] text-slate-400 tabular-nums">
+          <span className="ml-auto text-[12px] text-slate-400 tabular-nums">
             {(step.execution_time_ms / 1000).toFixed(2)}s
           </span>
         )}
       </div>
       {step.digest && (
-        <p className="mt-1 font-mono text-[11.5px] leading-snug text-slate-500 line-clamp-3">
+        <p className="mt-1.5 font-mono text-[12.5px] leading-snug text-slate-500 line-clamp-3">
           {step.digest}
         </p>
       )}
       {step.error && (
-        <p className="mt-1 text-[11.5px] leading-snug text-rose-600">{step.error}</p>
+        <p className="mt-1.5 text-[12.5px] leading-snug text-rose-600">{step.error}</p>
       )}
     </div>
   );
@@ -75,12 +75,12 @@ export function StageTimeline({
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-slate-100"
+        className="flex w-full items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left transition hover:bg-slate-100"
       >
-        <ListChecks className="h-4 w-4 shrink-0 text-slate-400" />
-        <span className="flex-1 truncate text-[12.5px] text-slate-600">
+        <ListChecks className="h-[18px] w-[18px] shrink-0 text-slate-400" />
+        <span className="flex-1 truncate text-[13.5px] text-slate-600">
           {running ? (
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-2">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-500" />
               执行中 ·{" "}
               {events[events.length - 1]?.status
@@ -95,12 +95,12 @@ export function StageTimeline({
             <span>
               执行完成 · {execTools.length} 个工具
               {execTools.length > 0 && (
-                <span className="ml-1 text-slate-400">({execTools.join(" / ")})</span>
+                <span className="ml-1.5 text-slate-400">({execTools.join(" / ")})</span>
               )}
             </span>
           )}
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+        <ChevronDown className="h-[18px] w-[18px] shrink-0 text-slate-400" />
       </button>
     );
   }
@@ -116,7 +116,7 @@ export function StageTimeline({
       content = <StepCard step={ev.step} />;
     } else if (ev.status === "UNDERSTAND" && ev.objective) {
       content = (
-        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12.5px] leading-snug text-slate-600">
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-[13.5px] leading-snug text-slate-600">
           <span className="text-slate-400">业务目标 · </span>
           {ev.objective}
         </p>
@@ -130,13 +130,13 @@ export function StageTimeline({
       );
     } else if (ev.status === "REPORT") {
       content = (
-        <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[12.5px] leading-snug text-indigo-700">
+        <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-[13.5px] leading-snug text-indigo-700">
           正在撰写业务报告…
         </p>
       );
     } else if (terminal) {
       content = (
-        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12.5px] leading-snug text-slate-500">
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-[13.5px] leading-snug text-slate-500">
           {ev.status === "FINISH" ? "分析完成，报告已生成。" : "流程异常终止。"}
         </p>
       );
@@ -180,15 +180,15 @@ export function StageTimeline({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+      <div className="mb-2.5 flex items-center justify-between">
+        <span className="text-[12px] font-medium uppercase tracking-wider text-slate-400">
           执行过程
         </span>
         <button
           onClick={() => setExpanded(false)}
-          className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
         >
-          收起 <ChevronUp className="h-3 w-3" />
+          收起 <ChevronUp className="h-3.5 w-3.5" />
         </button>
       </div>
       <Timeline data={data} />

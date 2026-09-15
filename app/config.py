@@ -206,6 +206,14 @@ class Settings(BaseSettings):
     # 相反的结论。判级只用亲和分这一个尺度。
     rag_min_confidence: float = 0.15
 
+    # D59 嵌入版本迁移：写入 chunk 的嵌入模型快照；rotate() 不自动 reembed
+    embed_model_version: str = "v1"  # 字符串标签（"v1"/"bge-v1.5"），非数值
+    # D58 嵌入失败自愈：重试预算、批大小、调度间隔、TTL
+    embed_retry_max: int = 3        # 失败次数超过此值 → abandoned
+    embed_retry_batch: int = 100    # 单次 scheduler tick 最多重试的 chunk 数
+    embed_retry_interval_s: int = 3600  # 后台 scheduler 运行间隔（秒），0=禁用
+    embed_failed_ttl_s: int = 2592000   # embed_failed chunk 最长存活（秒），默认 30 天
+
     @field_validator("rag_min_confidence", mode="before")
     @classmethod
     def _lenient_confidence_threshold(cls, v: Any) -> Any:
@@ -235,6 +243,50 @@ class Settings(BaseSettings):
     #             row_filters?, quota_per_min?}]，见 docs/specs/AUTH/01 §5
     auth_keys: str = ""
     auth_anonymous_tenant: str = ""
+
+    # --- AUTH/02 用户账号体系（注册 / 登录 / 资料 / 角色 / 微信扫码）---
+    # 与 AUTH/01 的分工：AUTH_KEYS 是**机器身份**（CI / 外部 Agent 的静态 key），
+    # 这里是**人**——账号密码、头像、角色、可吊销的登录会话。二者共用同一个
+    # Principal，所以数据权限与工具 RBAC 只有一份实现。
+    #
+    # ⚠️ `user_auth_enabled` 只控制**账号体系是否可用**，不是强制登录开关：
+    #    登录/注册/资料接口在它关闭时也照常工作（否则本地开发想试点一下都进不去）。
+    #    **强制校验**仍是 `auth_enabled`（默认关 = 匿名全权限，既有行为不变）。
+    user_auth_enabled: bool = True
+    user_db_path: str = "data/users.db"
+    user_avatar_dir: str = "data/avatars"
+    # 登录会话有效期（小时）。改密/停用会立即吊销，不依赖这个过期时间。
+    session_ttl_hours: float = 72.0
+    # 密码最短长度。低于 8 会被硬下限顶住（配置写错不该把口令体系废掉）。
+    password_min_length: int = 8
+    # 登录失败锁：同一用户名在 lockout 窗口内失败 max_fail 次即暂时锁定。
+    # 设 max_fail=0 关闭锁定（不推荐，等于开放暴力破解）。
+    user_login_max_failures: int = 8
+    user_login_lockout_s: int = 300
+    # 自托管便利：库里一个用户都没有时，首个注册者成为管理员。
+    # **生产务必关闭**并改用下面的 bootstrap 凭据（否则谁先注册谁接管）。
+    user_first_registrant_is_admin: bool = True
+    # 可选：按配置播种初始管理员（幂等，已存在则不动）。
+    user_bootstrap_admin_username: str = ""
+    user_bootstrap_admin_password: str = ""
+    user_bootstrap_admin_email: str = ""
+    # 允许公开注册（false = 只有管理员能建号，首用户仍可注册以免锁死）
+    user_registration_open: bool = True
+
+    # --- 微信扫码登录（微信开放平台「网站应用」）---
+    # ⚠️ 真实扫码需要**已认证的微信开放平台网站应用**（企业主体 + 300 元认证），
+    #    拿到 appid/appsecret 并在开放平台登记本服务的回调域名。未配置这三项时，
+    #    后端**不会伪造登录**：接口如实返回 configured=false，前端给出配置指引。
+    wechat_appid: str = ""
+    wechat_appsecret: str = ""
+    # 授权回调地址，必须与开放平台登记的一致（如 https://da.example.com/api/v1/auth/wechat/callback）
+    wechat_redirect_uri: str = ""
+    # 登录二维码 state 有效期（秒）
+    wechat_state_ttl_s: int = 600
+    # 开发联调开关：**未配置凭据**时允许走本地模拟通道，把整条 UI/状态机链路
+    # （state → 轮询 → 换 token → 建号）跑通。默认关；打开时接口会明确标注
+    # `simulated: true`，绝不冒充真实微信授权。
+    wechat_dev_simulate: bool = False
 
     # --- D45 两步授权（HITL）：高危动作需二次确认 ---
     # **默认关**：既有 950+ 用例与本地开发行为零影响。

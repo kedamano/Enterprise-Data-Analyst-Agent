@@ -293,3 +293,150 @@ class LLMProbeResponse(BaseModel):
     model: str = ""
     latency_ms: Optional[float] = None
     error: Optional[str] = None
+
+
+# --------------------------------------------------------------------------- #
+# AUTH/02 用户账号体系
+# --------------------------------------------------------------------------- #
+class UserPublic(BaseModel):
+    """对外的用户视图。
+
+    **绝不包含** `password_hash` / `wechat_openid` / `wechat_unionid` ——
+    前者是凭证材料，后两者是可被用来关联微信身份的外部标识，
+    前端展示用不到，一次都不该下发。
+    """
+    id: str
+    username: str
+    email: str = ""
+    phone: str = ""
+    display_name: str = ""
+    bio: str = ""
+    role: str = "analyst"
+    status: str = "active"
+    tenant: str = ""
+    avatar: str = ""              # 文件名或外链；前端拼 /api/v1/auth/avatar/<name>
+    avatar_version: int = 0
+    source: str = "password"      # password | wechat
+    created_at: str = ""
+    updated_at: str = ""
+    last_login_at: str = ""
+
+
+class AuthSessionResponse(BaseModel):
+    ok: bool = True
+    token: str
+    expires_at: str = ""
+    user: UserPublic
+    created: bool = False         # 本次是否新建了账号（微信首次扫码 / 注册）
+
+
+class AuthMeResponse(BaseModel):
+    """GET /auth/me：**刻意不返回 401**。
+
+    前端每次启动都要问一次"我是谁"，用 200 + `authenticated=false` 表达
+    "没登录"比让它去区分 401 与网络错误更省事，也避免控制台刷错误。
+    """
+    authenticated: bool = False
+    user: Optional[UserPublic] = None
+    # 服务端鉴权是否**强制**（auth_enabled）。false 时未登录也能用，只是身份是匿名的。
+    enforcement: bool = False
+    user_auth_enabled: bool = True
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    email: str = ""
+    display_name: str = ""
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UpdateProfileRequest(BaseModel):
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    bio: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class SessionInfo(BaseModel):
+    created_at: str = ""
+    expires_at: str = ""
+    user_agent: str = ""
+    ip: str = ""
+
+
+class SessionListResponse(BaseModel):
+    sessions: list[SessionInfo] = Field(default_factory=list)
+
+
+class RoleInfo(BaseModel):
+    role: str
+    label: str
+    summary: str = ""
+    rank: int = 0
+    permissions: list[str] = Field(default_factory=list)
+    permission_labels: list[str] = Field(default_factory=list)
+
+
+class RoleListResponse(BaseModel):
+    roles: list[RoleInfo] = Field(default_factory=list)
+
+
+class UserListResponse(BaseModel):
+    users: list[UserPublic] = Field(default_factory=list)
+    total: int = 0
+
+
+class AdminUpdateUserRequest(BaseModel):
+    """管理员改他人：角色 / 状态。改自己会走 users.set_role/set_status 的守卫。"""
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+class WeChatStatus(BaseModel):
+    configured: bool = False
+    simulate_available: bool = False
+    missing: list[str] = Field(default_factory=list)
+    redirect_uri: str = ""
+
+
+class WeChatQrResponse(BaseModel):
+    state: str
+    qr_url: str = ""              # 微信官方 qrconnect 地址（前端用 iframe 渲染）
+    expires_in: int = 600
+    poll_interval_s: int = 2
+    configured: bool = False
+    simulated: bool = False       # true = 未配置凭据，二维码不来自微信
+
+
+class WeChatPollResponse(BaseModel):
+    status: str                   # pending | confirmed | expired | error
+    simulated: bool = False
+    token: str = ""
+    expires_in: float = 0
+    user_id: str = ""
+    message: str = ""
+
+
+class WeChatSimulateRequest(BaseModel):
+    state: str
+    nickname: str = ""
+
+
+class AuthConfigResponse(BaseModel):
+    """前端一次性拿到所有"要不要显示、能不能点"的依据。"""
+    user_auth_enabled: bool = True
+    enforcement: bool = False           # auth_enabled：未登录是否被拦
+    registration_open: bool = True
+    password_min_length: int = 8
+    has_users: bool = False             # false 时提示"第一个注册者将成为管理员"
+    wechat: WeChatStatus = Field(default_factory=WeChatStatus)

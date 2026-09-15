@@ -96,20 +96,20 @@ export function Markdown({ children }: { children: string }) {
           table: ({ ...p }) => (
             <div className="my-3 overflow-x-auto rounded-lg border border-slate-200">
               <table
-                className="w-full border-collapse text-[13px]"
+                className="w-full border-collapse text-[13px] leading-snug"
                 {...p}
               />
             </div>
           ),
           th: ({ ...p }) => (
             <th
-              className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold text-slate-800"
+              className="border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-left font-semibold text-slate-800"
               {...p}
             />
           ),
           td: ({ ...p }) => (
             <td
-              className="border-b border-slate-100 px-3 py-2 text-slate-700"
+              className="border-b border-slate-100 px-3 py-1.5 text-slate-700"
               {...p}
             />
           ),

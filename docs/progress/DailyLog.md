@@ -3366,5 +3366,62 @@ D57 加 `status='ok'` 过滤时，**没感觉到 "embed_failed 的 chunk 该不�
 
 * **"给 chunk 加 embedding 失败重试调度"** — 本次只做标记，不做调度。是否加取决于实际 embed 模型的长期可用率。
 * **`test_agent_real.py`（13 条）的欠账**自 D54 起未重跑，同 D55。
-* **`embed_failed` 的 chunk 长期堆积** — 如果 embed 一直不可用，这些 chunk 会越积越多但永远「无向量」。是否需要一个 TTL / 后台重试，留给后续决策。
+* ~~**`embed_failed` 的 chunk 长期堆积**~~ — **D58 已解决**（见下节）。
+
+---
+
+## Day 58（2026-09-15 · E8/02 嵌入失败自愈 + chunk 质量运维面板）
+
+**任务（SDD→TDD→绿→回归→eval→门禁）**
+1. **SDD 契约**：`docs/specs/E8/02-embed-self-healing.md`（~220 行）——
+   - 状态机：`embed_failed ──(retry 成功)──→ ok` / `embed_failed ──(fail > max)──→ abandoned`
+   - 新增 Status `abandoned`（超出重试预算的终态，**自动从检索结果中排除**，不在 `status IN ('ok','embed_failed')` 列表里）
+   - 调度器 budget：单次 tick N 条（`embed_retry_batch`，默认 100）
+   - 寿命 TTL：`embed_failed_ttl_s` 默认 30 天（`abandon_expired(at=cutoff)` 一次清掉）
+   - chunk 质量运维：`chunk_diagnostics(kb_id=?)` 新增 `{abandoned, embed_failed_aging: {1h,1d,7d,older}}` 直方图
+   - 调度器 hook：每个 tick 发 Prometheus 指标；支持 `interval_s<=0` 禁用
+2. **TDD 红→绿**：`tests/test_e8_embed_self_healing.py`（16 条 4 类）
+   - `TestEmbedFailedStateMachine`（8）— add/retry flip to ok / retry failure increments count / exceed max → abandoned / kb filter respects / abandoned not retried / abandon_expired marks old / keeps fresh
+   - `TestEmbedScheduler`（3）— batch limit / background thread lifecycle
+   - `TestAdminSelfHealingAPI`（4）— `POST /admin/embed-failed/retry|abandon` + `GET /{kb_id}/diagnostics` + `GET /admin/embed-failed/list`
+   - `TestMilvusDuckTyping`（1）— Milvus stub 方法不抛 AttributeError（pymilvus 未装 → skip）
+3. **实现**
+   - `config.py` 加 4 字段：`embed_retry_max=3 / embed_retry_batch=100 / embed_retry_interval_s=3600 / embed_failed_ttl_s=2592000`
+   - `knowledge_tool.py`：懒迁移加 `failed_count`/`retried_at`；`add()` 失败记 `failed_count=1 / retried_at=now`；新增 `retry_embed / abandon_expired / list_embed_failed`；`chunk_diagnostics` 扩展返回 `abandoned` 与 aging 直方图；Milvus stub 三个方法兜底；重试候选 SQL `failed_count <= max_retries`（给 count=max 最后一次机会）
+   - `embed_scheduler.py`（新模块）— daemon 线程；第一跑立即执行；`stop_background_scheduler()` 用 Event + join
+   - `api/routes/knowledge.py` 加 5 个 admin/diagnose endpoints，前缀 `/knowledge-bases` 在 app 层再挂 `/api/v1`
+4. **回归与门禁**
+   - **D58 本体**：**15 passed / 1 skipped / 0 failed** in 23.33s
+   - **D57 回归**（schema 新增 `failed_count` / `retried_at`，确认不破坏旧行为）：**11/11 passed**
+   - **邻里套件**（rag_confidence / kb_management_api / tenant）：**30/30 passed**
+   - **离线全量**：**1314 passed / 34 skipped / 0 failed** in 493.11s
+   - **mock eval**：`--mode mock` 门禁 **PASS**（FINISH 率 1.0 / 断言通过率 1.0 / 溯源覆盖率 1.0 / 幻觉率 0.0 / `scored_cases=8`）
+
+### 三、RED 与踩坑
+
+| # | 现象 | 根因 | 修法 |
+|---|---|---|---|
+| 候选 SQL `failed_count < max_retries`，count=max 时断掉 | 初始 `failed_count=1`，在 max=2 时 retry 1 次后 count=2，候选 `2 < 2`=False，第二次 retry 永远进不来 → status 卡在 `embed_failed` 永远不翻 `abandoned` | `failed_count < max_retries` → `failed_count <= max_retries` |
+| 短文本 add 后 status=`noise` 不进 `embed_failed` | 测试文本 `"in kb_a"` 只有 7 字符，命中 `_classify_chunk` quality gate → status=`noise`，embed 调用根本不触发 | 测试改用 ≥10 文本常量 `LONG_TEXT`/`LONG_TEXT_2`，避免 quality gate 干扰 |
+| admin API 404 | 测试 URL 用了 `/knowledge-bases/admin/...`，但 app 层前缀是 `/api/v1`，完整路径 `/api/v1/knowledge-bases/admin/...` | 测试引入 `API_PREFIX = "/api/v1"` 常量 |
+| `chunk_diagnostics` 不接受 `kb_id` 关键字 | D57 方法签名只支持 `tenant`，`/diagnostics` 按 KB 粒度查更自然 | 扩展方法签名加可选 `kb_id=None`，向后兼容 |
+| `_patch_settings` 用 `type(get_settings())` class-level patch 无意义 | pydantic field 不在 class `__dict__` 里（是 descriptor 层），setattr 类上不生效 | 改成直接构造一个新的 `Settings` 实例，`object.__setattr__` 写覆盖字段，再 `patch.object(kt, "get_settings", lambda: patched_instance)` |
+
+### 四、回归门禁（D58 DOD 全部通过）
+* **E8/02 本体**：15 passed / 1 skipped（Milvus stub without pymilvus）
+* **D57 schema 回归**：11/11 passed
+* **敏感邻接面**（tenant / confidence / kb-api）：30/30 passed
+* **离线全量**：**1314 passed / 34 skipped / 0 failed** in 493.11s
+* **mock eval**：退出码 0，门禁 PASS，指标与 D57 逐项相同
+
+### 五、SDD 边界（**不做**）
+* **Milvus 全路径**：sqlite 后端完整，Milvus 三个 stub 方法仅 duck-typing 兜底
+* **OCR / 版面理解 / 父子 chunk**：同 D57，仍明确「不做」
+* **root-cause 诊断**：不分析为什么 embed 失败（OOM / 模型缺失 / 超时就同一命运）——只记录 `failed_count` 与 `retried_at`，让上层 ETL 自愈
+* **TTL 自动触发调度**：目前只通过 `POST /admin/embed-failed/abandon` 和 `start_background_scheduler` 显式起；未接入 app startup lifespan
+
+### 六、遗留
+* **`test_agent_real.py`（13 条）的欠账**自 D54 起未重跑，同 D57
+* **TTL 自动调度**的 app-startup 接线留后续
+* **`embed_failed` 的 chunk 长期堆积**问题经 D58 已解决（TTL abandon + 手动 retry API），SQLite 后端路径闭环，Milvus 路径等 SDK 接入时补全
 

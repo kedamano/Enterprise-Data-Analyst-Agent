@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from .api.routes import (
     attachments,
+    auth,
     caliber,
     chat,
     debug,
@@ -64,10 +65,14 @@ def _missing() -> HTMLResponse:
 async def _lifespan(_app: FastAPI):
     """启动钩子：后台预热知识库嵌入模型。
 
-    嵌入模型首次加载要么成功缓存，要么等满 ``embed_load_timeout_s`` 后永久禁用
-    （离线缓存缺失时会转在线下载而挂起，实测 ~25s）。放到后台 daemon 线程里付掉
-    这一次性代价，用户第一次「入库 / 检索」就不会干等数十秒；预热失败也不影响服务
-    （混合检索的 BM25 通道可独立工作）。
+    嵌入模型首次加载本机实测 ~17s（离线缓存优先，缓存缺失才在线下载）。放到后台
+    daemon 线程里付掉这笔一次性代价，用户第一次「入库 / 检索」就不必干等。
+
+    两点注意：
+    * 预热失败不影响服务——混合检索的 BM25 通道可独立工作。
+    * **超时 ≠ 永久失败**：加载线程会继续在后台跑，后续调用自动接管结果
+      （见 ``knowledge_tool._get_embed_model``）。早期版本把超时写成永久禁用，
+      会导致整个进程此后静默退化为纯 BM25，必须重启才能恢复。
     """
     if settings.knowledge_enabled:
         import threading
@@ -115,6 +120,7 @@ def prometheus_metrics():
     return PlainTextResponse(_metrics_mod.metrics.render_prometheus(), media_type="text/plain; version=0.0.4")
 
 app.include_router(health.router, prefix=settings.api_prefix)
+app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(chat.router, prefix=settings.api_prefix)
 app.include_router(document.router, prefix=settings.api_prefix)
 app.include_router(debug.router, prefix=settings.api_prefix)
@@ -188,3 +194,29 @@ def _upload_check():
     if p.exists():
         return FileResponse(str(p), media_type="text/html")
     return _missing()
+
+
+# 应用图标：浏览器 favicon + 侧栏/顶栏品牌 Logo（web/public 下同源单图）。
+#
+# 为什么逐个注册而不是 ``app.mount("/", StaticFiles(...))``：根路径整体挂载会
+# 吞掉 /api、/ui、/docs 等路由。favicon 的引用是**绝对路径**（``/favicon.ico``），
+# 而 dist 只被挂到 /ui 那一个 HTML 上，所以必须在这里显式暴露根级文件，
+# 否则浏览器取不到标签页图标、页面 Logo 也会 404。
+def _register_dist_file(route: str, filename: str, media_type: str) -> None:
+    def _serve():
+        p = _DIST / filename
+        if p.exists():
+            return FileResponse(str(p), media_type=media_type)
+        return _missing()
+
+    _serve.__name__ = f"_dist_{filename.replace('.', '_')}"
+    app.get(route, include_in_schema=False)(_serve)
+
+
+for _route, _filename, _mime in (
+    ("/favicon.ico", "favicon.ico", "image/x-icon"),
+    ("/favicon-32.png", "favicon-32.png", "image/png"),
+    ("/apple-touch-icon.png", "apple-touch-icon.png", "image/png"),
+    ("/logo.png", "logo.png", "image/png"),
+):
+    _register_dist_file(_route, _filename, _mime)

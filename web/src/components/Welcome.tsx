@@ -57,7 +57,7 @@ export function Welcome({
     <div className="relative flex h-full flex-col items-center overflow-y-auto bg-slate-50 px-6">
       {/* 顶部柔和光晕 */}
       <div
-        className="pointer-events-none absolute left-1/2 top-12 h-72 w-[640px] -translate-x-1/2 rounded-full opacity-40 blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-6 h-60 w-[560px] -translate-x-1/2 rounded-full opacity-40 blur-3xl"
         style={{
           background:
             "radial-gradient(circle, rgba(99,102,241,0.18) 0%, rgba(139,92,246,0.10) 35%, rgba(255,255,255,0) 70%)",
@@ -65,36 +65,37 @@ export function Welcome({
       />
 
       {/* 用 CSS 动画而非 motion 编排：即便动画被中断，内容也不会停留在 opacity:0 */}
-      <div className="da-fade-up relative z-10 mx-auto w-full max-w-3xl pt-12 pb-4 text-center">
-        <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-3 py-1 text-xs font-medium text-indigo-700 shadow-sm">
-          <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+      {/* my-auto：内容比视口矮时垂直居中，消掉落地页下方的大片空白；比视口高时正常滚动 */}
+      <div className="da-fade-up relative z-10 mx-auto my-auto w-full max-w-5xl pb-5 pt-7 text-center">
+        <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-indigo-700 shadow-sm">
+          <Sparkles className="h-4 w-4 text-indigo-500" />
           Enterprise Data Analyst Agent
         </div>
 
-        <h1 className="text-balance bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-700 bg-clip-text text-3xl font-semibold leading-tight tracking-tight text-transparent sm:text-4xl">
+        <h1 className="text-balance bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-700 bg-clip-text text-[28px] font-semibold leading-tight tracking-tight text-transparent sm:text-[34px]">
           企业数据分析智能体
         </h1>
 
-        <p className="mx-auto mt-3 max-w-xl text-[14.5px] leading-relaxed text-slate-500">
+        <p className="mx-auto mt-3 max-w-2xl text-[14.5px] leading-relaxed text-slate-500">
           用自然语言驱动「意图理解 → 计划 → 取数 → 分析 → 质检 → 报告」六阶段编排。
           描述你的业务问题，智能体自动调用工具、取证并产出可读报告。
         </p>
 
         {/* 能力高亮卡片 */}
-        <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {HIGHLIGHTS.map(({ icon: Icon, title, desc, color }) => {
             const c = COLOR_MAP[color] ?? COLOR_MAP.indigo;
             return (
               <div
                 key={title}
-                className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm shadow-slate-200/50"
+                className="rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm shadow-slate-200/50"
               >
                 <div
-                  className={`mb-2.5 grid h-9 w-9 place-items-center rounded-xl ${c.bg} ring-1 ${c.ring}`}
+                  className={`mb-2.5 grid h-9 w-9 place-items-center rounded-lg ${c.bg} ring-1 ${c.ring}`}
                 >
                   <Icon className={`h-5 w-5 ${c.fg}`} />
                 </div>
-                <h3 className="text-[13.5px] font-semibold text-slate-900">{title}</h3>
+                <h3 className="text-[14px] font-semibold text-slate-900">{title}</h3>
                 <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
                   {desc}
                 </p>
@@ -104,12 +105,12 @@ export function Welcome({
         </div>
 
         {/* 快速开始：三个真实资产入口（替代已移除的「工作台」）*/}
-        <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {onUpload && (
             <button
               type="button"
               onClick={onUpload}
-              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-700 transition hover:bg-emerald-100"
+              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13.5px] font-medium text-emerald-700 transition hover:bg-emerald-100"
             >
               <Upload className="h-4 w-4" /> 上传文件
             </button>
@@ -118,7 +119,7 @@ export function Welcome({
             <button
               type="button"
               onClick={onAddKnowledge}
-              className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-medium text-amber-700 transition hover:bg-amber-100"
+              className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13.5px] font-medium text-amber-700 transition hover:bg-amber-100"
             >
               <BookOpen className="h-4 w-4" /> 添加知识
             </button>
@@ -127,7 +128,7 @@ export function Welcome({
             <button
               type="button"
               onClick={onDataSources}
-              className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] font-medium text-sky-700 transition hover:bg-sky-100"
+              className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-[13.5px] font-medium text-sky-700 transition hover:bg-sky-100"
             >
               <Database className="h-4 w-4" /> 查看数据源
             </button>
@@ -135,30 +136,30 @@ export function Welcome({
         </div>
 
         {/* 示例问题 */}
-        <div className="mt-8 mb-4 text-left">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 mt-6 text-left">
+          <div className="mb-2.5 flex items-center justify-between">
             <span className="text-[12px] font-medium uppercase tracking-wider text-slate-500">
               示例问题 · 点击直接发送给智能体
             </span>
-            <span className="text-[11px] text-slate-400">
+            <span className="hidden text-[12px] text-slate-400 sm:block">
               或在下方直接提问 / 上传 CSV 文件
             </span>
           </div>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {EXAMPLES.map((ex, i) => (
               <button
                 key={ex}
                 style={{ animationDelay: `${i * 45}ms` }}
                 onClick={() => onPick(ex)}
-                className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-[13px] text-slate-600 shadow-sm shadow-slate-200/50 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
+                className="group flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-[13px] text-slate-600 shadow-sm shadow-slate-200/50 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
               >
-                <span className="flex items-center gap-2">
-                  <span className="grid h-5 w-5 place-items-center rounded-md bg-slate-100 text-[11px] font-mono text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-slate-100 text-[11px] font-mono text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600">
                     {i + 1}
                   </span>
                   <span className="truncate">{ex}</span>
                 </span>
-                <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
               </button>
             ))}
           </div>

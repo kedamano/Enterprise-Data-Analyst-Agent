@@ -20,23 +20,23 @@ function fmtSize(n: number): string {
 
 function extIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  if (["csv", "tsv", "xlsx", "xls"].includes(ext)) return <FileText className="h-3 w-3" />;
-  if (["json", "py", "sql", "md", "log"].includes(ext)) return <FileCode2 className="h-3 w-3" />;
-  return <FileText className="h-3 w-3" />;
+  if (["csv", "tsv", "xlsx", "xls"].includes(ext)) return <FileText className="h-3.5 w-3.5" />;
+  if (["json", "py", "sql", "md", "log"].includes(ext)) return <FileCode2 className="h-3.5 w-3.5" />;
+  return <FileText className="h-3.5 w-3.5" />;
 }
 
 function AttachmentStrip({ attachments }: { attachments: Attachment[] }) {
   if (attachments.length === 0) return null;
   return (
-    <div className="mb-1.5 flex flex-wrap gap-1.5">
+    <div className="mb-2 flex flex-wrap gap-2">
       {attachments.map((a) => (
         <div
           key={a.id}
-          className="inline-flex max-w-[220px] items-center gap-1 rounded-md bg-white/15 px-1.5 py-1 text-[11.5px] text-white"
+          className="inline-flex max-w-[260px] items-center gap-1.5 rounded-md bg-white/15 px-2 py-1 text-[12.5px] text-white"
           title={`${a.name} · ${fmtSize(a.size)}`}
         >
           {a.kind === "image" ? (
-            <ImageIcon className="h-3 w-3 shrink-0" />
+            <ImageIcon className="h-3.5 w-3.5 shrink-0" />
           ) : (
             <span className="shrink-0">{extIcon(a.name)}</span>
           )}
@@ -51,8 +51,8 @@ function AttachmentStrip({ attachments }: { attachments: Attachment[] }) {
 function StatusPill({ status, done }: { status?: string; done?: boolean }) {
   if (done) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-medium text-emerald-700">
-        <Check className="h-3 w-3" /> 已完成
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[12.5px] font-medium text-emerald-700">
+        <Check className="h-3.5 w-3.5" /> 已完成
       </span>
     );
   }
@@ -60,7 +60,7 @@ function StatusPill({ status, done }: { status?: string; done?: boolean }) {
   const busy = status !== "FINISH" && status !== "ERROR" && status !== "FAILED";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-medium ${
         busy
           ? "border border-indigo-200 bg-indigo-50 text-indigo-700"
           : "border border-rose-200 bg-rose-50 text-rose-700"
@@ -91,7 +91,7 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
         animate={{ opacity: 1, y: 0 }}
         className="flex justify-end"
       >
-        <div className="max-w-[78%] rounded-2xl rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-2.5 text-[14.5px] leading-relaxed text-white shadow-lg shadow-indigo-500/20">
+        <div className="max-w-[75%] rounded-2xl rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 px-[18px] py-3 text-[15px] leading-relaxed text-white shadow-lg shadow-indigo-500/20">
           {attachments.length > 0 && <AttachmentStrip attachments={attachments} />}
           {message.text && <div className="whitespace-pre-wrap break-words">{message.text}</div>}
         </div>
@@ -158,39 +158,43 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
 
         {hasReport && (
           <div className="group mb-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/50">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
                 分析报告
               </span>
-              <button
-                onClick={copyReport}
-                aria-label="复制报告"
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3.5 w-3.5 text-emerald-500" /> 已复制
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5" /> 复制
-                  </>
-                )}
-              </button>
-              {sessionId && (
-                // E5/03：一次拿走交付包（报告 + SQL + 数据 + 溯源）
-                <a
-                  href={`/api/v1/chat/analyze/export/${sessionId}?format=zip`}
-                  aria-label="导出交付包"
+              {/* 操作按钮成组靠右。此前 justify-between 会把三个按钮摊开铺满整行，
+                  中间留下大片空隙，显得稀疏。 */}
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  onClick={copyReport}
+                  aria-label="复制报告"
                   className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
                 >
-                  <Download className="h-3.5 w-3.5" /> 导出
-                </a>
-              )}
-              {sessionId && (
-                // #6 协作骨架：分享 / 评论 / 权限（后端端点待接入）
-                <ShareBar sessionId={sessionId} />
-              )}
+                  {copied ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-500" /> 已复制
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" /> 复制
+                    </>
+                  )}
+                </button>
+                {sessionId && (
+                  // E5/03：一次拿走交付包（报告 + SQL + 数据 + 溯源）
+                  <a
+                    href={`/api/v1/chat/analyze/export/${sessionId}?format=zip`}
+                    aria-label="导出交付包"
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+                  >
+                    <Download className="h-3.5 w-3.5" /> 导出
+                  </a>
+                )}
+                {sessionId && (
+                  // #6 协作骨架：分享 / 评论 / 权限（后端端点待接入）
+                  <ShareBar sessionId={sessionId} />
+                )}
+              </div>
             </div>
             <Report raw={message.text ?? ""} />
             {/* D51：#7 导出预览 —— 打包前先说清楚包里有什么（与真实 zip 同源） */}
@@ -205,7 +209,7 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
         )}
 
         {!message.done && !message.events?.length && !message.error && (
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="flex items-center gap-2.5 text-[14.5px] text-slate-500">
             <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-400" />
             正在连接智能体…
           </div>
