@@ -223,3 +223,80 @@ def test_report_renders_caliber_section():
     clean = report_run({"analysis": AnalysisResult().model_dump(),
                         "reflection": ReflectionResult().model_dump(), "objective": "x"})
     assert "口径说明" not in clean["report"], "没有口径问题就不出现该段"
+
+
+# --------------------------------------------------------------------------- #
+# E4/03 LLM 语义判读 + rationale（task③）                                      #
+# --------------------------------------------------------------------------- #
+def _semantic_ctx():
+    return ContextModel(metrics=["营收"],
+                        time_range=TimeRange(start="近30天"),
+                        comparison=Comparison(type="同比", period="去年同期"))
+
+
+def test_caliber_llm_disabled_by_default_no_semantic_issues():
+    """LLM 语义判读默认关 —— 哪怕明显歧义也不产出 semantic_mismatch（回归）"""
+    get_settings.cache_clear()
+    from app.core.agents.data_analyst.caliber import caliber_check
+    analysis = AnalysisResult(findings=[Finding(
+        finding="营收 Q1 含退款 1.2 亿 vs 去年同期不含退款 1.0 亿，直接比较",
+        confidence=0.8, evidence=[Evidence(source="sql_query", metric="营收", value=1)])])
+    check = caliber_check(analysis, _semantic_ctx(), report="含退款 vs 不含退款对比")
+    assert all(i.kind != "semantic_mismatch" for i in check.issues), \
+        f"默认应关，实际 {check.issues}"
+    assert get_settings().caliber_llm_enabled is False
+
+
+def test_caliber_llm_enabled_flags_gemini_exclude_refund_when_on(monkeypatch, mock_llm_env):
+    """LLM 打开 + 含/不含退款同段 → 至少一条 semantic_mismatch，rationale 非空"""
+    monkeypatch.setenv("CALIBER_LLM_ENABLED", "true")
+    get_settings.cache_clear()
+    try:
+        from app.core.agents.data_analyst.caliber import caliber_check
+        analysis = AnalysisResult(findings=[Finding(
+            finding="含退款营收 1.2 亿与不含退款营收 1.0 亿直接对比，看趋势好转",
+            confidence=0.8, evidence=[Evidence(source="sql_query", metric="营收", value=1)])])
+        check = caliber_check(analysis, _semantic_ctx(),
+                              report="含退款营收 1.2 亿与不含退款营收 1.0 亿直接对比")
+        sm = [i for i in check.issues if i.kind == "semantic_mismatch"]
+        assert len(sm) >= 1, f"应产出 semantic_mismatch，实际 {check.issues}"
+        assert sm[0].rationale, "LLM 判读 rationale 必填"
+    finally:
+        monkeypatch.delenv("CALIBER_LLM_ENABLED", raising=False)
+        get_settings.cache_clear()
+
+
+def test_caliber_llm_enabled_clean_text_yields_no_semantic_issues(monkeypatch, mock_llm_env):
+    """LLM 打开 + 干净文本（单一口径、有分母） → 无 semantic_mismatch"""
+    monkeypatch.setenv("CALIBER_LLM_ENABLED", "true")
+    get_settings.cache_clear()
+    try:
+        from app.core.agents.data_analyst.caliber import caliber_check
+        analysis = AnalysisResult(findings=[Finding(
+            finding="近30天营收 1.2 亿（分母：开票口径含退款），环比提升 5%",
+            confidence=0.8, evidence=[Evidence(source="sql_query", metric="营收", value=1)])])
+        check = caliber_check(analysis, _semantic_ctx(),
+                              report="近30天营收含退款，环比提升")
+        assert not any(i.kind == "semantic_mismatch" for i in check.issues)
+    finally:
+        monkeypatch.delenv("CALIBER_LLM_ENABLED", raising=False)
+        get_settings.cache_clear()
+
+
+def test_caliber_semantic_mismatch_does_not_escalate_to_replan(monkeypatch, mock_llm_env):
+    """semantic_mismatch 只收紧、不触 REPLAN：保持 apply_caliber 决策铁律"""
+    monkeypatch.setenv("CALIBER_LLM_ENABLED", "true")
+    get_settings.cache_clear()
+    try:
+        from app.core.agents.data_analyst.caliber import apply_caliber, caliber_check
+        analysis = AnalysisResult(findings=[Finding(
+            finding="含退款 1.2 亿与不含退款 1.0 亿对比", confidence=0.8,
+            evidence=[Evidence(source="sql_query", metric="营收", value=1)])])
+        check = caliber_check(analysis, _semantic_ctx(), report="含退款与不含退款直接对比")
+        assert any(i.kind == "semantic_mismatch" for i in check.issues)
+        refl = ReflectionResult(decision=ReflectionDecision.PASS, confidence=0.9)
+        assert apply_caliber(check, refl) == ReflectionDecision.PASS, \
+            "semantic_mismatch 不得升 REPLAN"
+    finally:
+        monkeypatch.delenv("CALIBER_LLM_ENABLED", raising=False)
+        get_settings.cache_clear()

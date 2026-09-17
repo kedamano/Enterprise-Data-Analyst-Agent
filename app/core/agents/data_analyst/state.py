@@ -395,13 +395,19 @@ class AdversarialCheck(BaseModel):
 
 
 class CaliberIssue(BaseModel):
-    """E4/03 口径问题（结构化，供 eval 断言——不塞进 ReflectionDimension 的字符串列表）。"""
+    """E4/03 口径问题（结构化，供 eval 断言——不塞进 ReflectionDimension 的字符串列表）。
+
+    rationale: 判读理由。结构性规则可留空；LLM 语义判读（kind=semantic_mismatch）必填，
+    用于 golden 必须命中"口径/不可比"类断言，也用于 rationale 后缀校验。
+    """
 
     kind: Literal["period_mismatch", "filter_mismatch", "denominator_missing",
                   "iteration_drift", "unit_mismatch",
-                  "baseline_mismatch", "caliber_deviation"] = "period_mismatch"
+                  "baseline_mismatch", "caliber_deviation",
+                  "semantic_mismatch"] = "period_mismatch"
     detail: str = ""
     metric: Optional[str] = None
+    rationale: str = ""
 
 
 class CaliberCheck(BaseModel):

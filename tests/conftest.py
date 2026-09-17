@@ -72,8 +72,16 @@ from app.infrastructure.llm.router import (  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _reset_state():
-    """Fresh LLM/settings cache + D59 runtime EMV override before every test."""
+    """Fresh LLM/settings cache + D59 EMV override + D61 default rewriter before every test."""
     from app.core.tools.knowledge_tool import set_emv_override
+
+    # D61：把默认 QueryRewriter 单例 + 模块级 metrics 一起归零——避免上一次测试的
+    # settings patch + 计数器残留导致后续测试读到陈旧状态 / 跨测试 metrics 污染。
+    try:
+        from app.core.rag.rewrite import reset_default_rewriter
+        reset_default_rewriter()
+    except Exception:
+        pass
 
     reset_llm()
     # 顺序不能反：set_emv_override 内部 _resolve_emv() 会调 get_settings()，
@@ -84,7 +92,6 @@ def _reset_state():
     yield
     set_emv_override(None)
     reset_llm()
-
 
 @pytest.fixture
 def session_id() -> str:

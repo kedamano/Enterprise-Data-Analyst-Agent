@@ -13,6 +13,8 @@ services:
         condition: service_healthy
       milvus:
         condition: service_healthy
+    networks:
+      - backend
     restart: unless-stopped
 
   redis:
@@ -25,6 +27,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - backend
     restart: unless-stopped
 
   # Agent 自身元数据存储（长期记忆，spec §20 Memory 的 PG 后端）
@@ -41,6 +45,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - backend
     restart: unless-stopped
 
   # Milvus Standalone 依赖 etcd（元数据）+ MinIO（对象存储），二者不是业务微服务。
@@ -62,6 +68,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - backend
     restart: unless-stopped
 
   minio:
@@ -76,6 +84,8 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+    networks:
+      - backend
     restart: unless-stopped
 
   milvus:
@@ -103,4 +113,10 @@ services:
       timeout: 5s
       retries: 10
       start_period: 90s
+    networks:
+      - backend
     restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge

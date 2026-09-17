@@ -23,10 +23,17 @@ from typing import Any, Callable, Iterator, Optional
 
 try:
     from loguru import logger as _log  # type: ignore
-
-    from .sampling import should_log_span
 except Exception:  # pragma: no cover
     _log = logging.getLogger("da")  # type: ignore
+
+# Bug 修复（2026-09-16）：原先 sampling 的 import 与 loguru 绑在同一个 try/except 里，
+# loguru 缺失时 should_log_span 一并未定义 → Tracer.end() NameError，
+# 把节点真正的异常整个替换掉（初始化阶段的原始错误被吞、只见 NameError）。
+try:
+    from .sampling import should_log_span
+except Exception:  # pragma: no cover
+    def should_log_span(ok: bool) -> bool:
+        return True  # 采样器不可用 → 全记（铁律：失败一条不漏）
 
 _DEFAULT_DIR = pathlib.Path("data/traces")
 _RECENT: deque = deque(maxlen=400)  # newest appended at the end

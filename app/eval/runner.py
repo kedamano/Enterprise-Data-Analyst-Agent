@@ -76,6 +76,9 @@ class CaseOutcome:
     degraded_stages: list[str] = field(default_factory=list)
     # E6/02：报告正文里**在全部证据中都找不到出处**的大额数值（疑似编造）。
     ungrounded_numbers: list[str] = field(default_factory=list)
+    # E7：单用例成本（prompt_tokens + completion_tokens × 配置单价）；
+    # None = 压根没配单价或本轮无 token 消耗。每个用例独立可见，便于真实基线定位"谁烧的钱"。
+    cost_usd: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = {k: v for k, v in self.__dict__.items() if k != "report_text"}
@@ -585,6 +588,10 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
     st = get_settings()
     pi, po = st.cost_input_per_mtok, st.cost_output_per_mtok
     cost_usd = compute_cost_usd(pi, po, prompt_tokens, completion_tokens)
+    # E7：每条用例单独算成本 —— 真实基线里定位"谁烧的钱"。
+    # 单点扣在聚合之后，pi/po 已 bind，且 SKIPPED/CLARIFY_OK（0 token）会得到 None（= 未计），符合语义。
+    for o in outcomes:
+        o.cost_usd = compute_cost_usd(pi, po, o.prompt_tokens, o.completion_tokens)
 
     report = {
         "mode": mode,
@@ -758,13 +765,14 @@ def render_markdown(report: dict[str, Any]) -> str:
             "> 常见原因：上游 429 限流 / 余额不足 / 模型不可用。"
             "**请先解决额度问题再重跑**，否则基线不可用。",
         ]
-    lines += ["", "## 用例明细", "", "| id | status | tools | llm | findings | refl | assert | err |", "|---|---|---|---|---|---|---|---|"]
+    lines += ["", "## 用例明细", "", "| id | status | tools | llm | findings | refl | cost | assert | err |", "|---|---|---|---|---|---|---|---|---|"]
     for c in report["cases_detail"]:
         mark = {"SKIPPED": "⏭", "DEGRADED": "⚠️"}.get(c["status"],
                                                      "✅" if c["assertions_ok"] else "❌")
+        cost_cell = _fmt_cost(c.get("cost_usd"))
         lines.append(
             f"| {c['case_id']} | {c['status']} | {c['tool_calls']} | {c['llm_calls']} | "
-            f"{c['findings']} | {c['reflect_decision']} | {mark} | "
+            f"{c['findings']} | {c['reflect_decision']} | {cost_cell} | {mark} | "
             f"{(c.get('skipped_reason') or str(c['failed_assertions']))[:40]} |"
         )
     return "\n".join(lines)

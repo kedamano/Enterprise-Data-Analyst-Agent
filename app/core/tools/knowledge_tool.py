@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -20,6 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from ...config import get_settings
+
+logger = logging.getLogger("da.tools.knowledge")
 
 # 路径可用 ``KNOWLEDGE_DB_PATH`` 覆盖。默认不变（``data/knowledge.db``）。
 # 缺这个开关时测试与旁路实例只能写真实库——与 ``knowledge_catalog`` 同理。
@@ -93,12 +96,20 @@ def _get_embed_model():
 
     def _load() -> None:
         last: Exception | None = None
-        # \u79bb\u7ebf\u7f13\u5b58\u4f18\u5148\uff1b\u7f13\u5b58\u7f3a\u5931\u624d\u5728\u7ebf\u4e0b\u8f7d\uff08\u9996\u6b21\u8fd0\u884c\uff09\u3002
+        # 离线缓存优先；缓存缺失才在线下载（首次运行）。
         for offline in (True, False):
             os.environ["HF_HUB_OFFLINE"] = "1" if offline else "0"
             os.environ["TRANSFORMERS_OFFLINE"] = "1" if offline else "0"
             try:
-                holder["model"] = SentenceTransformer(get_settings().embed_model)
+                # ⚠️ 离线阶段必须显式传 ``local_files_only=True``，光设 HF_HUB_OFFLINE=1
+                # **不够**：挂了代理的环境里它仍会发请求（实测代理返回 502 →
+                # ProxyError），于是"缓存明明完整"却加载失败，向量检索被静默降级成
+                # 纯 BM25 —— 表现为"配了 Milvus 但语义检索是假的"。
+                # 该参数让离线阶段完全不碰网络，实测 0.3s 完成加载。
+                holder["model"] = SentenceTransformer(
+                    get_settings().embed_model,
+                    **({"local_files_only": True} if offline else {}),
+                )
                 return
             except Exception as exc:  # noqa: PERF203
                 last = exc
@@ -1016,6 +1027,10 @@ class MilvusKnowledgeStore:
     """
 
     TENANT_FIELD = "tenant"
+    # 与 SQLite 后端的列名对齐（``chunks.kb_id``）。此前**根本没有这个常量定义**，
+    # 但 __init__/_kb_filter 都在用 → 只要 Milvus 真的连上，初始化就必抛
+    # AttributeError 并静默回退 SQLite。该路径从未被走到过，所以一直没暴露。
+    KB_FIELD = "kb_id"
 
     def __init__(self, client, collection: str) -> None:
         self.client = client
@@ -1039,10 +1054,46 @@ class MilvusKnowledgeStore:
             # Strong 一致性：ingest 后立即可检索（默认 Bounded 有可见延迟）
             client.create_collection(collection, schema=schema, index_params=index_params,
                                      consistency_level="Strong")
+        # 校验既有 collection 的向量维度与当前嵌入模型一致。
+        # 换 EMBED_MODEL（如英→中文模型 384→512 维）后维度必然变化，不校验的话
+        # 每次 search 都会在 faiss 层 ``assert d == self.d`` 崩掉，且 Milvus 返回的
+        # 错误消息是**空的**（<MilvusException: (code=1, message=)>），极难排查。
+        # 宁可初始化失败并留痕（调用方回退 SQLite + health 报 sqlite_fallback），
+        # 也不要让检索静默产出错误结果。
+        existing_dim = self._vector_dim()
+        if existing_dim and existing_dim != self.dim:
+            raise RuntimeError(
+                f"嵌入维度不匹配：collection '{collection}' 已存在且为 {existing_dim} 维，"
+                f"当前模型 {get_settings().embed_model} 产出 {self.dim} 维。"
+                f"更换 EMBED_MODEL 后必须重建向量库（删除该 collection 再重新入库）。"
+            )
         self._has_tenant = self.TENANT_FIELD in self._field_names()
         # 老 collection 可能没有 kb_id 字段；缺字段时按库过滤无法表达，
         # 降级为「全局检索」而不是报错（可用性优先，前端会看到跨库结果）。
         self._has_kb = self.KB_FIELD in self._field_names()
+        # 真实 Milvus（含 Lite）新建/重启后 collection 处于 **released**，
+        # 不 load 就检索会抛 "Collection ... is in state 'released'"。
+        self._ensure_loaded()
+
+    def _vector_dim(self) -> int | None:
+        """既有 collection 的向量维度；读不到则返回 ``None``（不阻塞）。"""
+        try:
+            desc = self.client.describe_collection(self.collection)
+        except Exception:
+            return None
+        for f in desc.get("fields") or []:
+            if f.get("name") == "vector":
+                params = f.get("params") or {}
+                dim = params.get("dim")
+                return int(dim) if dim else None
+        return None
+
+    def _ensure_loaded(self) -> None:
+        """把 collection 载入内存（幂等；Lite 下开销可忽略）。"""
+        try:
+            self.client.load_collection(self.collection)
+        except Exception:
+            pass
 
     def _field_names(self) -> set[str]:
         """已有 collection 的字段集（老库可能没有 tenant 字段，需兼容）。"""
@@ -1057,7 +1108,12 @@ class MilvusKnowledgeStore:
         safe = ten.replace("\\", "\\\\").replace('"', '\\"')
         return f'{self.TENANT_FIELD} == "{safe}"'
 
-    def add(self, text: str, source: str, tenant: str | None = None) -> int:
+    def add(self, text: str, source: str, tenant: str | None = None,
+            version: int = 1, kb_id: str | None = None) -> int:
+        """签名与 SQLite ``KnowledgeStore.add`` 对齐（两后端鸭子类型互替）。
+
+        ``version`` 仅接受不使用（SQLite 用它做去重版本；Milvus 侧无对应语义）。
+        """
         vec = _embed(text)
         if vec is None:
             return 0
@@ -1065,21 +1121,51 @@ class MilvusKnowledgeStore:
                                "text": text[:65000]}
         if self._has_tenant:
             row[self.TENANT_FIELD] = _resolve_tenant(tenant)[:128]
+        if self._has_kb:
+            # kb_id 在 schema 里是**必填**（enable_dynamic_field=False 且未设
+            # nullable/default），不赋值会抛 DataNotMatchException，整篇入库失败。
+            # 无库归属时写空串，与"全局模式"语义一致（检索侧不做 kb 过滤）。
+            row[self.KB_FIELD] = (kb_id or "")[:128]
         res = self.client.insert(self.collection, [row])
         return int(res.get("insert_count", 0) or 0)
 
     def search(self, query: str, top_k: int = 4,
-               tenant: str | None = None) -> list[dict[str, Any]]:
+               tenant: str | None = None,
+               kb_id: str | None = None,
+               include_stale_versions: bool = False) -> list[dict[str, Any]]:
+        """向量检索。
+
+        签名必须与 SQLite ``KnowledgeStore.search`` **逐参数对齐**——工具层按
+        ``kb_id=`` / ``include_stale_versions=`` 调用（duck typing），少一个参数就是
+        TypeError（Milvus 未启用时永远走不到，一启用就炸）。
+        ``include_stale_versions`` 在 Milvus 侧无对应语义（无版本列），接受即忽略。
+        """
         q_vec = _embed(query)
         if q_vec is None:
             return []
         kwargs: dict[str, Any] = {"output_fields": ["source", "text"]}
         ten = _resolve_tenant(tenant)
+        filters: list[str] = []
         if self._has_tenant and ten:
-            kwargs["filter"] = self._tenant_filter(ten)
-        results = self.client.search(
-            self.collection, data=[q_vec], limit=top_k, **kwargs,
-        )
+            filters.append(self._tenant_filter(ten))
+        # 老 collection 没 kb_id 字段 → 无法按库过滤，降级为全局检索（同 add 的取舍）
+        if self._has_kb and kb_id:
+            filters.append(self._kb_filter(kb_id))
+        if filters:
+            kwargs["filter"] = " and ".join(filters)
+        try:
+            results = self.client.search(
+                self.collection, data=[q_vec], limit=top_k, **kwargs,
+            )
+        except Exception as exc:
+            # collection 可能被 release（长空闲 / 服务端重启）：load 后重试一次，
+            # 仍失败才放弃——避免"能入库但检索永远空"这种静默失效。
+            if "released" not in str(exc).lower():
+                raise
+            self._ensure_loaded()
+            results = self.client.search(
+                self.collection, data=[q_vec], limit=top_k, **kwargs,
+            )
         hits = []
         for hit in (results[0] if results else []):
             entity = hit.get("entity", {}) if isinstance(hit, dict) else {}
@@ -1092,6 +1178,51 @@ class MilvusKnowledgeStore:
                                else float(hit.distance), 4),
             })
         return hits
+
+    def rebuild_source(self, source: str, text: str,
+                       tenant: str | None = None,
+                       kb_id: str | None = None) -> dict[str, int]:
+        """重建某个 source（ETL 入库的核心路径，``pipeline.ingest_text`` 直接调它）。
+
+        **语义降级说明**：SQLite 侧有 version/deprecated 列，能做到"内容未变则
+        no-op 返回 added=0、旧版本保留可回溯"。Milvus 的 schema 没有版本列
+        （只有 id/vector/source/text/tenant/kb_id），无法表达这些语义，
+        所以这里退化为**整篇替换**：先删该 source 的旧分块，再重新入库。
+
+        对使用者可见行为一致（重传同名文件 = 覆盖更新），差别是无法幂等跳过——
+        重复入库会真的重写一遍，不会返回 added=0。
+        """
+        from ...etl.chunker import chunk_structured
+
+        try:
+            self.delete_source(source, kb_id)
+        except Exception:
+            pass  # 首次入库时没有旧数据，删不掉是正常的
+        added = 0
+        for chunk in chunk_structured(text):
+            self.add(chunk, source, tenant=tenant, kb_id=kb_id)
+            added += 1
+        return {"added": added, "version": 1}
+
+    def chunk_diagnostics(self, tenant: str | None = None,
+                          kb_id: str | None = None) -> dict[str, Any]:
+        """质量统计。Milvus 侧无"空/噪声/嵌入失败/已废弃"等状态列，只报总量。
+
+        SQLite 侧那些维度依赖 ``deprecated``/``embed_failed`` 等列；这里缺失的
+        维度一律返回 0 并标注 ``partial=True``，让调用方知道这是**降级视图**
+        而不是真实的"零问题"。
+        """
+        try:
+            total = self.total_chunks(kb_id)
+        except Exception:
+            total = 0
+        return {
+            "total": total, "ok": total, "empty": 0, "noise": 0,
+            "embed_failed": 0, "deprecated": 0, "abandoned": 0,
+            "embed_failed_aging": {"1h": 0, "1d": 0, "7d": 0, "older": 0},
+            "partial": True,
+            "note": "Milvus 后端无版本/状态列，仅 total 为真实值",
+        }
 
     # ---- 管理面接口 ----
     def _kb_filter(self, kb_id: str) -> str:
@@ -1197,10 +1328,55 @@ def get_store() -> knowledge_store_type:
             try:
                 _store = MilvusKnowledgeStore(client, get_settings().milvus_collection)
                 return _store
-            except Exception:
-                pass  # Milvus 不可用 → 回退 SQLite（保持服务可用）
+            except Exception as exc:
+                # 连上了 Milvus 但知识库初始化失败（常见于嵌入模型不可用）。
+                # 这也是一次**降级**，必须留痕，否则与"压根没配 Milvus"无从区分。
+                _milvus_init_error = f"{type(exc).__name__}: {exc}"
+                logger.warning(
+                    "Milvus 客户端可用但知识库初始化失败，回退 SQLite：%s",
+                    _milvus_init_error,
+                )
+                from ...infrastructure.vectorstore import milvus as _mv
+
+                _mv._state["last_error"] = _milvus_init_error
         _store = KnowledgeStore()
     return _store
+
+
+def kb_backend() -> str:
+    """知识库后端的**观测事实**，三态（单一真相源，供 API 与健康检查共用）。
+
+    - ``"milvus"``：真的在用向量库；
+    - ``"sqlite_fallback"``：**配了** Milvus 但连不上/初始化失败 → 降级。
+      这是必须告警的状态：功能已声明启用但实际在跑 SQLite，语义检索能力是假的；
+    - ``"sqlite"``：压根没配 Milvus，回退是预期行为。
+
+    此前 ``backend`` 只有 milvus/sqlite 两态，"Milvus 服务没起"与"没配 Milvus"
+    都显示成 ``sqlite``，静默失效根本查不出来。
+    """
+    try:
+        if isinstance(get_store(), MilvusKnowledgeStore):
+            return "milvus"
+    except Exception:
+        return "sqlite"
+    try:
+        from ...infrastructure.vectorstore.milvus import milvus_last_error, resolve_uri
+
+        if resolve_uri() and milvus_last_error():
+            return "sqlite_fallback"
+    except Exception:
+        pass
+    return "sqlite"
+
+
+def kb_last_error() -> str | None:
+    """Milvus 降级的具体原因（仅 ``sqlite_fallback`` 时有值）。"""
+    try:
+        from ...infrastructure.vectorstore.milvus import milvus_last_error
+
+        return milvus_last_error()
+    except Exception:
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -1210,7 +1386,7 @@ def kb_status() -> dict[str, Any]:
     """知识库整体状态：后端类型、是否启用、来源数、分块总数。"""
     s = get_settings()
     store = get_store()
-    backend = "milvus" if isinstance(store, MilvusKnowledgeStore) else "sqlite"
+    backend = kb_backend()
     try:
         sources = store.list_sources()
         total = sum(x["chunks"] for x in sources)
@@ -1219,6 +1395,7 @@ def kb_status() -> dict[str, Any]:
     return {
         "enabled": s.knowledge_enabled,
         "backend": backend,
+        "milvus_error": kb_last_error() if backend == "sqlite_fallback" else None,
         "total_chunks": total,
         "sources": len(sources),
     }
@@ -1276,9 +1453,14 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
     tenant = params.get("tenant")
     try:
         from ..rag.multihop import MultiHopRetriever
+        from ..rag.rewrite import get_rewriter
+
+        rewriter = get_rewriter()
+        rw = rewriter.rewrite(query)
+        seeds = [rw.rewritten, *rw.alternatives] if rw.alternatives else [rw.rewritten]
 
         mh = MultiHopRetriever(store=get_store(), tenant=tenant)
-        result = mh.retrieve(query, top_k)
+        result = mh.retrieve_many(seeds, top_k)
         chunks = result.chunks
     except Exception as exc:
         # fail-closed：出错就报错，绝不伪装成一次"成功的检索"（那会让模型以为查过了）
@@ -1297,5 +1479,9 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
     from ...infrastructure.observability.metrics import metrics
 
     metrics.inc("rag_low_confidence_total")   # 只计数，不记录查询内容
+    # D62：字面回声（首条=问题的复述）单独记一条，两套失败定义不走同一条曲线——
+    # 否则 echo 降级会被 low_confidence_total 吞掉，看不出"假高零阳性"的控制能力。
+    if conf.basis == "echo_question":
+        metrics.inc("rag_echo_demotion_total")
     return {"ok": True, "chunks": [], "confidence": payload,
             "low_confidence": True, "note": _low_confidence_note(conf.level, len(chunks))}

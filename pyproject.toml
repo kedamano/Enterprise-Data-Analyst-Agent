@@ -24,11 +24,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# 注意：requirements.txt 是一份"给 CI/本地快速装包的冗余副本"。
+# 权威依赖范围声明在本文件的 [project.dependencies] + [project.optional-dependencies]。
+# 任何包增减 / 版本范围变动，必须先改本文件、再同步到 requirements.txt，以免漂移。
 rag = ["pymilvus>=2.4", "redis>=5.0", "sentence-transformers>=2.7", "pypdf>=4.0", "unstructured>=0.13"]
 pg = ["psycopg2-binary>=2.9"]
 # D50：MCP 接入层（只读工具对外暴露）。默认关（mcp_enabled=false），
 # 不需要时不必安装——`pip install .[mcp]`
 mcp = ["mcp>=2.0"]
+# MySQL 方言驱动的锁（只读守卫 / 跨方言 live 验证需要）。此前只在 requirements.txt 里，
+# 缺了这个 optional group —— K 修复（单源化第一步）。
+mysql = ["pymysql>=1.1"]
 
 [tool.setuptools]
 packages = ["app"]

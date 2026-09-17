@@ -88,6 +88,17 @@ def health():
     except Exception:
         source_names = []
 
+    # 知识库后端：KNOWLEDGE_ENABLED 是配置意图，这里报**观测事实**。
+    # 三态里的 sqlite_fallback 表示"声明启用了但 Milvus 连不上，实际在跑 SQLite"，
+    # 语义检索能力是假的——这是必须能被监控看见的状态，不能混在 sqlite 里。
+    try:
+        from ...core.tools.knowledge_tool import kb_backend, kb_last_error
+
+        kb_backend_name = kb_backend()
+        kb_err = kb_last_error() if kb_backend_name == "sqlite_fallback" else None
+    except Exception:
+        kb_backend_name, kb_err = "sqlite", None
+
     return HealthResponse(
         data_sources=source_names,
         status="ok",
@@ -100,6 +111,8 @@ def health():
         llm_degraded_stages=[st.stage for st in (deg_model.stages if deg_model else [])],
         llm_degradation=deg_model,
         llm_fallbacks_by_stage=by_stage,
+        knowledge_backend=kb_backend_name,
+        milvus_error=kb_err,
     )
 
 

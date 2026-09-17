@@ -33,6 +33,25 @@
 | 溯源在真实长报告上的覆盖率 | E1 | real 报告抽查数值→SQL 可点开 | **D53 实测：`traced 1/3 = 0.333`、`hallucination_rate 0.667`**——但分母只有 3 条数值 claim，因为**几乎没产出真数据**（见下）；此数**不能当作"溯源率 33%"读**，它测的是"根本没数据时也能编"。**D54 补的是另一侧**：`sources` 只查 `findings[].evidence[].value`、**报告正文从不检查**（编表却 ✅ 的来源）→ 新增 `ungrounded_numbers` 把正文也纳入门禁。**✅ 2026-09-15 15:34 real 重跑读数：`traced 0/1`、`hallucination_rate 1.0`**——但分母**只有 1 条**数值 claim（`a_normal_query_no_adversarial` 里的行数 `3120`，`sql_id=None` → 判无源）。那个数大概率是**真的**（`schema_search` 的 `row_count` 就有），判红是因为**没归属到任何证据**——按 E1 纪律这是对的（无归属的数值无法验证），但**不该读成"溯源率 0%"或"幻觉率 100%"**。本轮真正抓到编造的是 `grounded_numbers` 那 **5 条**（`r_join_amplification_guard` 正文里的品类营收表）。 |
 | 增量迭代（E3）语义判定与增量脚本质量：指代识别/越界守卫在真实自然语言下的准确率 | E3 | real 跑多轮"下钻/改期/换粒度"会话 + 人工抽查是否少做 | **守卫与分类为确定性实现（mock 全绿）**；D52 `test_full_pipeline_second_query` 真实多轮已过，但"是否**少做**了冗余步骤"（省没省）仍需人工抽查 |
 
+> **表项状态审计（2026-09-17）**：主表 5 行之外，以下编号下已有 passed 测试用例但未在主表闭环登记 —— **不是漂移，是 doc 未穷举**（主表只列"有真实业务数据/真模型验证缺口"的项，下有 passed 用例不等于"该项彻底完成"）。统一补登：
+>
+> | E项 | 已实现（passed 测试） | 剩余缺口 |
+> |---|---|---|
+> | **E1** 溯源 | `test_e1_auto_trace` / `test_e1_trace_validation` / `test_e1_sources` / `test_e1_trace_api` — TODO 覆盖率分母极小（见 §33），与"覆盖率 100%"是两回事 | 报告正文数值的归因（D54 已补，**覆盖率仍需大分母真基线**） |
+> | **E2** 自由写码 | `test_e2_freeform_exec` / `test_e2_free_sql` / `test_e2_pycode` / `test_sql_precheck` — 35/35 input.sql 契约生效，方言+预检已修 | 在真业务库上 "模型真改对"（分母 20 跑通 3，正确率已量化但很低） |
+> | **E3** 增量 | `test_e3_iteration` + real `test_full_pipeline_second_query` — 多轮增量路径真跑 | "是否少做"需人工抽查 |
+> | **E4** 口径 | `test_e4_quality_gate` / `test_e4_profile_quality` / `test_caliber_unit_filter` / `test_e4_caliber` 等 — 单位/过滤/基线/迭代 drift 等均已确定性实现+语义判读（mock-gated） | "语义判读在真模型报告上的约束力" = `caliber_llm_enabled=true` 真跑（mock-gated，待真模型语义判读） |
+> | **E5** 显著性 | `test_e5_rigor` — mock 全绿 | 真实样例显著性判断 + 人工抽查 |
+> | **E8** 知识深度 | `test_e8_knowledge_depth` / `test_emb_self_healing` / `test_emb_versioning` | 多跳推理覆盖率 |
+> | **E9** 查询重写 | `test_e9_query_rewrite` / `test_e2_query_rewrite`/? — 12 passed 1 skipped | 对抗/污染/长上下文表现 |
+> | **AUTH** 鉴权 | `test_auth_users_api` / `test_rbac` — mock 全绿 | 多租户/配额/token 跨设备吊销真验 |
+> | **MCP** 工具协议 | `test_mcp_tool_spec` / `test_mcp_registry` 等 | 真 MCP 客户端互操作 |
+> | **DEGRADE** 降级可见 | `test_degradation_visible` / `test_circuit_breaker` — 已真跑 | 多副本聚合指标进 /metrics |
+> | **Redis** | `test_redis_live` 2 passed | 多实例/主从切换 |
+> | **Milvus** | `test_milvus_live` 5 passed / 1 skipped | 服务端 standalone 模式独立验证 |
+>
+> 主表 5 行保留"真实数据 / 真模型判读"缺失的闭环项，上表是"已实现的部分" — **两层合并才是完整状态**。
+
 > **S2 新增（2026-09-10）**：口径可比性的**语义判读**部分待真实模型验证——
 > `unit_mismatch`（同一报告里万元/亿元混用）与 `filter_mismatch`（含/不含退款等限定词）
 > 只有枚举值、**未实现确定性判定**；`system.md`/`analyst.md` 新增的拆解与分母纪律

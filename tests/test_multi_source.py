@@ -81,9 +81,12 @@ def test_bad_config_is_ignored_not_fatal(monkeypatch, tmp_path):
 
 
 def test_missing_name_or_url_skipped(monkeypatch, tmp_path):
+    # 隔离本地数据源存储：committed 的 data/datasources.json（含 oasys 等）若不被重定向，
+    # 会漏进 available_sources()，把"缺名跳过"的断言污染成 2 个 non-default 源（期望 1）。
     monkeypatch.setenv("DATA_DB_URL", _mk_db(tmp_path / "p.db", "t", [(1, "x")]))
     monkeypatch.setenv("DATA_SOURCES",
                        '[{"url":"sqlite:///x.db"},{"name":"ok","url":"sqlite:///y.db"}]')
+    monkeypatch.setenv("DATASOURCE_STORE_PATH", str(tmp_path / "store.json"))
     get_settings.cache_clear()
     try:
         names = available_sources()

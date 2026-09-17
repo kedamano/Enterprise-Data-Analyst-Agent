@@ -208,6 +208,15 @@ class Settings(BaseSettings):
     # （完全无关的首条也能拿到 0.2×1.0），同一批样本在 RERANK_ENABLED 开/关下会得出
     # 相反的结论。判级只用亲和分这一个尺度。
     rag_min_confidence: float = 0.15
+    # RAG-01 §4：字面重合但语义无关的 echo（如 FAQ 问句的复述首条）靠亲和分压不下去，
+    # 需要 cross-encoder / embedding。当 CE 启用时，confidence 改以首条 `rerank_score`
+    # 为判据，并用本字段独立校准；CE 停用/失败时退回 `rag_min_confidence` + phrase_affinity。
+    # 默认 0.5 = 中等锚点；真 CE golden 标定时按 §2.1.1 两侧余量方法重算回填。
+    rag_cross_encoder_confidence_threshold: float = 0.5
+
+    # E4/03 caliber LLM 语义判读：默认关（"标 [待真实验验证]"）；打开后由 LLM 给报告里的
+    # 指标口径/限定词做语义复核，产出 semantic_mismatch issues（仅收紧，不触 REPLAN）。
+    caliber_llm_enabled: bool = False
 
     # D59 嵌入版本迁移：写入 chunk 的嵌入模型快照；rotate() 不自动 reembed
     embed_model_version: str = "v1"  # 字符串标签（"v1"/"bge-v1.5"），非数值
@@ -220,30 +229,57 @@ class Settings(BaseSettings):
     rag_multi_hop_max_splits: int = 3            # 单 query 最多拆成几个子 query
     rag_multi_hop_min_query_len: int = 20        # query 低于此长度不拆
     rag_multi_hop_min_piece_len: int = 4         # 每段至少这么多字符才算有效段
+    # D61 Query 改写：在检索前把口语 query 压成关键词短语 + 同义 phrasing
+    rag_query_rewrite_enabled: bool = True        # 总开关；False → 整个改写层短路
+    rag_query_rewrite_synonym_path: str = ""      # 行业词表文件路径（空 = 不解词）
+    rag_query_rewrite_max_alternatives: int = 2   # 改写后保留的同义 phrasing 上限
+    rag_query_rewrite_min_len: int = 4            # 改写后 < 此长度 → 退回原 query
+    # D62 字面回声检测：首条 = 问题的字面复述 → 判 low（basis=echo_question）
+    rag_echo_demotion_enabled: bool = True        # 总开关；False → 退化回 D53 判级
+    rag_echo_ratio_max: float = 1.5               # chunk 长度 ≤ ratio_max × query → echo
+    rag_echo_min_chars: int = 8                   # query 至少这么长才进场（极短 query 避误伤）
 
     @field_validator("rag_multi_hop_max_splits", "rag_multi_hop_min_query_len",
-                     "rag_multi_hop_min_piece_len", mode="before")
+                     "rag_multi_hop_min_piece_len",
+                     "rag_query_rewrite_max_alternatives", "rag_query_rewrite_min_len",
+                     mode="before")
     @classmethod
     def _coerce_positive_int(cls, v: Any, info: ValidationInfo) -> int:
         try:
             n = int(v)
         except (TypeError, ValueError):
-            # 非法 → 退回该字段默认值（这里简单退回 3/20/4 中的合理值）
+            # 非法 → 退回该字段默认值
             return {"rag_multi_hop_max_splits": 3,
                     "rag_multi_hop_min_query_len": 20,
-                    "rag_multi_hop_min_piece_len": 4}.get(info.field_name, 3)
+                    "rag_multi_hop_min_piece_len": 4,
+                    "rag_query_rewrite_max_alternatives": 2,
+                    "rag_query_rewrite_min_len": 4}.get(info.field_name or "", 1)
         return max(1, n)
-    embed_failed_ttl_s: int = 2592000   # embed_failed chunk 最长存活（秒），默认 30 天
 
-    @field_validator("rag_min_confidence", mode="before")
+    @field_validator("rag_echo_ratio_max", mode="before")
     @classmethod
-    def _lenient_confidence_threshold(cls, v: Any) -> Any:
-        """非法阈值（非数/负数）退回默认，**不抛**——配置写错不该让检索整体不可用。"""
+    def _lenient_echo_ratio(cls, v: Any) -> Any:
+        """非法 echo ratio（非数/非正数）退回默认，不抛——配置错不该让检索崩。"""
         try:
             parsed = float(v)
         except (TypeError, ValueError):
-            return 0.15
-        return 0.15 if parsed < 0 else parsed
+            return 1.5
+        return 1.5 if parsed <= 0 else parsed
+
+    # D58 embed_failed TTL：过期后物理清理
+    embed_failed_ttl_s: int = 2592000   # embed_failed chunk 最长存活（秒），默认 30 天
+
+    @field_validator("rag_min_confidence", "rag_cross_encoder_confidence_threshold", mode="before")
+    @classmethod
+    def _lenient_confidence_threshold(cls, v: Any, info: ValidationInfo) -> Any:
+        """非法阈值（非数/负数）退回该字段默认值，**不抛**——配置写错不该让检索整体不可用。"""
+        default = {"rag_min_confidence": 0.15,
+                   "rag_cross_encoder_confidence_threshold": 0.5}.get(info.field_name or "", 0.15)
+        try:
+            parsed = float(v)
+        except (TypeError, ValueError):
+            return default
+        return default if parsed < 0 else parsed
 
     # --- Memory / cache ---
     redis_url: str = ""

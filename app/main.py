@@ -27,6 +27,7 @@ from .api.routes import (
     health,
     knowledge,
     mcp,
+    security,
     ui,
 )
 from .config import get_settings
@@ -128,6 +129,18 @@ def prometheus_metrics():
             body += f"rag_multi_hop_splits_total {snap.get('rag_multi_hop_splits_total', 0.0)}\n"
     except Exception:
         pass
+    # D61：query 改写计数器（rewrite.py 模块级快照）
+    try:
+        from .core.rag.rewrite import rewrite_metrics as _rw_metrics
+        snap = _rw_metrics()
+        if snap:
+            for _k in ("rag_query_rewrite_total",
+                        "rag_query_rewrite_synonym_hits_total",
+                        "rag_query_rewrite_fallback_total"):
+                body += f"\n# TYPE {_k} counter\n"
+                body += f"{_k} {snap.get(_k, 0.0)}\n"
+    except Exception:
+        pass
     return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
 
 app.include_router(health.router, prefix=settings.api_prefix)
@@ -142,6 +155,7 @@ app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(export.router, prefix=settings.api_prefix)
 app.include_router(caliber.router, prefix=settings.api_prefix)
 app.include_router(mcp.router, prefix=settings.api_prefix)
+app.include_router(security.router, prefix=settings.api_prefix)
 app.include_router(ui.router)
 
 # 托管前端构建产物（web/dist）的静态资源

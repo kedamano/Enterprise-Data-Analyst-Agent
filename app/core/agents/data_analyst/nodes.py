@@ -42,6 +42,10 @@ _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 # CLARIFY/01：最多连续反问 2 轮，第 3 轮按已有信息推进（绝不无限反问）
 _MAX_CLARIFY_ROUNDS = 2
 
+# CONTEXT/01：Context 阶段能塞进提示词的表清单上限（防用户上传过多表撑爆预算）
+_MAX_TABLES_IN_CONTEXT = 60
+_MAX_COLS_PER_TABLE = 40
+
 
 # 常见"包装壳"的键：只在这些键构成整个对象时，才认为内层才是真 payload
 _WRAPPER_KEYS = frozenset({"role", "content", "result", "output", "data",
@@ -584,6 +588,35 @@ def _dialect_text(state: AgentState) -> str:
         return ""
 
 
+def _available_tables(state: AgentState) -> list[dict[str, Any]]:
+    """CONTEXT/01：Context 阶段可见的表清单（表名 + 行数 + 列名），实测约 0.03s。
+
+    为什么需要：此前 payload 只给 `data_db_url` 这个连接串，模型**看不见库里有什么表**，
+    面对「统计用户表中的总记录数」只能一律反问（实测这种无歧义查询也误触发 CLARIFY）。
+    有了清单，模型能自己判断「用户表不存在」并直接如实回答。
+
+    采集失败/为空 → 返回空列表，绝不影响主流程（与 _semantics_text 同款降级策略）。
+    """
+    try:
+        from ....core.tools import schema_tool
+
+        res = schema_tool.run({})
+    except BaseException as exc:  # 沙箱删除守卫可能抛 SystemExit，不能只吞 Exception
+        state.metadata["schema_inventory_error"] = str(exc)
+        return []
+    if not isinstance(res, dict) or not res.get("ok"):
+        return []
+    out: list[dict[str, Any]] = []
+    for t in (res.get("tables") or [])[:_MAX_TABLES_IN_CONTEXT]:
+        name = t.get("table")
+        if not name:
+            continue
+        cols = [c.get("name") for c in (t.get("columns") or []) if c.get("name")]
+        out.append({"table": name, "rows": t.get("row_count"),
+                    "columns": cols[:_MAX_COLS_PER_TABLE]})
+    return out
+
+
 def _semantics_text(state: AgentState) -> str:
     """SEMANTIC/01：业务语义紧凑文本（采集失败/为空 → 空串，绝不影响主流程）。"""
     try:
@@ -843,6 +876,8 @@ def run_context(state: AgentState) -> AgentState:
         "user_query": state.user_query,
         "conversation_history": state.conversation_history,
         "available_data_sources": [get_settings().data_db_url],
+        # CONTEXT/01：让模型**看见**库里有哪些表，避免无歧义查询被误判为需要澄清
+        "available_tables": _available_tables(state),
         # Memory 召回（§20）：短期=本会话工作上下文，长期=跨会话已验证的业务结论
         "short_term_memory": short_mem,
         "long_term_memory": long_hits,

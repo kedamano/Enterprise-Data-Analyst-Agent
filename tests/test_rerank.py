@@ -60,3 +60,33 @@ def test_no_network_without_cross_encoder(monkeypatch):
     chunks = [_chunk(1, "营收的定义说明", 0.5), _chunk(2, "与查询无关", 0.9)]
     top = rerank("营收 定义", chunks)
     assert top[0]["id"] == 1
+
+
+def test_ce_path_when_ce_configured_and_loaded(monkeypatch):
+    """CE 配置 → rerank 用 ``CrossEncoder.predict`` 排序并在 chunk 里写 ``rerank_score``。"""
+    from app.config import get_settings
+
+    monkeypatch.setenv("RERANK_CROSS_ENCODER", "fake/bge-reranker")
+    get_settings.cache_clear()
+    from app.core.rag import reranker as rr
+
+    class _FakeCE:
+        def predict(self, pairs):
+            # 文本越长分越高 → 验证 CE 分决定顺序（而非 fused score）
+            return [len(t) for _, t in pairs]
+
+    rr._ce_model = _FakeCE()
+    rr._ce_error = None
+    try:
+        chunks = [
+            _chunk(1, "公司发布年度财务与运营展望摘要说明文档内容很长", score=0.9),
+            _chunk(2, "营收说明", score=0.3),
+            _chunk(3, "营收下滑主要原因分析如下段", score=0.6),
+        ]
+        top = rerank("营收", chunks)
+        assert all("rerank_score" in c for c in top)
+        assert top[0]["id"] == 1, f"CE 应让最长文本排第一，实际 {[c['id'] for c in top]}"
+    finally:
+        rr._ce_model = None
+        rr._ce_error = None
+        get_settings.cache_clear()

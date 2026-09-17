@@ -742,6 +742,34 @@ class MockLLM(BaseLLM):
         # reporter returns a markdown string (not json) per the spec.
         return {"__markdown__": True}  # signal handled by node
 
+    def _stage_caliber(self, user: str) -> dict:
+        """E4/03 LLM 语义口径判读：离线确定性近似 —— 只在"明显歧义"时给一个 issue。
+
+        规则（保守）：报告里出现含/不含（退款）对比（即含 + 不含 同段出现），
+        或出现两个数字被同比/环比直接比较但未声明口径一致 → 给一个 semantic_mismatch；
+        否则当空。与线上 LLM 的"只收紧"铁律一致：离线绝不误报。
+        """
+        import re as _re
+        import json as _json
+
+        text = ""
+        try:
+            ctx = _json.loads(user) if isinstance(user, str) else {}
+            text = str(ctx.get("report") or "")
+        except Exception:  # noqa: BLE001
+            text = str(user or "")
+        issues: list[dict] = []
+        has_include = _re.search(r"(含|包含|包括|仅含|只含)\s*(退款|退货)", text)
+        has_exclude = _re.search(r"(不含|不包含|不包括|剔除|排除|扣除)\s*(退款|退货)", text)
+        if has_include and has_exclude:
+            issues.append({
+                "metric": None,
+                "detail": "报告同段内同时出现含/不含退款的比较，限定词口径不一致",
+                "rationale": "原文同时出现"
+                             f"「{has_include.group(0)}」与「{has_exclude.group(0)}」，"
+                             "直接比较会失真"})
+        return {"semantic_issues": issues}
+
     # ----- P2-2：离线视觉响应 ------------------------------------------
     def vision(self, system, user, image_paths, stage="vision", json_mode=False,
                temperature=None) -> str:

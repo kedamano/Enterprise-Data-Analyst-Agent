@@ -19,7 +19,7 @@ import uuid
 from typing import AsyncGenerator, Iterator
 
 from ....config import get_settings
-from ....infrastructure.observability.tracing import trace_run
+from ...interfaces import trace_run  # A: 经 core.interfaces 中转，解耦 infrastructure.observability
 from .checkpoint import load as checkpoint_load, save as checkpoint_save
 from .state import AgentState
 
@@ -123,7 +123,7 @@ def _attach_llm_fallbacks(state: AgentState) -> AgentState:
     让 API/SSE 能明确说出"这次分析其实降级兜底了"，而不是靠人去读报告正文。
     """
     try:
-        from ....infrastructure.llm.router import fallback_events
+        from ...interfaces import fallback_events  # A: 经 core.interfaces 中转，解耦 infrastructure.llm.router
 
         events = fallback_events(run_id=state.session_id)
     except Exception:
@@ -273,6 +273,19 @@ def stream_analysis(session_id: str, user_query: str, history: list | None = Non
         for snap in _stream_analysis_inner(session_id, user_query, history, force_full_rerun):
             last = snap
             yield snap
+    except Exception as exc:  # noqa: BLE001 — 兜网必须宽
+        # 与同步路径 run_analysis（本文件上方 try/except 收敛为 status=ERROR）对齐。
+        # 流式路径此前**没有**这层网：planner 抛 ModelOutputError 会直接穿透 ASGI，
+        # SSE 连接死掉、前端收不到任何错误帧（只有"连接已断开"）。
+        # GeneratorExit / 客户端断连是 BaseException，不会被这里吞掉。
+        logger.exception("流式分析流水线异常终止")
+        st = last if last is not None else _new_state(
+            session_id, user_query, history, force_full_rerun)
+        st.status = "ERROR"
+        st.error = f"{type(exc).__name__}: {exc}"
+        st.metadata["aborted_by_exception"] = type(exc).__name__
+        last = _attach_llm_fallbacks(st)
+        yield last
     finally:
         if last is not None and last.status in _TERMINAL_STATUSES:
             checkpoint_save(last)  # 可回放/可续跑（best-effort）

@@ -30,7 +30,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov ruff mypy
+
+      - name: Lint (ruff, info-only)
+        # INFO DOOR：先暴露违规类别/数量，不 block baseline。
+        # weekly tighten：等 baseline 清理到 < N violations 后去掉 continue-on-error。
+        continue-on-error: true
+        run: ruff check app tests --output-format=github
+
+      - name: Type check (mypy, info-only)
+        continue-on-error: true
+        run: mypy app --ignore-missing-imports --no-error-summary --output-format=github || true
 
       - name: Offline regression (mock LLM, no real key)
         env:
@@ -114,14 +124,12 @@ jobs:
             sleep 2
           done
 
-      - name: Run E2E
+      - name: Run E2E（含 smoke.spec.ts + 老 badges/export）
         working-directory: web
         env:
           BASE_URL: http://127.0.0.1:5173
           CI: "true"
-        # reporter 由 playwright.config.ts 决定：CI 下出 list + html
-        # （此前 config 只配 list，这里不得不 `--reporter=list,html` 绕开，
-        #  否则下面的 artifact 步骤**上传空目录且静默成功**；配置已修，绕开取消）
+        # reporter 由 playwright.config.ts 决定 (CI: list + html / 本地: list)
         run: npx playwright test
 
       - name: Backend log (on failure)
@@ -137,6 +145,17 @@ jobs:
             web/playwright-report/
             web/test-results/
           retention-days: 7
+          if-no-files-found: warn
+
+      # 前端 UI 新快照（smoke.spec.ts 每次跑完在 shots/ 写一张全页 png）。
+      # 比 git 中 shots/（7 天前、开发机路径）更新，作为 WYSIWYG 回归锚点。
+      - name: Upload UI shots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-smoke-shots
+          path: web/shots/ui_smoke_*.png
+          retention-days: 30
           if-no-files-found: warn
 
   live:

@@ -1,3 +1,8 @@
+# 依赖声明的权威源是 pyproject.toml（[dependencies] + [project.optional-dependencies]）。
+# 本文件是 CI 装包清单：每行锁一个下限版本，CI 跑 `pip install -r requirements.txt`。
+# ⚠️ 增 / 减 / 改版本，请先去 pyproject.toml 改权威源，再同步过来。不要在这边单方面加包。
+# 当前额外打开的可选组：rag (milvus/redis/embed/pdf) + pg + mcp + mysql(pymysql)
+
 # Core web / orchestration
 fastapi>=0.110
 python-multipart>=0.0.9

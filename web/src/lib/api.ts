@@ -585,6 +585,8 @@ export interface KbPreviewResponse {
   chars: number;
   chunks: number;
   reason: string | null;
+  /** 渲染模式：text | markdown | table | code | unsupported */
+  render?: string;
 }
 
 /** 统一的请求包装：把后端 400 的 `detail` 抬成 Error message，便于直接展示。 */
@@ -718,6 +720,8 @@ export interface FsPreviewResponse {
   chars: number;
   encoding: string | null;
   reason: string | null;
+  /** 渲染模式：text | code | markdown | table | image | pdf | unsupported */
+  render?: string;
 }
 
 export interface FsNode {
@@ -789,6 +793,11 @@ export function deleteFsNode(nodeId: string): Promise<{ ok: boolean; deleted: nu
 /** 下载直链（浏览器原生下载，不走 fetch，避免大文件占用内存）。 */
 export function fsDownloadUrl(nodeId: string): string {
   return `/api/v1/files/download/${nodeId}`;
+}
+
+/** 内嵌预览直链（返回原始字节 + inline Content-Disposition，img/pdf/iframe 可直接渲染）。 */
+export function fsRawUrl(nodeId: string): string {
+  return `/api/v1/files/raw/${nodeId}`;
 }
 
 /** 拉取文件预览内容（文本类文件返回全文，非文本返回 previewable=false）。 */

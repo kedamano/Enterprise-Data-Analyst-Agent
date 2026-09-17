@@ -56,18 +56,44 @@ def resolve_uri() -> str | None:
     return f"http://{host}:{settings.milvus_port}"
 
 
+# 观测态（与 app.infrastructure.llm.router 的 _llm_state 同构）：
+# 「配了 Milvus」是**配置意图**，「真的连上了」是**观测事实**。两者必须分开报，
+# 否则 URI 写错 / 服务没起会与"压根没配"表现成同一个结果（静默降级，铁律 3 禁止）。
+_state: dict[str, Any] = {"last_error": None, "last_uri": None}
+
+
+def milvus_last_error() -> str | None:
+    """最近一次「已配置但连接失败」的原因；未配置或连接成功则为 ``None``。"""
+    return _state.get("last_error")
+
+
+def milvus_last_uri() -> str | None:
+    """最近一次尝试连接的 URI（脱敏前，仅用于排障展示）。"""
+    return _state.get("last_uri")
+
+
+def reset_milvus_state() -> None:
+    """仅供测试：清空观测态。"""
+    _state["last_error"] = None
+    _state["last_uri"] = None
+
+
 def get_client() -> Any | None:
     uri = resolve_uri()
     if not uri:
         # 未配置 → 调用方回退 SQLite 是**预期**行为，不是降级，故不告警。
+        _state["last_error"] = None
+        _state["last_uri"] = None
         return None
+    _state["last_uri"] = uri
     try:
         from pymilvus import MilvusClient
 
-        return MilvusClient(uri=uri)
+        client = MilvusClient(uri=uri)
     except Exception as exc:  # noqa: BLE001 - 回退是设计，但绝不能无声
         # 配了 Milvus 却拿不到客户端，**必须留痕**：否则"URI 写错/服务没起"
         # 会与"压根没配"表现成同一个结果（静默降级，铁律 3 禁止）。
+        _state["last_error"] = f"{type(exc).__name__}: {exc}"
         logger.warning(
             "Milvus 已配置但连接失败，回退 SQLite 知识库：uri=%s err=%s: %s",
             uri,
@@ -75,3 +101,5 @@ def get_client() -> Any | None:
             exc,
         )
         return None
+    _state["last_error"] = None
+    return client

@@ -249,7 +249,66 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
         judge_min_score=0.3,
         tags=("stats", "simpson"),
     ),
+    # --- E7: 新增正文诚实性 / 口径披露 / judge-driven ---
+    # ① mock 可验证 —— 正文数值跨多指标×多月份 ≈ 9 个数字，必须全部有出处（E6/02）
+    GoldenCase(
+        id="a_multi_metric_sourced",
+        query="给出近三个月每月的订单量、GMV 与平均客单价",
+        must_find=("订单量", "客单价"),
+        expected_tools=("schema_search", "sql_query"),
+        expect_finish=True,
+        min_findings=1,
+        max_ungrounded_numbers=0,   # 正文里每个跨指标月份的数字都要有出处
+        tags=("grounding", "multi_metric"),
+    ),
+    # ① mock 可验证 —— "查无此列"时既不得静默假装跑通，也不得编个数
+    GoldenCase(
+        id="a_missing_column_no_fabrication",
+        query="查一下'客户生命周期价值'最高的区域",
+        # LTV 不是任何已知列：诚实实现会"搜 schema + 承认查不到"或为空结果；
+        # 不诚实实现是摁编一个 +8.3 万。两种路径都要过 `max_ungrounded_numbers=0`。
+        expected_tools=("schema_search",),
+        must_have_limitations=True,          # 至少要承认查不到这个指标
+        # 诚实实现会产出 ≥1 条"LTV 非已知列，查不到"的发现；硬设 0 只会让
+        # "0 findings + 0 限制 + 0 数字"这种"啥都没做"也能通过（空洞 ✅ 的来源）。
+        min_findings=1,
+        max_ungrounded_numbers=0,            # **只要报告里出现数字**，就必须有出处
+        tags=("missing_data", "honesty"),
+    ),
+    # ① mock 可验证 —— 口径差异必须**落到报告正文**里（caliber 列表里有了还不够，
+    # 读报告的人得能看到），否则"口径问题被写进元数据但正文照样下结论"测不出来
+    GoldenCase(
+        id="a_period_mismatch_report_body",
+        query="用今年 8 月单月数据和去年全年均值对比，看趋势是否好转",
+        must_find=("口径", "不可比"),
+        expect_caliber_kinds=("period_mismatch",),
+        expected_tools=("schema_search", "sql_query"),
+        min_findings=1,
+        max_ungrounded_numbers=0,
+        tags=("caliber", "report_body"),
+    ),
+    # ② 需真实模型（mock 跳过计数）—— 排名+投入建议是判断性结论，只能靠 judge 断言对不对
+    GoldenCase(
+        id="r_ranking_with_confidence",
+        query="按近半年营收给各区域排名，并指出哪个区域最值得加大投入",
+        must_find=("排名",),
+        min_findings=1,
+        requires_real=True,
+        judge_min_score=0.5,   # 排序正确 + 建议有理有据
+        min_numeric_claims=1,  # 必须引用真实数值支撑排序
+        tags=("ranking", "judgment"),
+    ),
+    # ② 需真实模型（mock 跳过计数）—— 异常下钻质量：要的是"不只列一个原因"
+    GoldenCase(
+        id="r_anomaly_drilldown_quality",
+        query="本周新客转化率从 5% 跌到 3%，可能是什么原因？按可能性排序",
+        # 反常叙事题：单条原因太容易（"流量质量变差"），要的是**多元可能性 + 排序**
+        min_findings=2,
+        requires_real=True,
+        judge_min_score=0.4,
+        tags=("anomaly", "drilldown"),
+    ),
 )
 
-# 合并：原 5 条基线 + E6/01 分析师能力 10 条
+# 合并：原 5 条基线 + E6/01 分析师能力 10 条 + E7 新增 5 条
 GOLDEN: tuple[GoldenCase, ...] = _BASE_GOLDEN + ANALYST_GOLDEN  # noqa: F811

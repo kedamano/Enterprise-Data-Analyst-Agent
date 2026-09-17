@@ -218,6 +218,8 @@ class KbPreviewResponse(BaseModel):
     chars: int = 0
     chunks: int = 0
     reason: Optional[str] = None
+    #: 渲染模式（按 source 扩展名推断）：text / code / markdown / table / unsupported
+    render: str = "text"
 
 
 # --- 文件库：企业文件管理（目录树 + 文件）---
@@ -265,7 +267,7 @@ class FsDeleteResponse(BaseModel):
 
 
 class FsPreviewResponse(BaseModel):
-    """文件预览响应：预览类文件返回全文，非预览类文件返回不可预览原因。"""
+    """文件预览响应：预览类文件返回全文或渲染模式，非预览类文件返回不可预览原因。"""
     id: str
     name: str
     mime: str = ""
@@ -275,6 +277,9 @@ class FsPreviewResponse(BaseModel):
     chars: int = 0
     encoding: Optional[str] = None
     reason: Optional[str] = None
+    #: 渲染模式：frontend 据此选择渲染器。
+    #: text / code / markdown / table / image / pdf / unsupported
+    render: str = "text"
 
 
 # P0-4：降级事件按阶段聚合后的可读摘要
@@ -314,6 +319,11 @@ class HealthResponse(BaseModel):
     llm_fallbacks_by_stage: dict[str, int] = {}   # 监控告警用
     # E7/01 命名数据源：**只回源名**（绝不回 DSN/密码）
     data_sources: list[str] = []
+    # 知识库后端：同 DEGRADE/01 的思路——KNOWLEDGE_ENABLED 是配置意图，
+    # 这里报**观测事实**（真连上 Milvus 了吗）。三态区分"没配"与"配了但挂了"，
+    # 否则"Milvus 服务没起"会与"压根没配"表现成同一个 sqlite，静默失效查不出来。
+    knowledge_backend: str = "sqlite"          # milvus | sqlite | sqlite_fallback
+    milvus_error: Optional[str] = None         # 仅 sqlite_fallback 时有值
 
 
 class AttachmentInfo(BaseModel):

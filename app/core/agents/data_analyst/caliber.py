@@ -12,6 +12,7 @@ Spec: docs/specs/E4/03-caliber-comparability.md
 from __future__ import annotations
 
 import calendar
+import json
 import logging
 import re
 from datetime import date, datetime, timedelta
@@ -342,7 +343,88 @@ def caliber_check(analysis: Any, context: Any = None, *, iteration: Any = None,
     except Exception:  # noqa: BLE001
         logger.warning("caliber_deviation 检查跳过（注册表不可达）", exc_info=True)
 
+    # E4/03 LLM 语义判读：默认关（caliber_llm_enabled=False）；打开后由 LLM 给报告里的指标
+    # 做口径/限定词语义复核，产出 semantic_mismatch issues（仅收紧，不触 REPLAN）。
+    # 与.registry try/except 同纪律：LLM 缺/故障 → 跳过，绝不抛。
+    try:
+        issues.extend(_semantic_check(analysis, context, report))
+    except Exception:  # noqa: BLE001
+        logger.warning("_semantic_check 跳过（LLM 不可达或关闭）", exc_info=True)
+
     return CaliberCheck(comparable=not issues, checked_metrics=metrics, issues=issues)
+
+
+# E4/03 §semantics：结构性规则能抓"期间不等/单位混用"这种确定性口径问题，
+# 但"含不含退款""剔除异常的范围是否跨期一致"这种**语义/限定词歧义**要靠 LLM 读文本才能判。
+# 这里只追加 semantic_mismatch issues；apply_caliber 的 REPLAN 触发仍只认同结构类的
+# iteration_drift —— 即 LLM 维度**仅收紧**，不改变现有决策走向（铁律：LLM 判错不导致误 REPLAN）。
+def _semantic_check(analysis: Any, context: Any, report: str = "") -> list[CaliberIssue]:
+    """LLM 语义判读（默认关，caliber_llm_enabled=False）。
+
+    LLM 若缺/抛/返回畸形 JSON —— 全部当"无问题"（宁缺勿滥），**绝不抛**。
+    """
+    from app.config import get_settings
+    from app.infrastructure.llm.router import get_llm
+
+    if not get_settings().caliber_llm_enabled:
+        return []
+
+    metrics = _metrics_of(analysis, context)
+    text = _text_of(analysis, report)
+    if not text.strip():
+        return []
+
+    # 系统提示：强制输出固定 JSON，列出语义口径问题（可为空）。
+    # 注意：下面中文示例里原本出现「含/不含」与「活跃客户」等引号内容——
+    # 为免被 Python 解析器当字符串结尾，统一用全角方括号「」替代西式引号。
+    sys_prompt = (
+        "你是口径可比性语义判读器（E4/03 补充判定，只收紧、不触 REPLAN）。\n"
+        "检查下方报告/发现文本，只判定结构性规则抓不到的语义型口径问题，例如：\n"
+        "  - 同一指标前后限定词范围不一致（「含」与「不含」退款、「剔除」异常的范围跨期不同）；\n"
+        "  - 同一指标在同段中使用不同口径却直接比较（未披露分母/区域/是否含税不一致）；\n"
+        "  - 语义含混到没法判断口径是否可比（如未说明「活跃客户」定义直接给留存率）。\n"
+        "直接比较两个数字但未声明口径一致的，视为潜在语义口径问题。\n"
+        "输出严格为以下 JSON（不要 Markdown 代码块、不要注释）：\n"
+    ) + '{"semantic_issues":[{"metric":"指标名或 null","detail":"一句话问题描述",' \
+        '"rationale":"为什么判为语义口径不一致（引用原文片段）"}]}'
+    user_prompt = json.dumps({"metrics": metrics, "report": text[:6000]},
+                             ensure_ascii=False)
+    try:
+        raw = get_llm().complete(
+            system=sys_prompt, user=user_prompt, stage="caliber",
+            json_mode=True, temperature=0.0)
+    except Exception:  # noqa: BLE001
+        logger.warning("_semantic_check：LLM 调用失败，跳过（默认无问题）", exc_info=True)
+        return []
+
+    # 解析 LLM 响应 —— 防御性：畸形即当空
+    payload: Any = None
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:  # noqa: BLE001
+        # 模型可能在 JSON 外包了 ```json ... ```，尝试剥离
+        m = re.search(r"\{.*\}", raw or "", re.DOTALL) if isinstance(raw, str) else None
+        if m:
+            try:
+                payload = json.loads(m.group(0))
+            except Exception:  # noqa: BLE001
+                payload = None
+    issues: list[CaliberIssue] = []
+    if not isinstance(payload, dict):
+        return issues
+    for item in payload.get("semantic_issues") or []:
+        if not isinstance(item, dict):
+            continue
+        detail = str(item.get("detail") or "").strip()
+        rationale = str(item.get("rationale") or "").strip()
+        if not detail:
+            continue  # 没 detail 的语义项当空
+        issues.append(CaliberIssue(
+            kind="semantic_mismatch",
+            detail=detail,
+            metric=(str(item.get("metric") or "").strip() or None),
+            rationale=rationale))
+    return issues
 
 
 def apply_caliber(check: CaliberCheck,

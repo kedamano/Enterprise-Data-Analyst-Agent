@@ -28,11 +28,16 @@ from app.infrastructure.vectorstore import milvus as milvus_mod
 def _clean_settings(monkeypatch):
     """清掉进程级 env 覆盖，跑完清缓存避免污染其他用例。
 
-    注意：``.env`` 里配了 ``MILVUS_HOST``，所以"什么都没配"这一分支要靠显式清空
-    （``MILVUS_HOST=""``）来构造——只删环境变量是不够的。
+    注意：``.env`` 里的值会在 delenv 之后**回落生效**，所以"什么都没配"这一分支
+    必须对**每个**入口都显式置空（只 delenv 是不够的）。三个入口的优先级是
+    ``MILVUS_LITE_PATH`` > ``MILVUS_URI`` > ``MILVUS_HOST``，漏掉任何一个，
+    高优先级的 .env 值都会让本用例永远走不到"未配置"分支（假绿/假红都可能是它）。
     """
     for key in ("MILVUS_LITE_PATH", "MILVUS_URI", "MILVUS_HOST", "MILVUS_PORT"):
         monkeypatch.delenv(key, raising=False)
+    # 逐个显式置空（MILVUS_PORT 是 int 字段，置空会触发校验错误，故不动）
+    monkeypatch.setenv("MILVUS_LITE_PATH", "")
+    monkeypatch.setenv("MILVUS_URI", "")
     monkeypatch.setenv("MILVUS_HOST", "")
     get_settings.cache_clear()
     yield

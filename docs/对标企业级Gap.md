@@ -41,7 +41,7 @@
 |---|---|---|---|
 | 样例 SQLite + 预置表；schema_search 只读元数据 | 无真实企业库 / 多方言真实场景；无数据血缘；无列级权限 / 脱敏分级；无查询成本 / 行数配额按租户 | **⚠️ 部分** | 多方言 ✅（三方言 bench，`bench_scale.py --backend sqlite\|postgres\|mysql`）；真实库 ✅ 部分（**MySQL 8.0.26 live 13 passed**、**PG live 4 passed**）；数据血缘 ✅（E1 `sources.py`：数值 claim → `sql_id` → 可点开的 SQL 步骤，覆盖率实测 1.0）；列级权限 ✅（AUTH/01 `allowed_tables`/`denied_columns`/`row_filters`）；脱敏分级 ✅（E4/02 `sample`/`strict`/`none`，默认开）；租户配额 ✅（`quota_per_min`）。**残留**：**未接真实业务库**（只有合成 1M 行库） |
 | 知识 = 文档 chunk；PDF 仅 pypdf 抽文本 | 无表格 / 版面理解、无 OCR、无父子 chunk、无索引版本 / 双写一致性、无坏 chunk 回流 | **⚠️ 部分** | **表格 ✅**（D57 `etl/chunker.py` `chunk_structured`：HTML `<table>` / Markdown `|..|` / CSV 三类表识别，按行组 chunk + 表头 + 前文前缀注入；残缺表（无体 / 单列 / 分隔线断裂）静默降级整块 chunk 不丢数据；无外部依赖）。**索引版本 ✅**（D57 `KnowledgeStore.rebuild_source`：content-hash 幂等，重传同文 → `added: 0`；版本号按 `(source, tenant, kb_id)` 三元组自增；旧版标 `deprecated=1`，检索自动剔除；`cleanup_old_versions(keep=2)` 物理删老版）。**坏 chunk 回流 ✅**（D57 `_classify_chunk` 在嵌入前运行：`empty`(<10字) / `noise`(>80% 标点) / `ok` / `embed_failed`(嵌入不可用)；`status` + `status_reason` 入 DB；`chunk_diagnostics()` 返回 `{total, ok, empty, noise, embed_failed, deprecated}`；`embed_failed` 的 chunk BM25 仍可召回——结构仍保底）。**嵌入失败自愈 + 面板 ✅**（D58 `E8/02`：状态机 `embed_failed ──(retry 成功)──→ ok` / `embed_failed ──(fail>max)──→ abandoned`（新增终态，**自动从检索结果中排除**）；候选查询 `failed_count <= max_retries` 给 count=max 最后一次重试机会；`retry_embed / abandon_expired / list_embed_failed` 三个方法加 Milvus stub 兜底；调度器 `embed_scheduler.py`（daemon 线程，立即首跑 + interval 循环；`interval_s<=0` 禁用；每 tick 发 Prometheus 指标）；chunk 质量运维 GET `/{kb_id}/diagnostics` 扩展返回 `{abandoned, embed_failed_aging: {1h,1d,7d,older}}`——aging 直方图让运维能看到"24h/7d/older" 三层堆积；管理 POST `/admin/embed-failed/retry|abandon|list`）。**TTL 默认 30 天**自动清掉不再重试的老 chunk，解决 `embed_failed` 无限堆积问题；**config** 四字段 `embed_retry_max=3 / embed_retry_batch=100 / embed_retry_interval_s=3600 / embed_failed_ttl_s=2592000`。**残留**：版面理解、OCR、**父子 chunk**（D57 SDD §3 边界明确「不做」）；索引一致性、向量与源文档权限对齐仍缺（见下文 §四 Milvus 行）；root-cause 诊断（OOM / 模型缺失 / 超时就同一命运）。**嵌入向量版本迁移 ✅（D59）**：schema 加 `embed_model_version TEXT` + 二级索引 `chunks_emv(embed_model_version, kb_id)`（共 **15 列**）；`add()` 在 INSERT 时用 `_resolve_emv()` 打当前版本戳；`search()` WHERE 自动拼 `embed_model_version IS NULL OR = ?`（兼容老数据），`include_stale_versions=True` 跳过过滤；`set_emv_override(v)` 运行时改进程内存态、**重启恢复 settings 默认**（有意设计：rotate 是运维决策，不该跨重启自动生效）；`reembed_chunk(id)` 单条升级+成功后写新版本；`reembed_batch(kb_id, target, limit)` 批量迁移，**跳过 `status != 'ok'` 的行**（embed_failed 的 chunk 保持旧版本）；`version_stats(kb_id?)` 返回 `{by_version: [{version, count}], stale}` 分布——方便 rotate 前后做 re-embed 成本估算；`retry_embed` 成功后写 `embed_model_version = _resolve_emv()`，让修复后的 chunk 自动对齐当前版本；`/api/v1/knowledge-bases/admin/embed-version|rotate|chunks/{id}/re-embed|embed-version/migrate` 四个管理端点；conftest `_reset_state` 每测试 `set_emv_override(None)` 防跨测试残留。**边界**：Milvus 只给 stub（三方法抛 `NotImplementedError`，等 SDK 接入时补全）；rotate 之后**不自动**触发 re-embed——管理员必须主动调 `migrate`（防止一次误操作把全库向量都重算）；不同版本的向量空间仍用同一内积打分（没有版本间距离归一化，留给后续多跳/EN 链路时考虑）。**D59 SDD**：`docs/specs/E8/03-embed-versioning.md` **D57 SDD**：`docs/specs/E8/01-knowledge-depth.md`；**改动**：`etl/pipeline.py` `ingest_text` 改用 `store.rebuild_source` → `chunk_structured`（原 `chunk_text` 保留为纯文本兜底）；`core/tools/knowledge_tool.py` 懒迁移加 `version/status/status_reason/deprecated/content_hash/kb_id`；D59 增 `embed_model_version` + 二级索引
-| 中文、通用术语 | 无行业词表、无 query 改写 | **⚠️ 部分** | 业务语义层已做（SEMANTIC/01：维表枚举 + 命名约定键推断 → 注入 context/planner/analyst）。**残留**：行业词表、query 改写仍未做 |
+| 中文、通用术语 | 无行业词表、无 query 改写 | **⚠️ 部分** | 业务语义层已做（SEMANTIC/01：维表枚举 + 命名约定键推断 → 注入 context/planner/analyst）。**行业词表 ✅（D61）**：可配置 synonym 文件（每行 `k=v` 或 `k,v`，`#` 注释），由 `rag_query_rewrite_synonym_path` 指向；词表命中 fan-out 注入多跳，不污染主改写结果。**query 改写 ✅（D61）**：`rewrite.py` `QueryRewriter` 剥离口语填充（"帮我查一下/请问/呢/吗" 白名单）+ 全半角归一 + 同义 phrasing fan-out，未用 LLM；fail-open + 三指标 counter。|
 
 ---
 
@@ -58,7 +58,7 @@
 
 | 现状 | 差距（原始判断） | 状态 | 复核证据 |
 |---|---|---|---|
-| BM25(+CJK 二元组) + 向量 RRF + 短语亲和重排 | 无 query 改写、多跳 / 子问题拆分、检索-生成 **fail 兜底**；无检索质量在线分维 | **⚠️ 部分** | 检索质量分维 ✅（`eval/rag_eval.py`：hit@k / recall@k / MRR / faithfulness 下界，实测 1.0 / 0.747，且能分辨含伪造数字的样本）。**低置信 fail 兜底 ✅（D53）**：`rag/confidence.py` 按首条短语亲和分级，低置信**清空 chunks**（结构性保证，非 prompt 纪律）+ `rag_low_confidence_total`；阈值 0.15 由黄金集两侧标定（6 正例 0.188~0.500 全 high / 负例 0.111）、在 `RERANK_ENABLED` 开/关下判级一致。**嵌入失败自愈 ✅（D58）**：`abandoned` 终态自动从召回池移除（`status IN ('ok','embed_failed')`），不污染检索；`embed_failed` 仍走 BM25 兜底。**残留**：query 改写、多跳拆分、字面重合同的语义误判（"华东区域的年会在哪里办"仍判 high） |
+| BM25(+CJK 二元组) + 向量 RRF + 短语亲和重排 | 无 query 改写、多跳 / 子问题拆分、检索-生成 **fail 兜底**；无检索质量在线分维 | **⚠️ 部分** | 检索质量分维 ✅（`eval/rag_eval.py`：hit@k / recall@k / MRR / faithfulness 下界，实测 1.0 / 0.747，且能分辨含伪造数字的样本）。**低置信 fail 兜底 ✅（D53）**：`rag/confidence.py` 按首条短语亲和分级，低置信**清空 chunks**（结构性保证，非 prompt 纪律）+ `rag_low_confidence_total`；阈值 0.15 由黄金集两侧标定（6 正例 0.188~0.500 全 high / 负例 0.111）、在 `RERANK_ENABLED` 开/关下判级一致。**嵌入失败自愈 ✅（D58）**：`abandoned` 终态自动从召回池移除（`status IN ('ok','embed_failed')`），不污染检索；`embed_failed` 仍走 BM25 兜底。**多跳拆分 ✅（D60）**：`multihop.py` `QuerySplitter` 枚举符+连词切分；fan-out per 子 query（fail-open per sub-query）→ 按 `chunk.id` 去重 → 全查询 rerank。**query 改写 ✅（D61）**：`rewrite.py` QueryRewriter 口语剥离+全半角归一+synonym fan-out（fail-open，LLM-free）。**残留**：~~字面重合同语义误判~~ ✅ **D62**（`confidence.py` `_is_echo_chunk`：FAQ 字面复述判 low，`basis=echo_question`；三配置 `rag_echo_demotion_enabled/ratio_max/min_chars`；独立指标 `rag_echo_demotion_total`）。 |
 | rerank 确定性实现，cross-encoder 为钩子 | cross-encoder 未真正上线；需离线预缓存模型 | **⚠️ 部分** | 短语亲和确定性重排已上线且 `rerank_enabled` 默认 **True**。**残留**：cross-encoder 仍是可选钩子（本机加载脆弱） |
 | Milvus 可选后端 | 无索引一致性、embedding 版本迁移、向量与源文档权限对齐 | **⚠️ 部分** | Milvus **服务端**已真跑（`test_milvus_live.py` 5 passed / 1 skipped，此前只跑过 Lite）；租户隔离已修（Milvus schema 增 `tenant` 字段 + filter）。**嵌入版本迁移 ✅（D59）**：KnowledgeStore 侧完整实现 `embed_model_version` 写入 + `search()` 版本隔离 + `reembed_chunk/reembed_batch/version_stats/get_current_embed_version` 四个方法，Milvus stub 抛 `NotImplementedError`（SDK 等接入时补全）。**残留**：索引一致性、**Milvus 真后端时 embedding 版本迁移**（当前仅 SQLite 后端闭环）、权限对齐 |
 
@@ -115,7 +115,7 @@
 **P1 · 撑故事 / 加分**
 4. ~~**prompt 预算强制 + 单会话 token 熔断**~~ —— **已于 2026-09-14 完成**（D42 `prompts/budget.py` 序列化前按优先级压缩 + D43 按 run 的 token 熔断，超预算即**拒绝下一次调用**）。
 5. ~~日志采样 / SLI-SLO；多租户隔离**测试矩阵**~~ —— **已于 2026-09-14 完成**（D44）。**残留**：长任务异步化（价值取决于是否真上生产，见 §9.2 阻塞表）。
-6. 检索侧：~~低置信 fail 兜底~~ ✅ **D53 已做**（`RAG/01`）；**残留** query 改写、多跳拆分。
+6. 检索侧：~~低置信 fail 兜底~~ ✅ **D53**（`RAG/01`）；~~query 改写~~ ✅ **D61**；~~多跳拆分~~ ✅ **D60**（`RAG/01` 多 hop）；检索-生成 fail 兜底 D53 已实现。
 7. ~~badcase 回流；幻觉率监控~~ —— **已于 2026-09-14 完成**（D39 落盘/去重/复跑 + D41 唯一口径 `sources.trace_coverage()`）。
    **幻觉率已于 2026-09-15（D54）从"指标"升为"可否决的门禁"**：此前 `疑似幻觉率 0.667` 对 ✅/❌
    **毫无影响**——`q_region_top` 只跑了一条 3 行维表查询却**凭空造出一整张区域营收表**仍判 ✅。
@@ -141,10 +141,10 @@
 
 本项目把「**安全执行、可观测、可评测、工程护栏**」做得很像企业级，且这一轮又补齐了
 **自由写码、并行执行、真实库 / 真实向量库 live、浏览器 E2E、首个有效真实基线**——
-至 D60 复核：E8 知识库深度三连 + E9 多跳检索共四连闭环（D57 表格感知+版本+坏 chunk、D58 嵌入失败自愈、D59 嵌入版本迁移、D60 多跳子问题拆分）。**22 条中 6 条完全消除、13 条只剩残项、3 条仍成立**（§一
-「tool_choice」「子Agent」、§六「异步任务」）。**真正还差的三块半**是：**真实业务数据验证
+至 D62 复核：E8 知识库深度三连 + E9 多跳检索/改写/echo 共**六连**闭环（D57 表格感知+版本+坏 chunk、D58 嵌入失败自愈、D59 嵌入版本迁移、D60 多跳拆分、D61 query 改写+行业词表、D62 字面 echo 降置信）。**22 条中 8 条完全消除、11 条只剩残项、3 条仍成立**（§一
+「tool_choice」「子Agent」、§六「异步任务」）。**真正还差的三块**是：**真实业务数据验证
 （真业务库 + 真业务问句）、可运维部署体系（镜像体格 + 真实业务数据）、检索深度与数据治理
-（跨副本一致性、Milvus 真后端 embedding 版本迁移、query 改写(E9/02 规划)、字面重合同语义误判、向量与源文档权限对齐、版面理解 / OCR / 父子 chunk），
+（跨副本一致性、Milvus 真后端 embedding 版本迁移、~~字面重合同语义误判~~ ✅ **D62**、向量与源文档权限对齐、版面理解 / OCR / 父子 chunk），
 以及多租户**（跨副本一致性、结构化偏好槽位）。
 
 > **其中"合规落地"与"预算治理"两块已于 2026-09-14 完成**（D45 HITL + D46 审计落库

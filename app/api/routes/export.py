@@ -232,10 +232,20 @@ def _build_items(state, session_id: str, principal, want_masked: bool
     chart_items = _charts.collect_charts(state)
 
     resolver = _dlp.make_resolver(principal) if want_masked else None
+    # 报告：运行期内嵌了**绝对** URL（chart 端点直出）；导出包要自包含 ——
+    # 剥掉绝对路径那段 `## 图表`，按**相对**路径 `charts/{name}` 重嵌，与包内
+    # charts/*.png 同根。脱敏版不含图，整段剔除（离线也看不到位图）。
+    base_report = state.report or "（本次运行没有产出报告）"
+    if not want_masked and chart_items:
+        report_text = _charts.embed_charts(_charts.strip_charts_section(base_report),
+                                           chart_items, session_id,
+                                           url_mode="export")
+    else:
+        report_text = _charts.strip_charts_section(base_report)
     items: dict[str, bytes] = {
         "README.txt": _readme(state, csvs, skipped, masked=bool(want_masked),
                               charts=chart_items).encode("utf-8"),
-        "report.md": (state.report or "（本次运行没有产出报告）").encode("utf-8"),
+        "report.md": report_text.encode("utf-8"),
         "queries.sql": _queries_sql(state).encode("utf-8"),
         "trace.json": _trace_json(state).encode("utf-8"),
     }
