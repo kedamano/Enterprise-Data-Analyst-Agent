@@ -149,3 +149,186 @@ def test_health_exposes_source_names_without_secrets(multi_env):
     body = TestClient(app).get("/api/v1/health").json()
     assert "crm" in body.get("data_sources", []), body
     assert "://" not in " ".join(body.get("data_sources", [])), "health 不得回 DSN"
+
+
+# --------------------------------------------------------------------------- #
+# 4. 跨源 schema 发现（E7/02）：主源没有的表，agent 必须能自己找到并路由过去。
+#    真实场景：用户接了 oasys(MySQL)，问「aoa_dept 表行数」——此前 schema_search
+#    只搜主源 → "no such table"，明明页面里连接是成功的。
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def cross_env(monkeypatch, tmp_path):
+    """主源只有 fact_sales；aoa_dept 只存在于命名源 crm。"""
+    primary = _mk_db(tmp_path / "p.db", "fact_sales", [(i, "x") for i in range(5)])
+    crm_path = tmp_path / "crm.db"
+    con = sqlite3.connect(crm_path)
+    con.execute("CREATE TABLE aoa_dept (id INTEGER, dept_name TEXT, headcount INTEGER)")
+    con.executemany("INSERT INTO aoa_dept VALUES (?,?,?)",
+                    [(i, f"d{i}", 10 + i) for i in range(1, 6)])
+    con.commit()
+    con.close()
+    crm = f"sqlite:///{crm_path.as_posix()}"
+    monkeypatch.setenv("MOCK_LLM", "true")
+    monkeypatch.setenv("REDIS_URL", "")
+    monkeypatch.setenv("DATA_DB_URL", primary)
+    monkeypatch.setenv("DATA_SOURCES", f'[{{"name":"crm","url":"{crm}","dialect":"sqlite"}}]')
+    # 隔离本地数据源存储：committed 的 data/datasources.json（含真实 oasys MySQL）
+    # 若漏进来，跨源扫描会去连真实库——测试必须完全离线可控。
+    monkeypatch.setenv("DATASOURCE_STORE_PATH", str(tmp_path / "store.json"))
+    get_settings.cache_clear()
+    reset_llm()
+    yield {"primary": primary, "crm": crm}
+    get_settings.cache_clear()
+    reset_llm()
+
+
+def test_schema_search_tags_primary_source(cross_env):
+    from app.core.tools import execute_tool
+
+    res = execute_tool("c1", "schema_search", {"keyword": ""}, "cx_a")
+    assert res.status == "SUCCESS"
+    tables = res.output["tables"]
+    assert tables, "主源应有表"
+    assert all(t.get("source") == "default" for t in tables), "每张表都要带 source 标记"
+
+
+def test_schema_search_discovers_cross_source_table(cross_env):
+    from app.core.tools import execute_tool
+
+    res = execute_tool("c2", "schema_search", {"keyword": "aoa_dept"}, "cx_b")
+    tables = res.output["tables"]
+    hit = next((t for t in tables if t.get("table") == "aoa_dept"), None)
+    assert hit, f"主源没有 aoa_dept，必须能在命名源里发现：{[t.get('table') for t in tables]}"
+    assert hit["source"] == "crm", "发现结果必须标注表所在源"
+    assert hit["row_count"] == 5, "跨源发现也要带回行数/列等描述信息"
+    assert hit.get("match") == "cross_source"
+
+
+def test_executor_routes_sql_to_discovered_source(cross_env):
+    """端到端：schema 跨源发现 → 合成 SQL 自动带上表所在源 → 真的查到数。"""
+    from app.core.agents.data_analyst.nodes import build_executor_params
+    from app.core.agents.data_analyst.state import AgentState, PlanStep
+    from app.core.tools import execute_tool
+
+    st = AgentState(session_id="cx_c", user_query="查询aoa_dept表中的数据行数")
+    st.tool_results.append(
+        execute_tool("c3", "schema_search", {"keyword": "aoa_dept"}, "cx_c"))
+
+    step = PlanStep(id="s1", objective="aoa_dept 行数", action="SQL",
+                    tool="sql_query", input={})
+    params = build_executor_params(st, step)
+    assert "aoa_dept" in params["sql"], "选表必须选中跨源发现的表"
+    assert params.get("source") == "crm", "合成 SQL 必须路由到表所在的命名源"
+
+    out = execute_tool("c4", "sql_query", params, "cx_c")
+    assert out.status == "SUCCESS", out.error
+    assert out.output["rows"], "跨源取数必须返回真实数据行"
+
+
+def test_sql_query_step_input_source_passthrough(cross_env):
+    """计划步骤 input.source 与 freeform 同权：sql_query 也不能丢掉它。"""
+    from app.core.agents.data_analyst.nodes import build_executor_params
+    from app.core.agents.data_analyst.state import AgentState, PlanStep
+
+    st = AgentState(session_id="cx_d", user_query="q")
+    step = PlanStep(id="s1", objective="o", action="SQL", tool="sql_query",
+                    input={"sql": "SELECT 1", "source": "crm"})
+    assert build_executor_params(st, step).get("source") == "crm"
+
+
+def test_dataset_profile_follows_discovered_source(cross_env):
+    from app.core.agents.data_analyst.nodes import build_executor_params
+    from app.core.agents.data_analyst.state import AgentState, PlanStep
+    from app.core.tools import execute_tool
+
+    st = AgentState(session_id="cx_e", user_query="查aoa_dept")
+    st.tool_results.append(
+        execute_tool("c5", "schema_search", {"keyword": "aoa_dept"}, "cx_e"))
+    step = PlanStep(id="s1", objective="画像", action="profile",
+                    tool="dataset_profile", input={})
+    params = build_executor_params(st, step)
+    assert params.get("table") == "aoa_dept"
+    assert params.get("source") == "crm", "画像也要跟着表所在的源走"
+
+
+def test_schema_brief_marks_cross_source_table(cross_env):
+    """planner 看到的 schema 摘要必须标注来源，它才有机会写 input.source。"""
+    from app.core.agents.data_analyst.nodes import _discovered_schema_text
+    from app.core.agents.data_analyst.state import AgentState
+    from app.core.tools import execute_tool
+
+    st = AgentState(session_id="cx_f", user_query="查aoa_dept")
+    st.tool_results.append(
+        execute_tool("c6", "schema_search", {"keyword": "aoa_dept"}, "cx_f"))
+    text = _discovered_schema_text(st)
+    assert "aoa_dept" in text and "[source=crm]" in text, text
+
+
+# --------------------------------------------------------------------------- #
+# 5. 显式点名数据源：用户直接说出源名（「crm 数据源」「在 oasys 里查」）。
+#    这是「去哪个库」最硬的信号，不依赖 schema 跨源发现是否成功——
+#    线上实测：planner 用空 keyword 列全表时，主源先返回表会把跨源发现跳过，
+#    于是 aoa_dept 永远发现不了，agent 误报「只有 sample_enterprise.db」。
+# --------------------------------------------------------------------------- #
+def test_explicit_source_detected_from_query(cross_env):
+    from app.core.agents.data_analyst.nodes import _explicit_source
+    from app.core.agents.data_analyst.state import AgentState
+
+    assert _explicit_source(AgentState(session_id="cx_g",
+                                      user_query="查询 crm 数据源中 aoa_dept 行数")) == "crm"
+    # 未点名时回落主源
+    assert _explicit_source(AgentState(session_id="cx_g2",
+                                      user_query="查询各部门行数")) == ""
+
+
+def test_explicit_source_routes_schema_search_to_named(cross_env):
+    """用户点名 crm → schema_search 直接打到 crm，aoa_dept 必被发现。"""
+    from app.core.agents.data_analyst.nodes import build_executor_params, _explicit_source
+    from app.core.agents.data_analyst.state import AgentState, PlanStep
+    from app.core.tools import execute_tool
+
+    st = AgentState(session_id="cx_h", user_query="查询 crm 数据源中 aoa_dept 表行数")
+    assert _explicit_source(st) == "crm"
+    step = PlanStep(id="s1", objective="发现表", action="schema", tool="schema_search", input={})
+    params = build_executor_params(st, step)
+    assert params.get("source") == "crm", params
+
+    # 真打到 crm 并找到 aoa_dept（即使主源先返回表，也不该把跨源发现跳过）
+    res = execute_tool("c7", "schema_search", params, "cx_h")
+    assert res.status == "SUCCESS", res.error
+    hit = next((t for t in res.output["tables"] if t.get("table") == "aoa_dept"), None)
+    assert hit and hit["source"] == "crm", [t.get("table") for t in res.output["tables"]]
+    assert hit["row_count"] == 5
+
+
+def test_explicit_source_routes_sql_query_to_named(cross_env):
+    """端到端：点名 crm + 计划直接给 sql → sql_query 路由到 crm 拿到真数。"""
+    from app.core.agents.data_analyst.nodes import build_executor_params
+    from app.core.agents.data_analyst.state import AgentState, PlanStep
+    from app.core.tools import execute_tool
+
+    st = AgentState(session_id="cx_i", user_query="在 crm 里统计 aoa_dept 行数")
+    step = PlanStep(id="s1", objective="行数", action="SQL", tool="sql_query",
+                    input={"sql": "SELECT COUNT(*) AS cnt FROM aoa_dept"})
+    params = build_executor_params(st, step)
+    assert params.get("source") == "crm", params
+
+    out = execute_tool("c8", "sql_query", params, "cx_i")
+    assert out.status == "SUCCESS", out.error
+    assert out.output["rows"][0]["cnt"] == 5
+
+
+def test_schema_search_cross_source_on_keyword_even_if_primary_has_hits(cross_env):
+    """回归：主源也返回表时（非空 results）跨源发现仍应扫描命名源。
+
+    keyword=id 同时命中主源 fact_sales 与命名源 crm 的 aoa_dept（两者都有 id 列）。
+    修复前「if not results」会跳过跨源扫描，aoa_dept 彻底发现不了。
+    """
+    from app.core.tools import execute_tool
+
+    res = execute_tool("c9", "schema_search", {"keyword": "id"}, "cx_j")
+    tables = res.output["tables"]
+    primary_hit = next((t for t in tables if t.get("table") == "fact_sales"), None)
+    cross_hit = next((t for t in tables if t.get("table") == "aoa_dept"), None)
+    assert primary_hit and primary_hit.get("source") == "default", "主源应命中 fact_sales"
+    assert cross_hit and cross_hit["source"] == "crm", [t.get("table") for t in tables]

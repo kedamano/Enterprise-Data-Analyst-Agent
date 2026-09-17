@@ -169,7 +169,10 @@ export default function App() {
         setHealth(h);
         setHealthFailed(false);
       })
-      .catch(() => setHealthFailed(true));
+      // 同上：StrictMode 的第一次 effect 会被 abort，别把取消当成探活失败
+      .catch(() => {
+        if (!ac.signal.aborted) setHealthFailed(true);
+      });
     return () => ac.abort();
   }, []);
 
@@ -449,14 +452,6 @@ export default function App() {
                 {/* 顶部 header：白色 + 细线分隔（h-52px 与会话侧栏头部齐平） */}
             <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-rule bg-white/80 px-4 backdrop-blur sm:px-5">
               <div className="flex min-w-0 items-center gap-2.5">
-                <img
-                  src="/logo.png"
-                  alt=""
-                  width={28}
-                  height={28}
-                  draggable={false}
-                  className="h-7 w-7 shrink-0 select-none rounded-control object-contain shadow-sm ring-1 ring-rule"
-                />
                 <div className="flex min-w-0 flex-col leading-tight">
                   <span className="truncate text-body font-semibold text-ink">
                     {active?.title || "企业数据分析智能体"}

@@ -376,6 +376,56 @@ def _first_table(state: AgentState, extra_text: str = "") -> tuple[str, list[str
     return _pick_table(state, extra_text)
 
 
+def _table_source(state: AgentState, table: str) -> str:
+    """选中表所在的**命名源**（E7/02）。
+
+    `schema_search` 跨源发现会给每张表带 `source` 标记；选中哪张表，
+    SQL 就必须路由到哪个源——否则合成出的 `SELECT ... FROM aoa_dept`
+    会打到主源上报 `no such table`。
+
+    返回 ""＝主源（不传 source，行为与旧版完全一致）。
+    """
+    if not table:
+        return ""
+    for t in _table_candidates(state):
+        if t.get("table") == table:
+            src = str(t.get("source") or "").strip()
+            if src and src != "default":
+                return src
+            return ""
+    return ""
+
+
+def _explicit_source(state: AgentState) -> str:
+    """用户/计划里**显式点名**的命名源（如「oasys 数据源」「在 crm 里查」）。
+
+    与跨源发现（`_table_source` 依赖 schema_search 命中并返回 `source` 标记）互补：
+    当用户直接在问题里说出源名时，这是「要去哪个库」最硬的信号，**不依赖**
+    schema 发现是否成功（发现可能因主源先返回表、或 planner 用空 keyword 列全表
+    而被跳过）。命中的是 ``available_sources()`` 里的真实源名（排除 default），
+    按词边界匹配，避免把普通词误判成源名。
+
+    返回 ""＝未点名（沿用「不传 = 主源」的既有行为）。
+    """
+    hay = " ".join([
+        str(getattr(state.context, "objective", "") or ""),
+        str(getattr(state, "user_query", "") or ""),
+    ]).lower()
+    if not hay:
+        return ""
+    try:
+        from ...tools.datasource import available_sources
+        names = [n for n in available_sources() if n and n != "default"]
+    except Exception:
+        return ""
+    if not names:
+        return ""
+    for name in names:
+        if re.search(rf"(?i)(?<![a-z0-9_]){re.escape(name)}(?![a-z0-9_])", hay):
+            return name
+    return ""
+
+
 def _is_numeric_col(col: str) -> bool:
     """判断列名是否像数值度量列（合成 SQL 的 SUM 目标选择用）。
 
@@ -540,6 +590,11 @@ def _discovered_schema_text(state: AgentState) -> str:
         cols = [str(c.get("name") or "") for c in (t.get("columns") or [])]
         rc = t.get("row_count")
         suffix = f"  rows≈{rc}" if isinstance(rc, int) else ""
+        # E7/02：非主源的表必须标注来源——planner 据此在 input.source 里显式指名，
+        # 否则它写出的 SQL 会被默认路由到主源（no such table）。
+        src = str(t.get("source") or "").strip()
+        if src and src != "default":
+            suffix = f"[source={src}]{suffix}"
         lines.append(f"- {t.get('table')}({', '.join(cols)}){suffix}")
     return "\n".join(lines)
 
@@ -684,7 +739,13 @@ def ensure_schema_discovered(state: AgentState, steps: list[PlanStep]) -> bool:
     state.metadata["auto_schema_search_done"] = True
     keyword = (state.context.metrics or state.context.analysis_object or [""])[0]
     step_id = f"{todo[0].id}__auto_schema"
-    res = execute_tool(step_id, "schema_search", {"keyword": keyword}, state.session_id)
+    # E7/02：用户点名了某个源（如「oasys 数据源」）→ 发现直接打到该源，
+    # 否则主源先返回表会把跨源发现整个跳过，命名源里的表就发现不了。
+    src = _explicit_source(state)
+    search_params = {"keyword": keyword}
+    if src:
+        search_params["source"] = src
+    res = execute_tool(step_id, "schema_search", search_params, state.session_id)
     state.tool_results.append(res)
     state.metadata.setdefault("auto_schema_search", []).append(
         {"step": todo[0].id, "keyword": keyword, "status": res.status,
@@ -701,13 +762,18 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
     ctx = state.context
     if tool == "schema_search":
         kw = (ctx.metrics or ctx.analysis_object or [""])[0]
-        return {"keyword": kw}
+        src = _explicit_source(state)
+        return {"keyword": kw, **({"source": src} if src else {})}
     if tool == "dataset_profile":
         table, _ = _first_table(state)
         # E4/01：计划步骤可显式声明 key / 日期列 / join 放大对照表 / 待画像 SQL；
         # 缺省按表自动探测（候选键、日期列都是自动的）。标识符与只读校验在工具内。
         inp = getattr(step, "input", None) or {}
         params: dict[str, Any] = {"table": table}
+        # E7/02：表来自命名源（schema_search 跨源发现）→ 画像路由到同一源
+        src = inp.get("source") or _table_source(state, table) or _explicit_source(state)
+        if src:
+            params["source"] = src
         for name in ("key", "base_table", "date_column", "sql"):
             if inp.get(name):
                 params[name] = inp[name]
@@ -716,7 +782,10 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
         # E2 扩展（ATTACH/03）：计划步骤可直接给出只读 SQL。
         # 此前只有 freeform 消费 input.sql，导致确定性计划里的 SQL 被丢弃、
         # 退化成 `_first_table` 的合成结果（无表时就是 `SELECT 1`）。
-        inp_sql = ((getattr(step, "input", None) or {}).get("sql") or "").strip()
+        # E7/02：input.source 与 freeform 同权——计划显式指定源时不能丢。
+        inp = getattr(step, "input", None) or {}
+        inp_src = inp.get("source")
+        inp_sql = (inp.get("sql") or "").strip()
         if inp_sql:
             candidate = _qualify_upload(inp_sql, state)
             # ⚠️ 真实模型会把 SQL 写坏：括起来括号不配平、多余 `)` 之类。
@@ -724,13 +793,15 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
             # 而 `_qualify_upload` 只会**追加**括号 → 直接语法错误。
             # 注意：模型的**聚合意图往往是对的**，只丢不用会退化成 COUNT(*)，
             # 等于把"错的"换成"另一种错的"。所以先尝试最小修复，修好就用。
+            src_kw = {"source": inp_src} if inp_src else (
+                {"source": _explicit_source(state)} if _explicit_source(state) else {})
             if _sql_balanced(candidate):
-                return {"sql": candidate}
+                return {"sql": candidate, **src_kw}
             repaired = _repair_sql_balance(candidate)
             if repaired != candidate and _sql_balanced(repaired):
                 logger.warning("步骤 %s 的 SQL 括号不配平，已自动修复后使用：%s → %s",
                                getattr(step, "id", "?"), candidate[:160], repaired[:160])
-                return {"sql": repaired}
+                return {"sql": repaired, **src_kw}
             logger.warning("步骤 %s 的 input.sql 无法修复，已丢弃并改用合成 SQL：%s",
                            getattr(step, "id", "?"), candidate[:200])
         table, cols = _first_table(state)
@@ -750,18 +821,21 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
             (c for c in cols if c not in (dim,) and _is_numeric_col(c)),
             None,
         )
+        # E7/02：表来自命名源（schema_search 跨源发现）→ SQL 必须路由过去
+        src_disc = inp_src or _table_source(state, table) or _explicit_source(state)
+        src_kw = {"source": src_disc} if src_disc else {}
         if dim and num:
             return {"sql": f'SELECT "{dim}", SUM("{num}") AS total_{num} FROM {table} '
-                           f'GROUP BY "{dim}" ORDER BY total_{num} DESC LIMIT 20'}
+                           f'GROUP BY "{dim}" ORDER BY total_{num} DESC LIMIT 20', **src_kw}
         if dim:
             return {"sql": f'SELECT "{dim}", COUNT(*) AS cnt FROM {table} '
-                           f'GROUP BY "{dim}" ORDER BY cnt DESC LIMIT 20'}
-        return {"sql": f"SELECT * FROM {table} LIMIT 100"}
+                           f'GROUP BY "{dim}" ORDER BY cnt DESC LIMIT 20', **src_kw}
+        return {"sql": f"SELECT * FROM {table} LIMIT 100", **src_kw}
     if tool == "freeform":
         # E2：模型在计划步骤 input.sql 里直接给出只读 SQL（守卫在 sql_tool 内）
         # E7/01：input.source 指定命名数据源（缺省 = 主源）
         sql = ((step.input or {}).get("sql") or "").strip()
-        src = (getattr(step, "input", None) or {}).get("source")
+        src = (getattr(step, "input", None) or {}).get("source") or _explicit_source(state)
         if sql:
             return {"sql": sql, **({"source": src} if src else {})}
         # 空 → 无效占位：交由工具判空失败（**不要**给 `SELECT 1`，见上条 sql_query 的说明）

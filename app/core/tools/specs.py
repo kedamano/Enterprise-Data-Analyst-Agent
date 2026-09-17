@@ -101,6 +101,8 @@ TOOL_SPECS: dict[str, ToolSpec] = {
                 "query": {"type": "string"},
                 "keyword": {"type": "string"},
                 "entities": {"type": "array", "items": {"type": "string"}},
+                # E7/02：命名数据源（缺省 = 主源；主源零命中会自动扫描其余源）
+                "source": {"type": "string"},
             },
             # 校正：实现只按关键词过滤、且零命中会放宽成候选表，故无需必填
             "required": [],
@@ -152,6 +154,8 @@ TOOL_SPECS: dict[str, ToolSpec] = {
             "properties": {
                 "sql": {"type": "string"},
                 "database": {"type": "string"},
+                # E7/02：命名数据源（缺省 = 主源）；实现读 `source`
+                "source": {"type": "string"},
                 "timeout_seconds": {"type": "integer", "default": 30},
                 "max_rows": {"type": "integer", "default": 10000},
             },

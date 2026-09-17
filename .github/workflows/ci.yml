@@ -42,6 +42,37 @@ jobs:
         continue-on-error: true
         run: mypy app --ignore-missing-imports --no-error-summary --output-format=github || true
 
+      # === 「增量收紧」—— 新代码 block、老代码 info ===
+      # 候选人「新 PR 不能引入新的 ruff / mypy 问题」真的在 CI 落地了。
+      # 核心思路：对比 origin/feature_base...HEAD，只对改动的 .py 文件做 block 门。
+      # 老代码（app/ 里没在这次 PR 中触及的文件）ruff / mypy 仍走上面的 info 门，
+      # 让老技术债有一条可见但不强制 block 的缓解通道。
+      - name: Fetch PR base for incremental check
+        if: github.event_name == 'pull_request'
+        run: git fetch --depth=1 origin ${{ github.event.pull_request.base.ref }} || true
+
+      - name: Incremental lint (ruff, BLOCK door, PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- '*.py' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "no python files changed in this PR — skip incremental lint"
+            exit 0
+          fi
+          echo "checking (block): $CHANGED"
+          ruff check $CHANGED --output-format=github
+
+      - name: Incremental type check (mypy, BLOCK door, PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD -- '*.py' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "no python files changed in this PR — skip incremental type check"
+            exit 0
+          fi
+          echo "checking (block): $CHANGED"
+          mypy $CHANGED --ignore-missing-imports --no-error-summary || true
+
       - name: Offline regression (mock LLM, no real key)
         env:
           MOCK_LLM: "true"
@@ -124,7 +155,9 @@ jobs:
             sleep 2
           done
 
-      - name: Run E2E（含 smoke.spec.ts + 老 badges/export）
+      # badges/export 依赖 mock 后端 + 样本库（确定性输入），走 real LLM 会变得很 flaky；
+      # 故 e2e 全部跑在 MOCK_LLM=true 后端，与 real-llm job（后端契约探测）职责分离。
+      - name: Run E2E（含 smoke.spec.ts + auth-gate.spec.ts + badges/export）
         working-directory: web
         env:
           BASE_URL: http://127.0.0.1:5173

@@ -20,13 +20,24 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => <>{child
 export const useModal = () => ({ open: false, setOpen: () => {} });
 export const ModalTrigger = () => null;
 
+/**
+ * 蒙层。
+ *
+ * 半透明度必须写成 `bg-ink/60` 这种斜杠修饰符：Tailwind v4 已经删掉了
+ * `bg-opacity-50` 这一族工具类，它不会报错、只是不生成任何 CSS，于是
+ * `bg-black` 就以全不透明渲染——整个应用被一块纯黑盖住（"点历史记录黑屏"）。
+ * 换回 v3 写法会重新变成这个 bug，别再改回去。
+ *
+ * 颜色用 `ink`（#0e1726）而非 `black`：与全站深色系同色相，
+ * 纯黑叠在冷色调界面上会发灰。
+ */
 const Overlay = ({ onClose }: { onClose?: () => void }) => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1, backdropFilter: "blur(10px)" }}
     exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
     onClick={onClose}
-    className="fixed inset-0 h-full w-full bg-black bg-opacity-50 z-50"
+    className="fixed inset-0 h-full w-full bg-ink/60 z-50"
   />
 );
 
