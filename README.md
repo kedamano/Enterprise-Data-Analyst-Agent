@@ -59,6 +59,11 @@
 
 ## 二、界面预览
 
+> 下面的截图都按**仓库相对路径**引用（GitHub / VS Code / 常见渲染器均可正常显示）。
+> 若你的 Markdown 预览器不解析相对图片路径（少数本地客户端存在此限制），
+> 请直接打开 [`docs/readme-preview.html`](docs/readme-preview.html) —— 该文件把全部截图内联为 base64，
+> 不依赖任何路径解析。
+
 **对话主界面** —— 示例问题一键起手，输入框下方可直接挂技能。
 
 ![对话主界面](docs/images/ui-home.png)
@@ -864,6 +869,7 @@ P50 **77.7ms**（缓存命中，整链 0 次 LLM 调用）vs P95 **3773ms**（�
 | [`docs/observability-alerts.md`](docs/observability-alerts.md) | 告警规则 |
 | [`docs/部署上线.md`](docs/部署上线.md) / [`PRODUCTION-GUIDE.md`](PRODUCTION-GUIDE.md) | 部署与生产清单 |
 | [`docs/diagrams/`](docs/diagrams) | 架构图源文件（mmd + svg） |
+| [`docs/readme-preview.html`](docs/readme-preview.html) | **离线可读版 README**：截图全部内联为 base64、不依赖相对路径，任何预览器/浏览器都能正常显示；由 `scripts/build_readme_preview.py` 从本文件生成 |
 | [`docs/测试用例.md`](docs/测试用例.md) | 测试用例集 |
 | [`docs/面试稿_STAR.md`](docs/面试稿_STAR.md) | 本项目的 STAR 叙述（工程决策与取舍） |
 
