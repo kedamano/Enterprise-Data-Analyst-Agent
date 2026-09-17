@@ -50,4 +50,5 @@ norecursedirs = ["references", "data", "web", "scripts", "node_modules", ".venv"
 testpaths = ["tests"]
 markers = [
     "live: 需要外部服务（Postgres/Milvus/Redis/Docker/OpenRouter 等），本地默认 skip。",
+    "llm_real: 需真实 LLM 端点的行为契约测试，结果受模型抖动影响，CI 中非阻塞运行。",
 ]

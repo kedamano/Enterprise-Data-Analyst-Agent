@@ -57,14 +57,23 @@ def test_api_client_actually_applies_auth_headers():
 
 
 def test_app_gate_flow_retries_the_blocked_query():
-    """闭环三件事：捕获 AuthError → 弹框 + 暂存参数 → 登录后重试原问题。"""
+    """闭环三件事：捕获 AuthError → 暂存参数 → 登录后重试原问题。
+
+    实现形态已演进为「全屏登录落地页」：401/503 被 instanceof AuthError 捕获后，
+    pendingRef 暂存待重试参数 + setNeedAuth(true) 拉起 AuthCentre 登录页；
+    登录成功回调 handleAuthed 用暂存参数重试本轮。不再使用 setAuthOpen 弹窗。
+    """
     app = _read("src/App.tsx")
-    assert "AuthGate" in app, "登录弹窗必须真的挂载"
-    assert "instanceof AuthError" in app, "必须捕获 AuthError（否则弹框永不触发）"
+    assert "instanceof AuthError" in app, "必须捕获 AuthError（否则登录页永不触发）"
+
+    # 登录落地页组件必须真的挂载（needAuth 为真时渲染 AuthCentre）
+    assert "AuthCentre" in app, "登录落地页组件 AuthCentre 必须真的挂载"
+    assert "needAuth && (" in app, "needAuth 必须控制登录落地页的显隐"
 
     catch_block = app.split("instanceof AuthError", 1)[1].split("return;", 1)[0]
     assert "pendingRef.current" in catch_block, "被 401 拦下的问题必须暂存，否则用户要重问"
-    assert "setAuthOpen(true)" in catch_block, "必须弹出登录框"
+    # 触发登录落地页（演进后不再用 setAuthOpen 弹窗，而是 setNeedAuth 拉起 AuthCentre）
+    assert "setNeedAuth(true)" in catch_block, "必须触发全屏登录落地页"
 
     authed = app.split("const handleAuthed", 1)[1].split("}, [", 1)[0]
     assert "pendingRef.current" in authed, "登录成功后必须取回暂存参数"

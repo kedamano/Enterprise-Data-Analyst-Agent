@@ -29,6 +29,10 @@ from app.infrastructure.llm.router import (
     get_llm,
 )
 
+# 整组都是「需真实 LLM 端点」的行为契约测试：结果受模型抖动/限流影响，
+# CI 中独立成非阻塞 job（continue-on-error + --reruns）运行，单次抖动不计入红线。
+pytestmark = pytest.mark.llm_real
+
 
 # --------------------------------------------------------------------------- #
 # 0. Network pre-check & backend guard.

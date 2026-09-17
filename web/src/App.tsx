@@ -16,7 +16,7 @@ import { useLocalStorage, uid } from "@/lib/storage";
 import { streamAnalyze, isTerminal, uploadAttachments, fetchHealth } from "@/lib/api";
 import type { AgentEvent, HealthInfo } from "@/lib/api";
 import { AuthError } from "@/lib/api";
-import { AuthGate } from "@/components/AuthGate";
+import { AuthCentre } from "@/components/AuthCentre";
 import { HistoryModal } from "@/components/RailPanels";
 import { KnowledgeView } from "@/components/KnowledgeView";
 import { FilesView } from "@/components/FilesView";
@@ -149,8 +149,10 @@ export default function App() {
   const [showList, setShowList] = useState(true);
   const [streaming, setStreaming] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
-  // #1：鉴权开启时，401/503 触发登录弹窗；pendingRef 暂存待重试的发送参数
-  const [authOpen, setAuthOpen] = useState(false);
+  // #1：鉴权开启时，401/503 触发全屏登录落地页；pendingRef 暂存待重试的发送参数。
+  // 落地页和原来的 AuthGate 弹窗走同一套 pendingRef 重试链路，
+  // 差异只在形态：弹窗 → 整页（双滑块）—— 见 AuthCentre。
+  const [needAuth, setNeedAuth] = useState(false);
   // 主区域视图：chat（对话）/ knowledge / files / datasources
   // 知识库与文件库是有目录结构、需要大面积操作的重功能，用页面承载而非弹窗。
   const [view, setView] = useState<RailView>("chat");
@@ -359,13 +361,13 @@ export default function App() {
         );
       } catch (err) {
         if (err instanceof AuthError) {
-          // #1：鉴权失败 → 存待重试参数，弹登录框；用户填 key 后重试本轮
+          // #1：鉴权失败 → 存待重试参数，切到全屏登录落地页；用户填 key 后重试本轮
           pendingRef.current = { text, attachments };
-          setAuthOpen(true);
+          setNeedAuth(true);
           patchMessage(convId, botMsg.id, (m) => ({
             ...m,
             done: true,
-            error: "需要 API Key 才能继续（请在弹窗中填写）",
+            error: "需要 API Key 才能继续（请在登录页填写）",
           }));
           return;
         }
@@ -389,9 +391,9 @@ export default function App() {
     abortRef.current?.abort();
   }, []);
 
-  // #1：登录成功（已写入 localStorage）→ 用暂存参数重试刚才被 401 拦截的分析
+  // #1：落地页登录成功（已写入 localStorage）→ 用暂存参数重试刚才被 401 拦截的分析
   const handleAuthed = useCallback(() => {
-    setAuthOpen(false);
+    setNeedAuth(false);
     const p = pendingRef.current;
     pendingRef.current = null;
     if (p) void send(p.text, p.attachments);
@@ -532,11 +534,9 @@ export default function App() {
         onSelect={setActiveId}
         onDelete={deleteConversation}
       />
-      <AuthGate
-        open={authOpen}
-        onAuthed={handleAuthed}
-        onCancel={() => setAuthOpen(false)}
-      />
+      {needAuth && (
+        <AuthCentre onAuthed={handleAuthed} />
+      )}
     </ModalProvider>
   );
 }

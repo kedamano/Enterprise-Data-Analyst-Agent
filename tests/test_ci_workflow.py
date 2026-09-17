@@ -71,7 +71,17 @@ def test_e2e_artifact_path_matches_a_reporter_that_actually_emits_it(ci):
     只看 config 不够：CI 用 `--reporter=` 覆盖 config，所以两边都要查。
     """
     e2e = ci["jobs"]["e2e"]
-    run_e2e = _named(e2e, "Run E2E")["run"]
+    # 步骤名允许带「（含 ...）」等描述后缀，按前缀定位而非精确相等，
+    # 避免有人在步骤名里加说明就让契约测试误红。
+    run_e2e_step = next(
+        (s for s in _steps(e2e) if (s.get("name") or "").startswith("Run E2E")),
+        None,
+    )
+    assert run_e2e_step is not None, (
+        "e2e job 缺少以 'Run E2E' 开头的步骤；现有步骤："
+        f"{[s.get('name') for s in _steps(e2e)]}"
+    )
+    run_e2e = run_e2e_step["run"]
     upload = _named(e2e, "Upload Playwright report")["with"]
     path = str(upload["path"])
 
