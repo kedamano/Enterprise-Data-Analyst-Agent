@@ -908,6 +908,22 @@ def build_executor_params(state: AgentState, step: PlanStep) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Context Resolver
 # --------------------------------------------------------------------------- #
+def _skills_payload(state: AgentState) -> dict[str, Any]:
+    """本轮用户勾选的技能正文（Skills），供各阶段拼进 payload。
+
+    **未勾选时返回空 dict**——保证"没勾选 = 行为与以前一字不差"。
+    每个会产出内容的阶段都要调用：只喂 context 的话，技能里写的输出格式/口径约束
+    根本到不了真正写结论和报告的地方（实测：勾了技能，报告里完全看不到效果）。
+    """
+    text = state.metadata.get("skills_text")
+    if not text:
+        return {}
+    return {
+        "active_skills": text,
+        "active_skill_ids": state.metadata.get("skill_ids") or [],
+    }
+
+
 @trace("context")
 def run_context(state: AgentState) -> AgentState:
     state.status = "UNDERSTAND"
@@ -958,6 +974,9 @@ def run_context(state: AgentState) -> AgentState:
         # P1-3：历史上写回的降级教训（如「该模型区域不可用」），供本轮规避
         "known_degradation_risks": deg_lessons,
     }
+    # Skills：用户本次勾选的技能（方法论/口径/领域约束），由 context 阶段吸收进目标与假设。
+    # 空则注入空 dict（保持"没勾选=行为与以前一字不差"）。
+    payload.update(_skills_payload(state))
     if pending:
         # 让模型知道"用户这句话是在回答什么"，否则会把答案当新问题
         payload["pending_clarification"] = {
@@ -1210,6 +1229,8 @@ def run_planner(state: AgentState) -> AgentState:
     # 无 fallback：计划是必须的。重试后仍不可用 → ModelOutputError，
     # 由编排层转成 status=ERROR（而不是裸抛 ValidationError 打挂整跑）。
     # 注意"可用"要显式判定：字段都有默认值，空计划也能过 pydantic 校验。
+    # Skills：技能可能约束"用哪个数据源/走哪些步骤"，必须让 Planner 看见。
+    task_context.update(_skills_payload(state))
     plan, plan_err = _llm_model(
         PlanModel, "planner", build_user_message(state.user_query, task_context,
                                    budget_tokens=get_settings().prompt_budget_tokens),
@@ -1587,6 +1608,8 @@ def run_analyst(state: AgentState) -> AgentState:
     # `ok=_analysis_usable`：**「能过校验」≠「可用」**——AnalysisResult 字段全有默认值，
     # 工具调用 JSON / 别的阶段的 schema / `{role,content}` 壳都能"校验通过"并得到全空分析。
     # 真实基线 7 条用例 `findings=0`、E1 溯源 `0/0` 就是这么来的（无声）。
+    # Skills：口径/方法论约束（如"金额一律用不含税口径"）直接影响结论，必须让 Analyst 看见。
+    payload.update(_skills_payload(state))
     state.analysis, ana_err = _llm_model(
         AnalysisResult, "analyst", build_user_message(state.user_query, payload,
                                    budget_tokens=get_settings().prompt_budget_tokens),
@@ -1793,6 +1816,9 @@ def run_reporter(state: AgentState) -> AgentState:
             "analysis": state.analysis.model_dump(),
             "evidence": evidence,
             "attachment": state.attachment_context,
+            # Skills：报告是用户唯一直接看到的东西，技能里的格式/口径/披露要求
+            # 必须传到这一层，否则"勾了技能"对最终交付物零影响。
+            **_skills_payload(state),
         }, ensure_ascii=False, default=str), json_mode=False)
         # REP/02：模型输出**净化**——报告必须是 Markdown。
         # 真跑实测：模型返回工具调用 JSON 时曾被原样当报告发出（见 _sanitize_report_output）。

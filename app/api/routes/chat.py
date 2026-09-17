@@ -71,7 +71,7 @@ def _session_id_for(req: AnalyzeRequest) -> str:
 @router.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     state = run_analysis(_session_id_for(req), _effective_query(req), req.history,
-                         force_full_rerun=req.force_full_rerun)
+                         force_full_rerun=req.force_full_rerun, skill_ids=req.skill_ids)
     _record_owner(state.session_id)
     return _to_response(state)
 
@@ -144,7 +144,8 @@ def analyze_stream(req: AnalyzeRequest):
         sid = _session_id_for(req)
         _record_owner(sid)
         for snap in stream_analysis(sid, _effective_query(req), req.history,
-                                    force_full_rerun=req.force_full_rerun):
+                                    force_full_rerun=req.force_full_rerun,
+                                    skill_ids=req.skill_ids):
             last = snap.tool_results[-1] if snap.tool_results else None
             try:
                 from ...core.agents.data_analyst.modes import status_milestones, workflow_progress

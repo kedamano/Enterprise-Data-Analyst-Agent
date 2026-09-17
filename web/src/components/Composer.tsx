@@ -7,9 +7,10 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import { Paperclip, Send, Square, X, Image as ImageIcon, FileText, FileCode2 } from "lucide-react";
+import { Paperclip, Send, Square, X, Image as ImageIcon, FileText, FileCode2, Sparkles, Check } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { fetchSkills, type Skill } from "@/lib/api";
 import type { Attachment } from "@/lib/types";
 
 /**
@@ -51,13 +52,18 @@ export function Composer({
   onStop,
   streaming,
 }: {
-  onSubmit: (text: string, attachments: Attachment[]) => void;
+  onSubmit: (text: string, attachments: Attachment[], skillIds: string[]) => void;
   onStop: () => void;
   streaming: boolean;
 }) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
+  // Skills：本次对话要注入的技能（仅已启用的才出现在选择器里）。
+  // 选择**跨消息保留**——用户勾一次，后续提问继续生效，直到手动取消。
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -166,7 +172,7 @@ export function Composer({
   const submit = () => {
     const t = text.trim();
     if (!t && attachments.length === 0) return;
-    onSubmit(t, attachments);
+    onSubmit(t, attachments, selectedSkills);
     attachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl));
     setText("");
     setAttachments([]);
@@ -174,6 +180,28 @@ export function Composer({
       const ta = taRef.current;
       if (ta) ta.style.height = "auto";
     });
+  };
+
+  // 拉取已启用技能供勾选。失败静默——技能是增强项，不能挡住输入框。
+  useEffect(() => {
+    let alive = true;
+    fetchSkills()
+      .then((r) => {
+        if (!alive) return;
+        setSkills((r.skills ?? []).filter((s) => s.enabled));
+      })
+      .catch(() => {
+        /* 技能不可用时选择器留空即可 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const toggleSkill = (id: string) => {
+    setSelectedSkills((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -278,6 +306,33 @@ export function Composer({
         </div>
       )}
 
+      {/* 已勾选技能（跨消息保留，显式可移除） */}
+      {selectedSkills.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-rule px-3.5 pt-2.5 pb-2">
+          <span className="text-small text-ink-3">已选技能</span>
+          {selectedSkills.map((id) => {
+            const s = skills.find((x) => x.id === id);
+            return (
+              <span
+                key={id}
+                className="inline-flex items-center gap-1 rounded-control bg-brand-soft px-2 py-0.5 text-small font-medium text-brand"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {s?.name ?? id}
+                <button
+                  type="button"
+                  onClick={() => toggleSkill(id)}
+                  aria-label={`移除技能 ${s?.name ?? id}`}
+                  className="rounded p-0.5 transition hover:bg-brand/10"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       {/* 输入区 */}
       <div className="flex items-end gap-2 px-3 py-2.5">
         <input
@@ -331,12 +386,92 @@ export function Composer({
         </button>
       </div>
 
-      {/* 底部小提示行 */}
+      {/* 底部小提示行 + 技能选择器 */}
       <div className="flex items-center justify-between border-t border-rule px-3.5 py-2 text-small text-ink-3">
-        <span className="inline-flex items-center gap-1.5">
-          <ImageIcon className="h-4 w-4" />
-          支持图片、CSV、Excel、PDF、文本、代码文件
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setPickerOpen((v) => !v)}
+              aria-haspopup="listbox"
+              aria-expanded={pickerOpen}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-small font-medium transition",
+                selectedSkills.length > 0
+                  ? "border-brand bg-brand-soft text-brand"
+                  : "border-rule text-ink-3 hover:border-brand hover:text-brand",
+              )}
+              title="选择本次对话要注入的技能"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              技能
+              {selectedSkills.length > 0 && (
+                <span className="rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+                  {selectedSkills.length}
+                </span>
+              )}
+            </button>
+
+            {pickerOpen && (
+              <>
+                {/* 点击外部关闭 */}
+                <div
+                  className="fixed inset-0 z-30"
+                  aria-hidden
+                  onClick={() => setPickerOpen(false)}
+                />
+                <div
+                  role="listbox"
+                  aria-label="选择技能"
+                  className="absolute bottom-full left-0 z-40 mb-2 max-h-72 w-72 overflow-y-auto rounded-panel border border-rule bg-white p-2 shadow-2xl"
+                >
+                  {skills.length === 0 ? (
+                    <p className="px-2 py-2 text-small leading-relaxed text-ink-3">
+                      还没有已启用的技能。到左侧「技能」页新建或导入后即可在此勾选。
+                    </p>
+                  ) : (
+                    skills.map((s) => {
+                      const on = selectedSkills.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          role="option"
+                          aria-selected={on}
+                          onClick={() => toggleSkill(s.id)}
+                          className="flex w-full items-start gap-2 rounded-control px-2 py-2 text-left transition hover:bg-canvas"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border",
+                              on ? "border-brand bg-brand text-white" : "border-rule-strong",
+                            )}
+                          >
+                            {on && <Check className="h-3 w-3" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-small font-medium text-ink">
+                              {s.name}
+                            </span>
+                            {s.description && (
+                              <span className="mt-0.5 block line-clamp-2 text-small text-ink-3">
+                                {s.description}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          <span className="hidden items-center gap-1.5 md:inline-flex">
+            <ImageIcon className="h-4 w-4" />
+            支持图片、CSV、Excel、PDF、文本、代码文件
+          </span>
+        </div>
         <span className="hidden sm:inline">
           Enter 换行 · <span className="rounded bg-canvas px-1 py-0.5 font-mono">⌘/Ctrl</span> + Enter 发送
         </span>

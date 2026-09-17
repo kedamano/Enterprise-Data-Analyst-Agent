@@ -21,12 +21,57 @@ import { HistoryModal } from "@/components/RailPanels";
 import { KnowledgeView } from "@/components/KnowledgeView";
 import { FilesView } from "@/components/FilesView";
 import { DataSourcesView } from "@/components/DataSourcesView";
+import { SkillsView } from "@/components/SkillsView";
+import { McpView } from "@/components/McpView";
 import { SettingsView } from "@/components/SettingsView";
 import { refreshAuth } from "@/lib/user";
 import type { RailView } from "@/components/SideRail";
 import type { Conversation, Message, Attachment } from "@/lib/types";
 
 const STORE_KEY = "da_conversations_v1";
+
+// SPA 视图 ↔ URL hash 双向绑定
+// - 初始化读 hash：#view=knowledge 等对应到 view state；缺省 = chat
+// - 切换 view 时写 history.replaceState，不留下历史节点
+// - 浏览器 Back/Forward 通过 hashchange 事件回到对应视图
+function readViewFromHash(): RailView {
+  const v = window.location.hash.replace(/^#/, "").split("&")[0];
+  if (!v) return "chat";
+  const name = v.startsWith("view=") ? v.slice(5) : "";
+  const allowed: RailView[] = [
+    "chat", "knowledge", "files", "datasources", "skills", "mcp", "settings",
+  ];
+  return allowed.includes(name as RailView) ? (name as RailView) : "chat";
+}
+
+function writeViewToHash(v: RailView) {
+  // 保留已有的 conv= 段，避免 setView 覆盖会话路由
+  const existingConv = readConvFromHash();
+  const parts: string[] = [];
+  if (v !== "chat") parts.push(`view=${v}`);
+  if (existingConv) parts.push(`conv=${existingConv}`);
+  const href = window.location.pathname + (parts.length ? `#${parts.join("&")}` : "");
+  window.history.replaceState(null, "", href);
+}
+
+// 活动会话 ↔ URL hash #conv=<id> 双向绑定（与 view= 共享同一个 hash 段，
+// hash 格式：view=knowledge&conv=xxx 或纯 #conv=xxx）
+function readConvFromHash(): string | null {
+  const hash = window.location.hash.replace(/^#/, "");
+  if (!hash) return null;
+  for (const pair of hash.split("&")) {
+    if (pair.startsWith("conv=")) return pair.slice(5) || null;
+  }
+  return null;
+}
+
+function writeConvToHash(convId: string | null, view: RailView) {
+  const parts: string[] = [];
+  if (view !== "chat") parts.push(`view=${view}`);
+  if (convId) parts.push(`conv=${convId}`);
+  const href = window.location.pathname + (parts.length ? `#${parts.join("&")}` : "");
+  window.history.replaceState(null, "", href);
+}
 
 function DocsModal({ open, onClose }: { open: boolean; onClose?: () => void }) {
   return (
@@ -145,17 +190,36 @@ export default function App() {
     STORE_KEY,
     [],
   );
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // 启动时从 #conv= 恢复活动会话（F5 刷新 / 深链分享）
+  const [activeId, setActiveId] = useState<string | null>(readConvFromHash);
   const [showList, setShowList] = useState(true);
   const [streaming, setStreaming] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
+  // UI 视图：SPA 单页内切换，与 URL hash 双向绑定（见 readViewFromHash / writeViewToHash）
+  const [view, setViewState] = useState<RailView>(readViewFromHash);
+  const setView = useCallback(
+    (next: RailView) => {
+      setViewState((prev) => (prev === next ? prev : next));
+      writeViewToHash(next);
+    },
+    [],
+  );
+
+  // 浏览器 Back/Forward → hashchange → 同步到 view + activeId
+  useEffect(() => {
+    const onHash = () => {
+      setViewState(readViewFromHash());
+      const conv = readConvFromHash();
+      if (conv) setActiveId(conv);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   // #1：鉴权开启时，401/503 触发全屏登录落地页；pendingRef 暂存待重试的发送参数。
   // 落地页和原来的 AuthGate 弹窗走同一套 pendingRef 重试链路，
   // 差异只在形态：弹窗 → 整页（双滑块）—— 见 AuthCentre。
   const [needAuth, setNeedAuth] = useState(false);
-  // 主区域视图：chat（对话）/ knowledge / files / datasources
-  // 知识库与文件库是有目录结构、需要大面积操作的重功能，用页面承载而非弹窗。
-  const [view, setView] = useState<RailView>("chat");
   const [historyOpen, setHistoryOpen] = useState(false);
   // 页头的运行状态徽章要反映**真实**后端状态，不能写死一句「已就绪」——
   // 模型降级/离线时那句话就是在骗人。探活失败就退回中性表述，不谎报。
@@ -186,7 +250,7 @@ export default function App() {
     setConversations([]);
     setActiveId(null);
   }, [setConversations]);
-  const pendingRef = useRef<{ text: string; attachments: Attachment[] } | null>(null);
+  const pendingRef = useRef<{ text: string; attachments: Attachment[]; skillIds: string[] } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -236,7 +300,8 @@ export default function App() {
     };
     setConversations((prev) => [conv, ...prev]);
     setActiveId(id);
-  }, [setConversations]);
+    writeConvToHash(id, view);
+  }, [setConversations, view]);
 
   const deleteConversation = useCallback(
     (id: string) => {
@@ -263,7 +328,7 @@ export default function App() {
   }, [activeId, conversations, setConversations]);
 
   const send = useCallback(
-    async (text: string, attachments: Attachment[] = []) => {
+    async (text: string, attachments: Attachment[] = [], skillIds: string[] = []) => {
       const convId = ensureActive();
 
       // 清理 previewUrl —— 那是 blob URL，关掉页面就失效，存进 localStorage 也无意义
@@ -361,11 +426,12 @@ export default function App() {
           history,
           appendEvent,
           controller.signal,
+          skillIds,
         );
       } catch (err) {
         if (err instanceof AuthError) {
           // #1：鉴权失败 → 存待重试参数，切到全屏登录落地页；用户填 key 后重试本轮
-          pendingRef.current = { text, attachments };
+          pendingRef.current = { text, attachments, skillIds };
           setNeedAuth(true);
           patchMessage(convId, botMsg.id, (m) => ({
             ...m,
@@ -399,7 +465,7 @@ export default function App() {
     setNeedAuth(false);
     const p = pendingRef.current;
     pendingRef.current = null;
-    if (p) void send(p.text, p.attachments);
+    if (p) void send(p.text, p.attachments, p.skillIds);
   }, [send]);
 
   return (
@@ -423,6 +489,7 @@ export default function App() {
             onSelect={(id) => {
               setActiveId(id);
               setView("chat");
+              writeConvToHash(id, "chat");
             }}
             onNew={() => {
               newConversation();
@@ -443,6 +510,8 @@ export default function App() {
                 {view === "knowledge" && <KnowledgeView />}
                 {view === "files" && <FilesView />}
                 {view === "datasources" && <DataSourcesView />}
+                {view === "skills" && <SkillsView />}
+                {view === "mcp" && <McpView />}
                 {view === "settings" && (
                   <SettingsView onClearAll={clearAllConversations} />
                 )}
@@ -530,7 +599,11 @@ export default function App() {
         onDelete={deleteConversation}
       />
       {needAuth && (
-        <AuthCentre onAuthed={handleAuthed} />
+        <AuthCentre
+          onAuthed={handleAuthed}
+          // 鉴权弹窗用户按 Escape 或点「跳过」→ 回到刚发那条消息的 composer（消息已标 error："需要 API Key 才能继续"）
+          onSkip={() => setNeedAuth(false)}
+        />
       )}
     </ModalProvider>
   );

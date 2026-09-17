@@ -328,7 +328,7 @@ jobs:
   image:
     name: Build image + container smoke
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>前端设计审查 · 企业数据分析智能体</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ── 令牌：本报告自身即采用所提议的设计系统 ───────────────── */
+  :root{
+    --ink:#14171C;
+    --ink-2:#4A525C;
+    --ink-3:#767E88;
+    --paper:#FFFFFF;
+    --canvas:#F4F5F3;
+    --rule:#DADCD7;
+    --rule-soft:#EBECE8;
+    --brand:#143A5E;
+    --brand-soft:#EAF0F6;
+    --verified:#1F7A54;
+    --attention:#9C6412;
+    --danger:#9E2B2B;
+    --fs-display:32px;
+    --fs-title:22px;
+    --fs-heading:17px;
+    --fs-body:15px;
+    --fs-small:13px;
+    --fs-micro:11.5px;
+    --sans:"IBM Plex Sans","Noto Sans SC",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--canvas);color:var(--ink);
+    font-family:var(--sans);font-size:var(--fs-body);line-height:1.6;
+    font-feature-settings:"tnum" 1;
+  }
+  .wrap{max-width:940px;margin:0 auto;padding:0 24px 96px}
+
+  /* ── 页眉：单一强调色横条，无渐变、无光晕 ───────────────── */
+  .masthead{background:var(--brand);color:#fff;margin-bottom:0}
+  .masthead-inner{max-width:940px;margin:0 auto;padding:40px 24px 34px}
+  .kicker{font-family:var(--mono);font-size:var(--fs-micro);letter-spacing:.08em;
+    text-transform:none;color:rgba(255,255,255,.62);margin:0 0 14px}
+  .masthead h1{margin:0;font-size:var(--fs-display);line-height:1.16;font-weight:600;letter-spacing:-.015em}
+  .masthead p{margin:14px 0 0;max-width:62ch;color:rgba(255,255,255,.86);font-size:var(--fs-body)}
+
+  /* ── 结论条：用真实数字，不做「大数字小标签」磁贴 ───────── */
+  .verdict{display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+    border-bottom:1px solid var(--rule);background:var(--paper)}
+  .verdict div{padding:18px 20px;border-right:1px solid var(--rule)}
+  .verdict div:last-child{border-right:0}
+  .verdict b{display:block;font-family:var(--mono);font-size:24px;font-weight:600;
+    line-height:1.1;font-variant-numeric:tabular-nums}
+  .verdict span{display:block;margin-top:6px;font-size:var(--fs-small);color:var(--ink-2)}
+  .verdict .bad b{color:var(--danger)}
+  .verdict .warn b{color:var(--attention)}
+  .verdict .ok b{color:var(--verified)}
+
+  /* ── 章节：以细线分隔，不用卡片包裹 ─────────────────────── */
+  section{margin-top:52px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;
+    padding-bottom:10px;border-bottom:2px solid var(--ink)}
+  .sec-head h2{margin:0;font-size:var(--fs-title);font-weight:600;letter-spacing:-.01em}
+  .sec-head .axis{margin-left:auto;font-family:var(--mono);font-size:var(--fs-micro);color:var(--ink-3)}
+  h3{margin:32px 0 10px;font-size:var(--fs-heading);font-weight:600}
+  h4{margin:24px 0 8px;font-size:var(--fs-body);font-weight:600}
+  p{margin:10px 0;max-width:74ch;color:var(--ink-2)}
+  strong{color:var(--ink);font-weight:600}
+  a{color:var(--brand)}
+  code,.mono{font-family:var(--mono);font-size:.92em;font-variant-numeric:tabular-nums}
+  code{background:var(--rule-soft);padding:1px 5px;border-radius:4px;color:var(--ink)}
+  ul,ol{margin:10px 0;padding-left:22px;color:var(--ink-2);max-width:74ch}
+  li{margin:5px 0}
+
+  /* ── 发现条目：左侧严重度色条 + 细线，不用圆角卡片 ─────── */
+  .finding{background:var(--paper);border:1px solid var(--rule);border-left:3px solid var(--ink-3);
+    padding:18px 20px;margin:14px 0}
+  .finding.p0{border-left-color:var(--danger)}
+  .finding.p1{border-left-color:var(--attention)}
+  .finding.p2{border-left-color:var(--ink-3)}
+  .f-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .f-head h3{margin:0;font-size:var(--fs-heading)}
+  .tag{font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+    padding:2px 7px;border-radius:3px;border:1px solid currentColor;white-space:nowrap}
+  .tag.p0{color:var(--danger)} .tag.p1{color:var(--attention)} .tag.p2{color:var(--ink-3)}
+  .f-body{margin-top:12px}
+  .f-body p:first-child{margin-top:0}
+  .fix{background:var(--brand-soft);border-left:2px solid var(--brand);
+    padding:10px 14px;margin:12px 0 0;font-size:var(--fs-small);color:var(--ink)}
+  .fix b{font-weight:600}
+
+  /* ── 表格：数据表右对齐 + 等宽数字（本报告自身示范）───── */
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:var(--fs-small)}
+  th{text-align:left;font-weight:600;color:var(--ink);padding:8px 10px;
+    border-bottom:1px solid var(--ink);white-space:nowrap}
+  td{padding:8px 10px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2)}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:1px solid var(--rule)}
+
+  /* ── 证据图：用 CSS 绘制，无位图依赖 ───────────────────── */
+  .ev{background:var(--paper);border:1px solid var(--rule);padding:20px;margin:16px 0}
+  .ev-cap{font-size:var(--fs-small);color:var(--ink-3);margin:14px 0 0}
+  .scale-row{display:flex;align-items:center;gap:10px;margin:3px 0}
+  .scale-row .lbl{width:52px;flex:none;font-family:var(--mono);font-size:var(--fs-micro);
+    color:var(--ink-3);text-align:right;font-variant-numeric:tabular-nums}
+  .bar{height:12px;background:var(--brand);opacity:.85}
+  .bar.noise{background:var(--ink-3);opacity:.45}
+  .scale-row .cnt{font-family:var(--mono);font-size:var(--fs-micro);color:var(--ink-3)}
+  .scale-note{margin-top:16px;padding-top:12px;border-top:1px solid var(--rule-soft);
+    font-size:var(--fs-small);color:var(--ink-2)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .grid2>.ev{margin:0}
+
+  /* 空洞示意：实心=内容，斜纹=空白 */
+  .void-demo{display:flex;gap:2px;height:150px}
+  .void-demo .col{flex:1;display:flex;flex-direction:column;gap:2px}
+  .void-demo .blk{background:var(--brand);opacity:.8;border-radius:1px}
+  .void-demo .gap{background:repeating-linear-gradient(45deg,var(--rule-soft) 0 5px,var(--paper) 5px 10px);
+    border:1px dashed var(--rule)}
+
+  /* 配色语义冲突示意 */
+  .hue{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+  .hue span{font-size:var(--fs-micro);font-family:var(--mono);padding:4px 8px;border-radius:3px;
+    border:1px solid currentColor}
+
+  /* 字号对比 demo */
+  .demo-old{font-size:12.5px;color:var(--ink);background:var(--rule-soft);padding:10px 12px}
+  .demo-new{font-size:15px;color:var(--ink);background:var(--brand-soft);padding:10px 12px}
+  .demo-label{font-family:var(--mono);font-size:var(--fs-micro);color:var(--ink-3);margin:0 0 4px}
+
+  footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--rule);
+    font-size:var(--fs-small);color:var(--ink-3)}
+  footer p{color:var(--ink-3);max-width:none}
+
+  @media (max-width:760px){
+    .verdict{grid-template-columns:1fr 1fr}
+    .verdict div:nth-child(2){border-right:0}
+    .grid2{grid-template-columns:1fr}
+    :root{--fs-display:26px;--fs-title:19px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <p class="kicker">前端设计审查 · 2026-09-15 · 依据 Frontend Design 评审基准</p>
+    <h1>企业数据分析智能体<br>前端 UI 与交互审查</h1>
+    <p>审查对象：<code style="background:rgba(255,255,255,.14);color:#fff">web/src</code> 全部 21 个组件 + 7 个页面视图，实拍视口 1440×900。
+       结论基于代码实测统计与渲染截图，不含主观印象分。</p>
+  </div>
+</header>
+
+<div class="verdict">
+  <div class="bad"><b>4 / 6</b><span>失守的评审轴（色彩·字体·结构·文案）</span></div>
+  <div class="bad"><b>18</b><span>并存的字号取值，278 处硬编码</span></div>
+  <div class="warn"><b>40–65%</b><span>各页面底部永久空置的可视区占比</span></div>
+  <div class="ok"><b>21 / 21</b><span>组件均被真实引用，语义标签使用正确</span></div>
+</div>
+
+<div class="wrap">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <h2>总体判断</h2>
+    <span class="axis">VERDICT</span>
+  </div>
+
+  <p>这套 UI 是<strong>合格但匿名的</strong>。工程上它是干净的——没有 <code>div</code> 冒充按钮，表格用了真正的 <code>&lt;table&gt;</code>，41 处 <code>aria-label</code>，空态、错误态、加载态都有落地。这些是很多项目做不到的。</p>
+
+  <p>但把同一份 brief 交给另一位设计师，大概率会产出<strong>几乎一样的页面</strong>：shadcn 的令牌脚手架没改过、Aceternity 组件囤了一堆没用、靛蓝到紫罗兰的渐变当主色、系统默认字体栈、内容装进一排排同圆角同阴影的白卡片。这套组合是 2024 年后生成式 SaaS 界面的公共默认值，不是为「企业数据分析」这个题目做的选择。</p>
+
+  <p>一句话概括问题所在：<strong>它看起来像任何一款 AI SaaS，而不像一台你会把企业账目交托给它、并指望它给出可审计结论的仪器。</strong>产品真正的卖点在文案里写着「每条结论都附带工具调用记录与置信度，支持溯源审阅」——而界面没有任何视觉语言在传达「可审计」「可溯源」「有据可查」。这是最值得修改的地方。</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <h2>设计方向提案</h2>
+    <span class="axis">TOKENS</span>
+  </div>
+
+  <p>先给方向，再给问题清单——否则后面的每一条修改都会失去共同的目标。方向来自题目本身：一个读取企业数据库、产出带溯源结论的分析系统。它的世界是<strong>账本、审计底稿、机构报告、SQL 控制台</strong>。</p>
+
+  <h3>色彩：让颜色只承担语义</h3>
+  <p>核心的取舍是——<strong>取消装饰性配色</strong>。当前 6 个色系（靛蓝／紫罗兰／天蓝／琥珀／翠绿／玫红）在不同页面代表不同含义，等于没有含义。新方案只保留一个品牌色，其余全部为语义保留：</p>
+
+  <table>
+    <thead><tr><th>角色</th><th>色值</th><th>唯一用途</th></tr></thead>
+    <tbody>
+      <tr><td>纸张 Paper</td><td class="mono">#FFFFFF</td><td>内容承载面</td></tr>
+      <tr><td>画布 Canvas</td><td class="mono">#F4F5F3</td><td>页面底，暖中性灰（替换现有冷灰 <span class="mono">#fafbfc</span>）</td></tr>
+      <tr><td>墨 Ink</td><td class="mono">#14171C</td><td>正文与标题</td></tr>
+      <tr><td>品牌 Brand</td><td class="mono">#143A5E</td><td>机构藏青：主操作、当前上下文、链接</td></tr>
+      <tr><td>已核验 Verified</td><td class="mono">#1F7A54</td><td><strong>仅</strong>用于「结论已溯源核验」——产品承诺本身</td></tr>
+      <tr><td>需注意 Attention</td><td class="mono">#9C6412</td><td><strong>仅</strong>用于降级、低置信、需人工复核</td></tr>
+      <tr><td>失效 Danger</td><td class="mono">#9E2B2B</td><td><strong>仅</strong>用于失败与破坏性操作</td></tr>
+      <tr><td>界线 Rule</td><td class="mono">#DADCD7</td><td>分隔线与边框</td></tr>
+    </tbody>
+  </table>
+
+  <p>选机构藏青而非绿或红，有一个本地的现实原因：在中文金融语境里红绿已被涨跌占用，用其中任一色作品牌色都会被误读。藏青是审计机构、年报、监管文件的视觉语言，既不与涨跌冲突，也不落入生成式界面最常选的靛蓝紫罗兰。</p>
+
+  <h3>字体：一个超家族，两种角色</h3>
+  <p>当前是 <code>ui-sans-serif, system-ui, -apple-system, "Segoe UI"</code>——最默认的系统栈，没有任何性格，且在任何项目上都会得到同样的结果。改为：</p>
+  <table>
+    <thead><tr><th>用途</th><th>字族</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td>标题 · 正文 · 界面</td><td class="mono">IBM Plex Sans + Noto Sans SC</td><td>Plex 是为 IBM 技术文档设计的字族，天生带「仪器／技术手册」气质；Noto Sans SC 承接中文，字重与拉丁部分匹配</td></tr>
+      <tr><td>SQL · 标识符 · 数值 · 度量</td><td class="mono">IBM Plex Mono</td><td>同超家族、性格明确区分；等宽 + 表格数字，是数据产品必须的</td></tr>
+    </tbody>
+  </table>
+  <p>刻意避开 Inter／Geist／JetBrains Mono 这类任何项目都会先想到的选择。Plex 的选择理由是这个题目的实际材料：整个产品界面由数据库标识符、SQL、数字表格、审计记录构成——等宽与表格数字不是装饰，是功能。</p>
+
+  <h3>字号：六档，不是十八档</h3>
+  <table>
+    <thead><tr><th>令牌</th><th class="num">字号／行高</th><th class="num">字重</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">--fs-display</td><td class="num">32 / 1.16</td><td class="num">600</td><td>仅首页主标题</td></tr>
+      <tr><td class="mono">--fs-title</td><td class="num">22 / 1.25</td><td class="num">600</td><td>页面标题</td></tr>
+      <tr><td class="mono">--fs-heading</td><td class="num">17 / 1.35</td><td class="num">600</td><td>区块标题</td></tr>
+      <tr><td class="mono">--fs-body</td><td class="num">15 / 1.6</td><td class="num">400</td><td>正文、报告、表单</td></tr>
+      <tr><td class="mono">--fs-small</td><td class="num">13 / 1.5</td><td class="num">400</td><td>次要说明、表格</td></tr>
+      <tr><td class="mono">--fs-micro</td><td class="num">11.5 / 1.4</td><td class="num">500</td><td>仅单位与元信息</td></tr>
+    </tbody>
+  </table>
+  <p>图标同步收敛为三档：<strong>16</strong>（行内）、<strong>20</strong>（控件）、<strong>24</strong>（导航）。当前用了 15 档。</p>
+
+  <h3>布局：账本，不是卡片墙</h3>
+  <p>这是最大胆也最贴合题目的一条。现在所有东西都被装进同圆角、同阴影的白卡片里——数据库连接、文件、知识库、示例问题，全都长一样。改为：<strong>记录之间用发丝线分隔，卡片只保留给真正离散的对象</strong>（一个知识库、一个文件夹）。理由直接来自材料：账本用横线分隔条目，不用盒子。当前可删掉约七成盒子。</p>
+  <p>另一条硬规则：<strong>数字列右对齐、使用表格数字</strong>。当前报告表格里营收与同比都左对齐，数值无法按量级比对——对一个数据产品来说这是真缺陷。</p>
+
+  <h3>五条原则</h3>
+  <ol>
+    <li>颜色只承担语义，不做装饰。任何颜色出现时必须能回答「它代表了什么状态」。</li>
+    <li>表格是本产品的主要界面形态。优先用行与列，而不是用卡片切碎内容。</li>
+    <li>一个比例尺。六档字号、三档图标、七级间距、两种圆角。</li>
+    <li>同一动作全程同名。按钮写「导出」，产生的提示就写「已导出」。</li>
+    <li>动效只回应操作，不自己发生。</li>
+  </ol>
+
+  <h3>对提案的自我反驳（哪几处我改掉了默认答案）</h3>
+  <ul>
+    <li>第一版我选了<strong>深松绿</strong>作品牌色（呼应会计绿格账本），推翻了——中文金融语境下绿色代表下跌，会被误读。</li>
+    <li>第一版我打算用<strong>奶油底 + 衬线标题 + 陶土橙点缀</strong>，推翻了——这正是 brief 点名要避开的默认组合，而且和题目无关。</li>
+    <li>考虑过<strong>深色控制台</strong>风格（更「硬核技术」），放弃了：产品的主要产物是一份给人读的审计报告，长时间阅读需要浅底。</li>
+    <li>「账本而非卡片墙」这条是刻意承担的审美风险。它会牺牲一点「现代 SaaS 感」，换取与本产品承诺（可审计）一致的表达。</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <h2>审查发现</h2>
+    <span class="axis">按严重度排序</span>
+  </div>
+
+  <!-- ── 字体 ── -->
+  <h3>字体：没有比例尺</h3>
+
+  <div class="finding p0">
+    <div class="f-head"><span class="tag p0">P0</span><h3>18 种字号并存，其中 8 种挤在 3.5px 区间内</h3></div>
+    <div class="f-body">
+      <p>全站 <strong>278 处</strong>硬编码字号，取值 <strong>18 种</strong>。最集中的一段是 <code>12.5 / 13 / 13.5 / 14 / 14.5 / 15 / 15.5 / 16</code>——八档字号覆盖的总跨度只有 3.5px，占全部用量的 <strong>66%</strong>。人眼分辨不出 12.5px 与 13px 的差别，所以这些取值不构成层级，只是噪音。</p>
+
+      <div class="ev">
+        <p class="demo-label">实测字号分布（条长 = 使用次数）</p>
+        <div class="scale-row"><span class="lbl">10</span><span class="bar noise" style="width:4px"></span><span class="cnt">×1</span></div>
+        <div class="scale-row"><span class="lbl">10.5</span><span class="bar noise" style="width:18px"></span><span class="cnt">×5</span></div>
+        <div class="scale-row"><span class="lbl">11</span><span class="bar noise" style="width:50px"></span><span class="cnt">×14</span></div>
+        <div class="scale-row"><span class="lbl">11.5</span><span class="bar noise" style="width:104px"></span><span class="cnt">×29</span></div>
+        <div class="scale-row"><span class="lbl">12</span><span class="bar noise" style="width:136px"></span><span class="cnt">×38</span></div>
+        <div class="scale-row"><span class="lbl">12.5</span><span class="bar" style="width:280px"></span><span class="cnt">×78</span></div>
+        <div class="scale-row"><span class="lbl">13</span><span class="bar" style="width:169px"></span><span class="cnt">×47</span></div>
+        <div class="scale-row"><span class="lbl">13.5</span><span class="bar" style="width:122px"></span><span class="cnt">×34</span></div>
+        <div class="scale-row"><span class="lbl">14</span><span class="bar" style="width:36px"></span><span class="cnt">×10</span></div>
+        <div class="scale-row"><span class="lbl">14.5</span><span class="bar" style="width:25px"></span><span class="cnt">×7</span></div>
+        <div class="scale-row"><span class="lbl">15</span><span class="bar noise" style="width:11px"></span><span class="cnt">×3</span></div>
+        <div class="scale-row"><span class="lbl">15.5</span><span class="bar noise" style="width:8px"></span><span class="cnt">×2</span></div>
+        <div class="scale-row"><span class="lbl">16</span><span class="bar noise" style="width:8px"></span><span class="cnt">×2</span></div>
+        <div class="scale-row"><span class="lbl">17</span><span class="bar noise" style="width:11px"></span><span class="cnt">×3</span></div>
+        <div class="scale-row"><span class="lbl">22</span><span class="bar noise" style="width:8px"></span><span class="cnt">×2</span></div>
+        <div class="scale-row"><span class="lbl">28 / 32 / 34</span><span class="bar noise" style="width:12px"></span><span class="cnt">×3</span></div>
+        <div class="scale-note">深蓝 = 落在「感知无差异」区间的取值（12.5–16px，共 183 处）；灰 = 孤立取值。
+          <strong>不存在任何一档能被称为「正文字号」——实际承担正文职责的 12.5px 是被用得最多、却最像一个临时决定的值。</strong></div>
+      </div>
+
+      <div class="fix"><b>改为：</b>六档比例尺（见上方令牌表）。正文提到 15px，表格 13px 保留但必须配表格数字。把 <code>text-[12.5px]</code> 等 278 处全部映射到这六档。</div>
+    </div>
+  </div>
+
+  <div class="finding p0">
+    <div class="f-head"><span class="tag p0">P0</span><h3>产品的最终产物——分析报告——以 12.5px / 13px 呈现</h3></div>
+    <div class="f-body">
+      <p>报告正文是 <code>text-[14.5px]</code>（<span class="mono">Markdown.tsx:16</span>），而其中的表格与代码块降到 <code>text-[13px]</code>。<strong>这是用户唯一需要逐行细读、并且要拿去做决策的内容</strong>，却比界面里的普通说明文字还小。报告中的数字表格是数据密度最高的区域，13px 加 1.8 行高在这个场景下偏小偏松。</p>
+      <div class="ev">
+        <p class="demo-label">现有报告正文 12.5px 上下文（放大示意）</p>
+        <div class="demo-old">华东增长最快，华北出现下滑。建议复核华北渠道投入产出。</div>
+        <p class="demo-label" style="margin-top:14px">建议值 15px，行高 1.6</p>
+        <div class="demo-new">华东增长最快，华北出现下滑。建议复核华北渠道投入产出。</div>
+      </div>
+      <div class="fix"><b>改为：</b>报告正文 15px／行高 1.6（拉丁与中文混排下 1.6 比 1.8 更紧凑而不挤）；表格 14px + <code>font-variant-numeric: tabular-nums</code>。</div>
+    </div>
+  </div>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>字体栈没有任何身份信息</h3></div>
+    <div class="f-body">
+      <p><code>index.css</code> 里的字体声明是 <code>ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei"</code>——这是操作系统默认字体的完整枚举。它保证了「不会出错」，代价是<strong>在任何设备上都长得一样，且与「企业数据分析」没有任何关系</strong>。</p>
+      <p>同一份声明里还定义了 <code>--font-mono</code> 的缺席：全站没有任何等宽字体令牌，SQL 与哈希值用的是 <code>font-mono</code> 默认栈。</p>
+      <div class="fix"><b>改为：</b>IBM Plex Sans + Noto Sans SC + IBM Plex Mono（见方向提案）。</div>
+    </div>
+  </div>
+
+  <!-- ── 色彩 ── -->
+  <h3>色彩：六个色系，零个语义</h3>
+
+  <div class="finding p0">
+    <div class="f-head"><span class="tag p0">P0</span><h3>同一个颜色在不同页面代表不同含义</h3></div>
+    <div class="f-body">
+      <p>全站调用了 6 个色系，但没有一个拥有稳定含义。实测的冲突：</p>
+      <div class="hue">
+        <span style="color:#1F7A54">翠绿 = 上传文件</span>
+        <span style="color:#1F7A54">翠绿 = 模型已就绪</span>
+        <span style="color:#1F7A54">翠绿 = 分析已完成</span>
+        <span style="color:#1F7A54">翠绿 = 数据库主机图标</span>
+      </div>
+      <div class="hue">
+        <span style="color:#9C6412">琥珀 = 添加知识</span>
+        <span style="color:#9C6412">琥珀 = 工具自动调度</span>
+        <span style="color:#9C6412">琥珀 = 知识库导航</span>
+      </div>
+      <div class="hue">
+        <span style="color:#1E6FA8">天蓝 = 查看数据源</span>
+        <span style="color:#1E6FA8">天蓝 = 全程可追溯</span>
+        <span style="color:#1E6FA8">天蓝 = 历史记录导航</span>
+      </div>
+      <p>首页的三张能力卡（紫罗兰／天蓝／琥珀）与紧随其后的三个快捷按钮（翠绿／琥珀／天蓝）用了重叠但不对应的配色——同一个琥珀色，在卡片上指「工具自动调度」，在按钮上指「添加知识」。<strong>用户无法从颜色推断任何事，颜色因此退化为纯装饰。</strong></p>
+      <div class="fix"><b>改为：</b>品牌色承担「主操作／当前上下文」，其余颜色只在表达状态时出现——已核验（绿）、需注意（琥珀）、失效（红）。装饰性用色全部移除。</div>
+    </div>
+  </div>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>靛蓝→紫罗兰渐变是生成式界面的公共默认值</h3></div>
+    <div class="f-body">
+      <p>主按钮、用户气泡、机器头像三处都用 <code>from-indigo-500 to-violet-600</code>，另有关联的 <code>bg-gradient-to-*</code> 共 11 处。这不是为本题做的选择：它出现在绝大多数同期的 AI 产品里，且 <code>--primary</code> 与 <code>--accent</code> 两个令牌恰好是 <code>indigo-600</code> 与 <code>violet-600</code>——shadcn 默认令牌只换了色相，其余结构（<code>--card</code>／<code>--popover</code>／<code>--muted</code>／<code>--ring</code>）原封未动。</p>
+      <p>首页还有一处 <code>blur-3xl</code> 的径向光晕（<span class="mono">Welcome.tsx:60</span>）作为底部装饰，是典型的「渐变水洗」式装饰。</p>
+      <div class="fix"><b>改为：</b>移除渐变。主操作用单一实色 <code>#143A5E</code>。首页光晕删除——首屏的视觉重心应由标题与内容承担。</div>
+    </div>
+  </div>
+
+  <div class="finding p2">
+    <div class="f-head"><span class="tag p2">P2</span><h3>圆角：六种取值，相邻档位用量相当</h3></div>
+    <div class="f-body">
+      <p>全站 217 处圆角，取值分布为 <code>rounded-lg</code> 80 ／ <code>rounded-full</code> 44 ／ <code>rounded-md</code> 39 ／ <code>rounded-xl</code> 35 ／ <code>rounded-2xl</code> 16 ／ <code>rounded-sm</code> 3。<code>md／lg／xl／2xl</code> 四档用量接近，意味着<strong>圆角不表达层级</strong>，只是随手选的。</p>
+      <div class="fix"><b>改为：</b>两种——控件 6px、容器 12px，<code>rounded-full</code> 仅保留给状态胶囊。</div>
+    </div>
+  </div>
+
+  <!-- ── 布局 ── -->
+  <h3>布局：每个页面下方都有大片空置</h3>
+
+  <div class="finding p0">
+    <div class="f-head"><span class="tag p0">P0</span><h3>内容顶置，视口下方 40–65% 永久空白</h3></div>
+    <div class="f-body">
+      <p>这是六个页面里最一致的缺陷。1440×900 实测：</p>
+      <table>
+        <thead><tr><th>页面</th><th class="num">内容结束位置</th><th class="num">空置占比</th><th>现象</th></tr></thead>
+        <tbody>
+          <tr><td>文件库</td><td class="num">y ≈ 270</td><td class="num">≈ 65%</td><td>左树撑满高度，右侧表格 3 行后戛然而止</td></tr>
+          <tr><td>设置</td><td class="num">y ≈ 390</td><td class="num">≈ 47%</td><td>右侧微信卡片下缘悬空，下方全空</td></tr>
+          <tr><td>数据源</td><td class="num">y ≈ 450</td><td class="num">≈ 40%</td><td>双栏右侧卡片比左栏矮，留下阶梯状空洞</td></tr>
+          <tr><td>知识库</td><td class="num">y ≈ 620</td><td class="num">≈ 25%</td><td>最后一行仅两张卡片，右侧缺一块</td></tr>
+        </tbody>
+      </table>
+      <div class="ev">
+        <p class="demo-label">各页面填充示意（实心 = 内容，斜纹 = 空置）</p>
+        <div class="void-demo">
+          <div class="col"><span class="blk" style="flex:35"></span><span class="gap" style="flex:65"></span><span style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-3)">文件库</span></div>
+          <div class="col"><span class="blk" style="flex:53"></span><span class="gap" style="flex:47"></span><span style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-3)">设置</span></div>
+          <div class="col"><span class="blk" style="flex:60"></span><span class="gap" style="flex:40"></span><span style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-3)">数据源</span></div>
+          <div class="col"><span class="blk" style="flex:75"></span><span class="gap" style="flex:25"></span><span style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-3)">知识库</span></div>
+        </div>
+      </div>
+      <div class="fix"><b>改为：</b>① 让承载主体的容器真正撑满高度并独立滚动（文件库左树与右表各自 <code>h-full</code>）；② 双栏布局用等高栅格而非内容高度；③ 结构上把「空置区」交给真实内容——文件库放最近访问／存储占用明细，数据源放连接健康检查历史。不要用装饰填补。</div>
+    </div>
+  </div>
+
+  <div class="finding p0">
+    <div class="f-head"><span class="tag p0">P0</span><h3>报告表格的数字列左对齐</h3></div>
+    <div class="f-body">
+      <p>报告里 <code>营收</code> 与 <code>同比</code> 两列左对齐。数值列左对齐后末位数字不对齐，读者无法按量级扫读——这是数据表的基本错误，出现在一个数据分析产品自己的输出里尤其显眼。</p>
+      <table>
+        <thead><tr><th>区域</th><th>营收</th><th>同比</th></tr></thead>
+        <tbody>
+          <tr><td>华东</td><td>128.4 万</td><td>+12.3%</td></tr>
+          <tr><td>华南</td><td>96.1 万</td><td>+8.7%</td></tr>
+          <tr><td>华北</td><td>74.5 万</td><td>-3.2%</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:0">对照：右对齐 + 表格数字后</p>
+      <table>
+        <thead><tr><th>区域</th><th class="num">营收</th><th class="num">同比</th></tr></thead>
+        <tbody>
+          <tr><td>华东</td><td class="num">128.4 万</td><td class="num">+12.3%</td></tr>
+          <tr><td>华南</td><td class="num">96.1 万</td><td class="num">+8.7%</td></tr>
+          <tr><td>华北</td><td class="num">74.5 万</td><td class="num">-3.2%</td></tr>
+        </tbody>
+      </table>
+      <div class="fix"><b>改为：</b><code>Markdown.tsx</code> 的 <code>th</code>／<code>td</code> 渲染器增加数值列判定（或至少为 <code>align: right</code> 的 GFM 列加类），统一 <code>text-align:right</code> + <code>tabular-nums</code>。</div>
+    </div>
+  </div>
+
+  <div class="finding p2">
+    <div class="f-head"><span class="tag p2">P2</span><h3>「操作」列有表头、无内容</h3></div>
+    <div class="f-body">
+      <p>文件库表格的末列标题是「操作」，但列内没有任何常驻内容——删除按钮仅在 hover 时出现。表头承诺了一列内容，桌面端看不到，触屏上根本触达不到。</p>
+      <div class="fix"><b>改为：</b>要么去掉这一列表头、把操作并入名称行的行尾图标，要么让操作常驻显示（hover 只做加重）。</div>
+    </div>
+  </div>
+
+  <!-- ── 结构 ── -->
+  <h3>结构：装饰当成了信息</h3>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>示例问题被编号为 1–6，但它们不是序列</h3></div>
+    <div class="f-body">
+      <p>首页六个示例问题各带一个 <code>1</code>–<code>6</code> 的方形编号徽标。编号是强结构信号，只在内容确实是序列时才成立（步骤、时间线、流程）。六个互不相关的示例问题之间<strong>没有顺序关系</strong>，编号制造了并不存在的结构。</p>
+      <div class="fix"><b>改为：</b>去掉编号。示例问题的价值是「看一句、点一句」，垂直列表配一个发送箭头已足够；或改为按主题分组（营收／质量／客户），用真实分类替代假序号。</div>
+    </div>
+  </div>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>首屏眉标与主标题内容重复</h3></div>
+    <div class="f-body">
+      <p>首页结构是：胶囊眉标「Enterprise Data Analyst Agent」→ 主标题「企业数据分析智能体」→ 说明文案。眉标只是主标题的英文写法，<strong>不提供任何新信息</strong>，属于 brief 点名的「内容上方多余的排版标签」。同样的模式也出现在每个页面的页头（如「数据源」下方紧跟「智能体可寻址的数据库连接」）。</p>
+      <div class="fix"><b>改为：</b>删除首页眉标。页头副标题只在能说明「这里能做什么」时保留——「智能体可寻址的数据库连接 · 只读访问」中的「只读访问」是有用信息，应保留，「可寻址的」是系统内部说法，应改。</div>
+    </div>
+  </div>
+
+  <div class="finding p2">
+    <div class="f-head"><span class="tag p2">P2</span><h3>同一说法在首屏出现五次</h3></div>
+    <div class="f-body">
+      <p>「六阶段编排」在页头副标题、首屏说明文案、能力卡标题、能力卡描述、底部状态条<strong>各出现一次，共五处</strong>。每个文案单元应只做一件事。</p>
+      <div class="fix"><b>改为：</b>只在首屏说明文案里讲一次流程；页头副标题改为当前任务上下文；底部状态条只留模型与连接状态。</div>
+    </div>
+  </div>
+
+  <div class="finding p2">
+    <div class="f-head"><span class="tag p2">P2</span><h3>中圆点连接元信息被反复使用</h3></div>
+    <div class="f-body">
+      <p>「数据分析 · 自然语言驱动六阶段编排」「12 个 · 137 分块 · sqlite」「本地用户 · 0 文档 · 0 分块 · 09-15 21:46」「由 DeepSeek 驱动 · 六阶段编排」——用中圆点把不相关信息串成一条，是模板化界面的典型处理，且当每张卡片都这么写时，元信息区变成视觉噪点。</p>
+      <div class="fix"><b>改为：</b>知识库卡片只保留两个真正有决策价值的字段（文档数、最近更新），其余移入详情页。</div>
+    </div>
+  </div>
+
+  <!-- ── 动效 ── -->
+  <h3>动效：108 处过渡，一个全局规则</h3>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>动效分散在每一张卡片上，而不是集中成一次</h3></div>
+    <div class="f-body">
+      <p>实测 <code>transition</code> 出现 <strong>108 次</strong>（约 21 个组件，平均每个 5 处），几乎每张卡片、每个按钮都有 hover 过渡。brief 的判断标准是：<em>散落的效果不如一次编排好的动作</em>——当前正是前者。</p>
+      <p>同时 <code>animate-spin</code> 出现 <strong>22 次</strong>，意味着每一个加载态都用旋转图标表达，没有骨架屏。</p>
+      <div class="fix"><b>改为：</b>hover 过渡只保留在「点击后确有跳转或展开」的元素上；表格行、静态卡片的 hover 变化移除。加载态对已知结构的区域（表格、列表、报告）改用骨架屏。保留一次编排动作：<strong>分析完成、报告出现</strong>时的展开——它回应了用户的操作，且真正值得被强调。</div>
+    </div>
+  </div>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>输入框占位文字每 3.5 秒自动轮换</h3></div>
+    <div class="f-body">
+      <p><code>Composer.tsx</code> 用 <code>setInterval</code> 每 3500ms 换一次 placeholder（「分析最近半年的月度销售趋势…」→「诊断数据质量…」）。这是<strong>非用户触发的动效</strong>，而且作用于正在输入的区域：用户读它到一半、或者正要点进去时它消失了；若用户已开始输入但清空后，它又与刚才读到的内容不同。它不传达任何状态变化。</p>
+      <div class="fix"><b>改为：</b>去掉轮换，用一句固定的、说明能力的占位文字；示例问题已经在首屏承担了「告诉用户能问什么」的职责。</div>
+    </div>
+  </div>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>动效降级只覆盖了 5% 的动效</h3></div>
+    <div class="f-body">
+      <p><code>prefers-reduced-motion</code> 在 <code>index.css</code> 中只针对 <code>.da-fade-up</code> 一个类生效（全站唯一一处）。108 处过渡、22 个旋转图标、以及上面那 3.5 秒轮换<strong>都不受此设置约束</strong>。开启系统「减少动态效果」的用户，看到的界面和普通用户没有区别。</p>
+      <div class="fix"><b>改为：</b>在全局加一条 <code>@media (prefers-reduced-motion: reduce)</code> 归零 duration，并对轮换逻辑加运行时判定。</div>
+    </div>
+  </div>
+
+  <!-- ── 文案 ── -->
+  <h3>文案：开发视角泄漏进了用户界面</h3>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>产品界面直接展示环境变量名</h3></div>
+    <div class="f-body">
+      <p>设置页的微信卡片里，用户看到的是这样一段：</p>
+      <blockquote style="margin:12px 0;padding:10px 14px;border-left:3px solid var(--rule);background:var(--paper);font-size:var(--fs-small);color:var(--ink-2)">
+        真实扫码登录需要已认证的微信开放平台「网站应用」（企业主体 + 认证费用），并在开放平台登记本服务的回调域名。<code>WECHAT_APPID</code>、<code>WECHAT_APPSECRET</code>、<code>WECHAT_REDIRECT_URI</code> 三项配全后生效。<br><br>
+        检测到 <code>WECHAT_DEV_SIMULATE=true</code>，可用下方的本地模拟通道跑通扫码登录链路。这不是真实微信授权，仅用于开发调试。
+      </blockquote>
+      <p>这段内容是写给部署者看的，不是写给使用者看的。<code>WECHAT_DEV_SIMULATE=true</code> 是配置文件的写法，出现在产品界面里等于把运维手册贴在了用户面前。类似问题还有页头的「LLM: real」「Mock 兜底: 关」——<code>real</code> 是代码里的枚举值，「兜底」是内部说法。</p>
+      <div class="fix"><b>改为：</b>面向用户只说两件事——「微信扫码登录当前不可用」+「联系管理员开启」。配置项名称移入开发者文档。状态胶囊改为「模型：正常」／「模型：降级中」。</div>
+    </div>
+  </div>
+
+  <div class="finding p2">
+    <div class="f-head"><span class="tag p2">P2</span><h3>空态是陈述而不是出口</h3></div>
+    <div class="f-body">
+      <p>会话列表空态：「还没有会话 / 在右侧直接提问即可开始」——描述了现状，没有给出可点的动作。知识库卡片空描述：「这个知识库还没有介绍~」——波浪号是仅此一处的非正式标点，与其余文案语气不一致。</p>
+      <div class="fix"><b>改为：</b>空态给一个直接动作（「开始第一次分析」按钮，或直接列三条可点的问题）。空描述改为一致的书面语气，如「暂无说明」。</div>
+    </div>
+  </div>
+
+  <div class="finding p2">
+    <div class="f-head"><span class="tag p2">P2</span><h3>数值被截断在词中间</h3></div>
+    <div class="f-body">
+      <p>数据源页「主数据源」磁贴显示 <code>sample enterpris...</code>——截断位置落在单词中间。数据源名称、DSN 这类标识符应该允许换行或以尾部落位省略，而不是硬截。</p>
+      <div class="fix"><b>改为：</b>标识符用 <code>break-all</code> 或等宽字体下的中部省略；或把主数据源名放到卡片正文而非磁贴标题。</div>
+    </div>
+  </div>
+
+  <!-- ── 无障碍 ── -->
+  <h3>无障碍：焦点环只覆盖了 2 个组件</h3>
+
+  <div class="finding p0">
+    <div class="f-head"><span class="tag p0">P0</span><h3>22 个组件里只有 2 个定义了键盘焦点样式</h3></div>
+    <div class="f-body">
+      <p>全站 <code>focus-visible</code> 仅出现在 <code>Composer.tsx</code>（1 处）与 <code>SideRail.tsx</code>（3 处）。其余约 <strong>20 个组件</strong>的按钮、输入框、可点击行都没有可见焦点环。键盘用户与依赖键盘导航的用户无法知道自己当前在哪一个控件上。同时有 24 个输入框只靠 placeholder 充当标签，缺少持久可见的字段名。</p>
+      <p>这一项是质量底线，不属于风格偏好。</p>
+      <div class="fix"><b>改为：</b>在 <code>index.css</code> 加全局 <code>:focus-visible</code> 规则（2px 品牌色描边 + 2px 偏移），保证任何可聚焦元素默认可见；输入框补 <code>&lt;label&gt;</code> 或 <code>aria-label</code>。</div>
+    </div>
+  </div>
+
+  <div class="finding p1">
+    <div class="f-head"><span class="tag p1">P1</span><h3>13 / 17 个 UI 组件从未被引用</h3></div>
+    <div class="f-body">
+      <p><code>src/components/ui/</code> 下 17 个组件，其中 13 个被引用次数为 0：</p>
+      <p><code>animated-tooltip</code>、<code>background-beams</code>、<code>bento-grid</code>、<code>cover</code>、<code>hero-highlight</code>、<code>input</code>、<code>meteors</code>、<code>multi-step-loader</code>、<code>placeholders-and-vanish-input</code>、<code>stateful-button</code>、<code>tabs</code>、<code>text-generate-effect</code>、<code>typewriter-effect</code></p>
+      <p>这些是典型的模板组件囤积：流星、光束、打字机、空间网格——它们也正是「看起来像生成式界面」的来源（<code>meteors</code> 等内部使用 <code>#8900ff</code> 之类的高饱和紫，全站 10 处硬编码色主要集中在这些文件）。它们不被引用，但会被打进阅读路径、增加维护面、并在后续开发中被误用。</p>
+      <p>同时还有两处死代码：<code>index.css</code> 的 <code>.bg-dotgrid</code> 点阵纹理（定义后从未使用）、以及 <code>@custom-variant dark</code>（全站无 <code>.dark</code> 应用点，仅存在于上述未引用组件内部）。</p>
+      <div class="fix"><b>改为：</b>删除这 13 个组件与两处死 CSS。若某个确实要用（例如空态想用 <code>sparkles</code>），再单独引入并纳入令牌体系。</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <h2>修复优先级</h2>
+    <span class="axis">ACTION LIST</span>
+  </div>
+
+  <p>按「改动成本 ÷ 体验收益」排序。前四项建议一起做——它们共享同一套令牌，分开改会反复返工。</p>
+
+  <table>
+    <thead><tr><th>序</th><th>项</th><th>范围</th><th>收益</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>建立令牌层（色彩／字号／间距／圆角）</td><td>index.css + 全站类名替换</td><td>一次解决字号、间距、圆角三项 P0</td></tr>
+      <tr><td class="num">2</td><td>接入 IBM Plex Sans／Mono + Noto Sans SC</td><td>index.css 字体栈</td><td>建立视觉身份，同时补齐等宽数字能力</td></tr>
+      <tr><td class="num">3</td><td>全局 <code>:focus-visible</code> + 输入框标签</td><td>index.css + 24 处输入框</td><td>无障碍底线，成本极低</td></tr>
+      <tr><td class="num">4</td><td>报告表格数值列右对齐 + 表格数字</td><td>Markdown.tsx</td><td>数据产品的基本正确性</td></tr>
+      <tr><td class="num">5</td><td>让四个页面撑满高度、消灭空置区</td><td>FilesView／SettingsView／DataSourcesView／KnowledgeView</td><td>直接回应用户已两次提出的「空白太多」</td></tr>
+      <tr><td class="num">6</td><td>撤销装饰性手段：编号徽标、眉标、渐变、光晕、轮换占位</td><td>Welcome／Composer／ChatMessage</td><td>把结构信号与信息对齐</td></tr>
+      <tr><td class="num">7</td><td>动效收敛 + 全局 reduced-motion</td><td>全站</td><td>消除「生成式默认感」</td></tr>
+      <tr><td class="num">8</td><td>文案改造：移除开发术语与重复表述</td><td>设置页／页头／空态</td><td>界面开始像产品而不是控制台</td></tr>
+      <tr><td class="num">9</td><td>删除 13 个未引用组件 + 2 处死 CSS</td><td>components/ui/</td><td>减少维护面与误用风险</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <h2>值得保留的部分</h2>
+    <span class="axis">KEEP</span>
+  </div>
+  <p>审查不该只列问题。以下几项在同类项目里属于做得好的，改动时应保住：</p>
+  <ul>
+    <li><strong>语义化 HTML 到位。</strong>全站没有 <code>div</code> 冒充按钮的情况，表格用 <code>&lt;table&gt;</code>，41 处 <code>aria-label</code>，破坏性操作有 <code>aria-label</code> 区分目标。</li>
+    <li><strong>空态、错误态、加载态都有实现</strong>，不是空白页。方向是对的，只是文案与呈现方式需要调整。</li>
+    <li><strong>三栏骨架（导航 56 / 列表 272 / 主区）是适合本产品的结构</strong>，密度与信息层级合理，不需要重构。</li>
+    <li><strong>分析完成后的状态呈现</strong>（阶段时间线可折叠、工具调用明细可展开、置信度与溯源可见）确实是产品差异点，应在视觉上被强化而不是弱化。</li>
+    <li><strong>深色代码块</strong>用于 SQL 与 DSN 是正确的选择——标识符需要等宽与视觉区分，只是需要与新的令牌体系对齐色值。</li>
+  </ul>
+</section>
+
+<footer>
+  <p>审查依据 Frontend Design 评审基准：色彩、字体、布局、结构语义、动效、文案六轴。所有数字为 <code>web/src</code> 实测统计（2026-09-15），截图视口 1440×900，浏览器实际渲染。</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,39 @@
+﻿.........F.                                                              [100%]
+================================== FAILURES ===================================
+______________________ test_skills_reach_reporter_prompt ______________________
+
+skills = <app.core.skills.store.SkillStore object at 0x00000254DDD2B250>
+marker_skill = {'id': 'skill-7f504847', 'name': '鏍囪鎶€鑳?, 'description': '杈撳嚭绾︽潫', 'enabled': True, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000254DB02B070>
+
+    def test_skills_reach_reporter_prompt(skills, marker_skill, monkeypatch):
+        """鎶ュ憡鏄敤鎴峰敮涓€鐩存帴鐪嬪埌鐨勪笢瑗库€斺€旀妧鑳藉埌涓嶄簡杩欓噷灏辩瓑浜庢病鐢熸晥銆?""
+        from app.core.agents.data_analyst import nodes
+        from app.core.agents.data_analyst.graph import _new_state
+        from app.infrastructure.llm.router import reset_llm
+    
+        monkeypatch.setenv("MOCK_LLM", "false")
+        get_settings.cache_clear()
+        reset_llm()
+        try:
+            st = _new_state("s10", "缁熻钀ユ敹", [], False, [marker_skill["id"]])
+            captured: dict[str, str] = {}
+    
+            def fake_llm(stage, user, json_mode=True):
+                captured["stage"] = stage
+                captured["user"] = user
+                return "## 鎶ュ憡\n\n钀ユ敹 100銆?
+    
+            monkeypatch.setattr(nodes, "_llm", fake_llm)
+            nodes.run_reporter(st)
+            assert captured.get("stage") == "reporter"
+>           assert _MARK in captured["user"], "reporter 鎻愮ず璇嶉噷娌℃湁鎶€鑳芥鏂?
+E           AssertionError: reporter 鎻愮ず璇嶉噷娌℃湁鎶€鑳芥鏂?
+E           assert 'SXOPS-7133' in '{"objective": "", "analysis": {"metrics": [], "findings": [], "hypotheses": [], "recommendations": [], "limitations": [], "quality_notes": [], "stats_notes": [], "raw": null}, "evidence": [], "attachment": ""}'
+
+tests\test_skill_injection.py:183: AssertionError
+---------------------------- Captured stderr call -----------------------------
+2026-09-17 22:51:51.858 | INFO     | app.infrastructure.observability.tracing:end:114 - [span] reporter   SUCCESS 8.99ms  run=s10
+=========================== short test summary info ===========================
+FAILED tests/test_skill_injection.py::test_skills_reach_reporter_prompt - Ass...
+1 failed, 10 passed in 4.55s

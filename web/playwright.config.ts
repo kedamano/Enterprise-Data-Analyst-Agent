@@ -32,6 +32,8 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
+  // CI 下 2 核机跑 2 workers 就够了；本地不限制
+  workers: process.env.CI ? 2 : undefined,
   // 见上方说明 2：CI 下产出 playwright-report/index.html 供上传
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never" }]]
@@ -39,6 +41,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:5173",
     trace: "on-first-retry",
+    // 失败自动截图 + 录像，CI artifact 直接看现场
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },

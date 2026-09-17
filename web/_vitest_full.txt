@@ -1,0 +1,1514 @@
+﻿
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.1 [39m[90mD:/work/椤圭洰/Enterprise Data Analyst Agent/web[39m
+
+ [31m鉂?[39m src/components/settings/team.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m鉂?[39m src/components/ConversationList.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m鉂?[39m src/components/FilesView.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m鉂?[39m src/components/DataSourcesView.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m鉂?[39m src/components/ChatMessage.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m鉂?[39m src/test/test_settings_view.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m鉂?[39m src/components/settings/account.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 180[2mms[22m[39m
+   [31m鉂?[39m AccountPanel [2m(4)[22m
+[31m     [31m脳[31m 灞曠ず涓昏处鍙蜂俊鎭細鐢ㄦ埛鍚?/ 瑙掕壊 / 娉ㄥ唽鏃堕棿[39m[32m 133[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑 form锛氬瓧娈典负绌烘椂鎸夐挳 disabled[39m[32m 15[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑 form锛氫袱娆℃柊瀵嗙爜涓嶄竴鑷?鈫?鏄剧ず閿欒 Notice[39m[32m 12[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑 form锛氬悎娉曡緭鍏?鈫?璋?changePassword 骞舵樉绀烘垚鍔?[39m[32m 11[2mms[22m[39m
+ [31m鉂?[39m src/components/settings/security.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 516[2mms[22m[39m
+   [31m鉂?[39m SecurityPanel [2m(4)[22m
+[31m     [31m脳[31m 鏀瑰瘑锛氭柊瀵嗙爜涓庢棫瀵嗙爜鐩稿悓 鈫?鏄剧ず閿欒[39m[32m 254[2mms[22m[39m
+     [32m鉁?[39m 鍔犺浇浼氳瘽鍒楄〃锛氭樉绀鸿澶?user-agent[32m 94[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑锛氫袱娆′笉涓€鑷?鈫?涓嶈皟鐢?changePassword[39m[32m 102[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑锛氬悎娉曡緭鍏?鈫?璋冪敤 changePassword 骞舵樉绀烘垚鍔?[39m[32m 59[2mms[22m[39m
+ [32m鉁?[39m src/components/settings/experience.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 565[2mms[22m[39m
+node.exe : [90mstderr[2m | src/components/AuthCentre.test.tsx[2m > [22m[2mAuthCentre[2m > [22m[2m娉ㄥ唽鎴愬姛锛堝悗绔彲杈撅
+級锛氳皟 register 骞惰Е鍙?onAuthed
+所在位置 行:445 字符: 62
++ ... Agent\web"; & "C:\Users\lcl13\.workbuddy\binaries\node\versions\22.22 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([90mstderr[2m...r 骞惰Е鍙?onAuthed:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[22m[39mAn update to AuthCentre inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/w
+rap-tests-with-act
+
+[90mstderr[2m | src/components/AuthCentre.test.tsx[2m > [22m[2mAuthCentre[2m > [22m[2m娉ㄥ唽鏃跺悗绔笉鍙揪锛歠allback 鍒?s
+etApiKey
+[22m[39mAn update to AuthCentre inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/w
+rap-tests-with-act
+
+[90mstderr[2m | src/components/AuthCentre.test.tsx[2m > [22m[2mAuthCentre[2m > [22m[2m鐧诲綍锛氬～鐢ㄦ埛鍚?瀵嗙爜骞舵垚鍔熷悗瑙﹀彂 o
+nAuthed
+[22m[39mAn update to AuthCentre inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/w
+rap-tests-with-act
+
+[90mstderr[2m | src/components/AuthCentre.test.tsx[2m > [22m[2mAuthCentre[2m > [22m[2m鐧诲綍鏃跺悗绔笉鍙揪锛歠allback 鍒?s
+etApiKey
+[22m[39mAn update to AuthCentre inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/w
+rap-tests-with-act
+
+[90mstderr[2m | src/components/AuthCentre.test.tsx[2m > [22m[2mAuthCentre[2m > [22m[2m娉ㄥ唽琛ㄥ崟 Enter 閿Е鍙?submit
+[22m[39mAn update to AuthCentre inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/w
+rap-tests-with-act
+
+ [32m鉁?[39m src/components/AuthCentre.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 1297[2mms[22m[39m
+   [32m鉁?[39m AuthCentre [2m(11)[22m
+     [33m[2m鉁?[22m[39m 鍒濆鎬佹樉绀虹櫥褰曡〃鍗曚笌娉ㄥ唽寮曞 overlay[33m 571[2mms[22m[39m
+[90mstderr[2m | src/components/KnowledgeView.test.tsx[2m > [22m[2mKnowledgeView[2m > [22m[2m绌哄垪琛ㄦ樉绀哄紩瀵兼枃妗堜笌鏂板缓鎸
+夐挳
+[22m[39mAn update to KnowledgeView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/w
+rap-tests-with-act
+An update to KnowledgeView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/w
+rap-tests-with-act
+
+ [31m鉂?[39m src/components/KnowledgeView.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 915[2mms[22m[39m
+   [31m鉂?[39m KnowledgeView [2m(4)[22m
+[31m     [31m脳[31m 绌哄垪琛ㄦ樉绀哄紩瀵兼枃妗堜笌鏂板缓鎸夐挳[39m[32m 179[2mms[22m[39m
+     [32m鉁?[39m 鍔犺浇鍚庢覆鏌撶煡璇嗗簱鍗＄墖锛堝悕绉?+ 鏂囨。鏁帮級[32m 73[2mms[22m[39m
+[31m     [31m脳[31m 鐐瑰嚮鏂板缓鎸夐挳 鈫?鎵撳紑 CreateKbModal 骞舵覆鏌撹〃鍗?[39m[33m 492[2mms[22m[39m
+     [32m鉁?[39m 鎼滅储妗嗚緭鍏ュ悗杩囨护鍗＄墖鍒楄〃[32m 164[2mms[22m[39m
+ [31m鉂?[39m src/test/test_composer.test.tsx [2m([22m[2m8 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 1005[2mms[22m[39m
+   [31m鉂?[39m Composer [2m(8)[22m
+     [33m[2m鉁?[22m[39m 杈撳叆鏂囧瓧 鈫?鍙戦€佹寜閽敱 disabled 鍙?enabled[33m 513[2mms[22m[39m
+[31m     [31m脳[31m Enter 閿Е鍙?submit锛圕trl/Meta + Enter锛?[39m[32m 94[2mms[22m[39m
+     [32m鉁?[39m 娣诲姞闄勪欢鍚?AttachmentList 鏄剧ず锛坢ock File锛?[32m 58[2mms[22m[39m
+     [32m鉁?[39m 绉婚櫎闄勪欢鍚庡垪琛ㄦ秷澶?[32m 123[2mms[22m[39m
+     [32m鉁?[39m streaming 鏃?Stop 鎸夐挳瑙﹀彂 onStop[32m 24[2mms[22m[39m
+     [32m鉁?[39m streaming 鏃朵笉娓叉煋鍙戦€佹寜閽紝鍙樉绀哄仠姝㈡彁绀?[32m 23[2mms[22m[39m
+     [32m鉁?[39m 绌?attachments + 绌?text 鏃朵笉璋?onSubmit[32m 84[2mms[22m[39m
+[31m     [31m脳[31m 绮樿创鍥剧墖浼氳繘鍏ラ檮浠跺垪琛?[39m[32m 75[2mms[22m[39m
+
+[31m鈳幆鈳幆鈳幆[39m[1m[41m Failed Suites 6 [49m[22m[31m鈳幆鈳幆鈳幆鈳?[39m
+
+[41m[1m FAIL [22m[49m src/components/ChatMessage.test.tsx[2m [ src/components/ChatMessage.test.tsx ][22m
+[31m[1mError[22m: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected `,` or `)` but found `Identifier`
+    [38;5;246m鈺?[0m[38;5;246m鈹€[0m[38;5;246m[[0m src/components/ChatMessage.test.tsx:93:21 [38;5;246m][0m
+    [38;5;246m鈹?[0m
+ [38;5;246m93 鈹?[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mi[0m[38;5;249mt[0m([38;5;249m"[0m[38;5;249m澶?[0m
+[38;5;249m鍒?[0m[38;5;249m鎸?[0m[38;5;249m閽?[0m[38;5;249m鐐?[0m[38;5;249m鍑?[0m[38;5;249m [0m[38;5;249m鈫?[0m[38;5;2
+49m [0m[38;5;249m鏂?[0m[38;5;249m妗?[0m[38;5;249m鍒?[0m[38;5;249m涓?[0m[38;5;249m"[0m宸插鍒?[38;5;249m"[0m[38;5;249m
+"[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249my[0m[38;5;249mn[0m[38;5;249mc[0m[
+38;5;249m [0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m>[0m[38;5;249m [0m[38;5;24
+9m{[0m
+ [38;5;240m   鈹?[0m     鈹?                        鈹€鈹€鈹攢鈹€鈹€  
+ [38;5;240m   鈹?[0m     鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ Opened here
+ [38;5;240m   鈹?[0m                                 鈹?    
+ [38;5;240m   鈹?[0m                                 鈺扳攢鈹€鈹€鈹€鈹€ `,` or `)` expected
+[38;5;246m鈹€鈹€鈹€鈹€鈺?[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mD:/work/椤圭洰/Enterprise Data Analyst Agent/web/src/components/ChatMessage.test.tsx[39m
+[90m [2m鉂?[22m transformWithOxc ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m4103:19[22m[39m
+[90m [2m鉂?[22m TransformPluginContext.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/n
+ode_modules/vite/dist/node/chunks/node.js:[2m4174:26[22m[39m
+[90m [2m鉂?[22m EnvironmentPluginContainer.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/w
+eb/node_modules/vite/dist/node/chunks/node.js:[2m30932:51[22m[39m
+[90m [2m鉂?[22m loadAndTransform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m20671:26[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆1/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/ConversationList.test.tsx[2m [ src/components/ConversationList.test.tsx ][22
+m
+[31m[1mError[22m: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected `,` or `)` but found `Identifier`
+    [38;5;246m鈺?[0m[38;5;246m鈹€[0m[38;5;246m[[0m src/components/ConversationList.test.tsx:56:10 [38;5;246m][0m
+    [38;5;246m鈹?[0m
+ [38;5;246m56 鈹?[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mi[0m[38;5;249mt[0m([38;5;249m"[0m[38;5;249m鐐?[0m
+[38;5;249m鍑?[0m[38;5;249m"[0m鏂板缓瀵硅瘽[38;5;249m"[0m[38;5;249m鎸?[0m[38;5;249m閽?[0m[38;5;249m [0m[38;5;249m鈫?[0m[
+38;5;249m [0m[38;5;249m瑙?[0m[38;5;249m鍙?[0m[38;5;249m [0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mN[0m[38;5;24
+9me[0m[38;5;249mw[0m[38;5;249m"[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m [0m
+[38;5;249m=[0m[38;5;249m>[0m[38;5;249m [0m[38;5;249m{[0m
+ [38;5;240m   鈹?[0m     鈹?     鈹€鈹€鈹€鈹€鈹攢鈹€鈹€   
+ [38;5;240m   鈹?[0m     鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ Opened here
+ [38;5;240m   鈹?[0m                鈹?     
+ [38;5;240m   鈹?[0m                鈺扳攢鈹€鈹€鈹€鈹€鈹€ `,` or `)` expected
+[38;5;246m鈹€鈹€鈹€鈹€鈺?[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mD:/work/椤圭洰/Enterprise Data Analyst Agent/web/src/components/ConversationList.test.tsx[39m
+[90m [2m鉂?[22m transformWithOxc ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m4103:19[22m[39m
+[90m [2m鉂?[22m TransformPluginContext.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/n
+ode_modules/vite/dist/node/chunks/node.js:[2m4174:26[22m[39m
+[90m [2m鉂?[22m EnvironmentPluginContainer.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/w
+eb/node_modules/vite/dist/node/chunks/node.js:[2m30932:51[22m[39m
+[90m [2m鉂?[22m loadAndTransform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m20671:26[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆2/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/DataSourcesView.test.tsx[2m [ src/components/DataSourcesView.test.tsx ][22m
+[31m[1mError[22m: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected `,` or `)` but found `Identifier`
+    [38;5;246m鈺?[0m[38;5;246m鈹€[0m[38;5;246m[[0m src/components/DataSourcesView.test.tsx:57:17 [38;5;246m][0m
+    [38;5;246m鈹?[0m
+ [38;5;246m57 鈹?[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mi[0m[38;5;249mt[0m([38;5;249m"[0m[38;5;249m绌?[0m
+[38;5;249m鏁?[0m[38;5;249m鎹?[0m[38;5;249m婧?[0m[38;5;249m [0m[38;5;249m鈫?[0m[38;5;249m [0m[38;5;249m鏄?[0m[38;5;2
+49m绀?[0m[38;5;249m"[0m杩樻病鏈夋暟鎹簮[38;5;249m"[0m[38;5;249m"[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ma[0m[38;5
+;249ms[0m[38;5;249my[0m[38;5;249mn[0m[38;5;249mc[0m[38;5;249m [0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m 
+[0m[38;5;249m=[0m[38;5;249m>[0m[38;5;249m [0m[38;5;249m{[0m
+ [38;5;240m   鈹?[0m     鈹?                鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€  
+ [38;5;240m   鈹?[0m     鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ Opened here
+ [38;5;240m   鈹?[0m                             鈹?      
+ [38;5;240m   鈹?[0m                             鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€ `,` or `)` expected
+[38;5;246m鈹€鈹€鈹€鈹€鈺?[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mD:/work/椤圭洰/Enterprise Data Analyst Agent/web/src/components/DataSourcesView.test.tsx[39m
+[90m [2m鉂?[22m transformWithOxc ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m4103:19[22m[39m
+[90m [2m鉂?[22m TransformPluginContext.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/n
+ode_modules/vite/dist/node/chunks/node.js:[2m4174:26[22m[39m
+[90m [2m鉂?[22m EnvironmentPluginContainer.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/w
+eb/node_modules/vite/dist/node/chunks/node.js:[2m30932:51[22m[39m
+[90m [2m鉂?[22m loadAndTransform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m20671:26[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆3/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/FilesView.test.tsx[2m [ src/components/FilesView.test.tsx ][22m
+[31m[1mError[22m: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected `,` or `)` but found `Identifier`
+    [38;5;246m鈺?[0m[38;5;246m鈹€[0m[38;5;246m[[0m src/components/FilesView.test.tsx:52:13 [38;5;246m][0m
+    [38;5;246m鈹?[0m
+ [38;5;246m52 鈹?[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mi[0m[38;5;249mt[0m([38;5;249m"[0m[38;5;249m绌?[0m
+[38;5;249m鎬?[0m[38;5;249m锛?[0m[38;5;249m鎻?[0m[38;5;249m绀?[0m[38;5;249m"[0m杩欎釜鏂囦欢澶规槸绌虹殑[38;5;249m"[0m[38;5;249m"
+[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249my[0m[38;5;249mn[0m[38;5;249mc[0m[3
+8;5;249m [0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m>[0m[38;5;249m [0m[38;5;249
+m{[0m
+ [38;5;240m   鈹?[0m     鈹?           鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€  
+ [38;5;240m   鈹?[0m     鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ Opened here
+ [38;5;240m   鈹?[0m                          鈹?        
+ [38;5;240m   鈹?[0m                          鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ `,` or `)` expected
+[38;5;246m鈹€鈹€鈹€鈹€鈺?[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mD:/work/椤圭洰/Enterprise Data Analyst Agent/web/src/components/FilesView.test.tsx[39m
+[90m [2m鉂?[22m transformWithOxc ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m4103:19[22m[39m
+[90m [2m鉂?[22m TransformPluginContext.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/n
+ode_modules/vite/dist/node/chunks/node.js:[2m4174:26[22m[39m
+[90m [2m鉂?[22m EnvironmentPluginContainer.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/w
+eb/node_modules/vite/dist/node/chunks/node.js:[2m30932:51[22m[39m
+[90m [2m鉂?[22m loadAndTransform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m20671:26[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆4/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/test/test_settings_view.test.tsx[2m [ src/test/test_settings_view.test.tsx ][22m
+[31m[1mError[22m: [vitest] There was an error when mocking a module. If you are using "vi.mock" factory, make sure t
+here are no top level variables inside, since this call is hoisted to top of the file. Read more: https://vitest.dev/ap
+i/vi.html#vi-mock[39m
+[36m [2m鉂?[22m src/components/Avatar.tsx:[2m1:1[22m[39m
+    [90m  1|[39m import { initials } from "@/lib/user";
+    [90m   |[39m [31m^[39m
+    [90m  2|[39m import type { AuthUser } from "@/lib/user";
+    [90m  3|[39m
+
+[31m[1mCaused by: ReferenceError[22m: Cannot access 'mockUseAuth' before initialization[39m
+[36m [2m鉂?[22m src/test/test_settings_view.test.tsx:[2m17:12[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆5/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/team.test.tsx[2m [ src/components/settings/team.test.tsx ][22m
+[31m[1mError[22m: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected `,` or `)` but found `Identifier`
+     [38;5;246m鈺?[0m[38;5;246m鈹€[0m[38;5;246m[[0m src/components/settings/team.test.tsx:123:30 [38;5;246m][0m
+     [38;5;246m鈹?[0m
+ [38;5;246m123 鈹?[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mi[0m[38;5;249mt[0m([38;5;249m"[0m[38;5;249mf[0m
+[38;5;249me[0m[38;5;249mt[0m[38;5;249mc[0m[38;5;249mh[0m[38;5;249mU[0m[38;5;249ms[0m[38;5;249me[0m[38;5;
+249mr[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m杩?[0m[38;5;249m鍥?[0m[38;5;249m [0m[38;5;249m4[0m[38;5;249m0[
+0m[38;5;249m3[0m[38;5;249m [0m[38;5;249m鈫?[0m[38;5;249m [0m[38;5;249m鏄?[0m[38;5;249m绀?[0m[38;5;249m"[0m浠呯鐞嗗
+憳鍙鐞嗘垚鍛?[38;5;249m"[0m[38;5;249m"[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249my[0
+m[38;5;249mn[0m[38;5;249mc[0m[38;5;249m [0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m [0m[38;5;249m=[0m[38;5
+;249m>[0m[38;5;249m [0m[38;5;249m{[0m
+ [38;5;240m    鈹?[0m     鈹?                           鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€  
+ [38;5;240m    鈹?[0m     鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+鈹€鈹€ Opened here
+ [38;5;240m    鈹?[0m                                          鈹?          
+ [38;5;240m    鈹?[0m                                          鈺扳攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ `,` or `)` expected
+[38;5;246m鈹€鈹€鈹€鈹€鈹€鈺?[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mD:/work/椤圭洰/Enterprise Data Analyst Agent/web/src/components/settings/team.test.tsx[39m
+[90m [2m鉂?[22m transformWithOxc ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m4103:19[22m[39m
+[90m [2m鉂?[22m TransformPluginContext.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/n
+ode_modules/vite/dist/node/chunks/node.js:[2m4174:26[22m[39m
+[90m [2m鉂?[22m EnvironmentPluginContainer.transform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/w
+eb/node_modules/vite/dist/node/chunks/node.js:[2m30932:51[22m[39m
+[90m [2m鉂?[22m loadAndTransform ../../../%E9%A1%B9%E7%9B%AE/Enterprise%20Data%20Analyst%20Agent/web/node_modules/vite
+/dist/node/chunks/node.js:[2m20671:26[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆6/17]鈳?[22m[39m
+
+
+[31m鈳幆鈳幆鈳幆[39m[1m[41m Failed Tests 11 [49m[22m[31m鈳幆鈳幆鈳幆鈳?[39m
+
+[41m[1m FAIL [22m[49m src/components/KnowledgeView.test.tsx[2m > [22mKnowledgeView[2m > [22m绌哄垪琛ㄦ樉绀哄紩瀵兼枃妗堜笌鏂板缓鎸
+夐挳
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: 杩樻病鏈夌煡璇嗗簱. This could be becaus
+e the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make yo
+ur matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m"overflow: auto;"[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col bg-canvas"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-2.5 border-b border-rule bg-white px-6 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mr-auto flex items-center gap-2.5"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-book-open h-5 w-5 text-attention"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 5v16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 
+00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-heading font-semibold text-ink"[39m
+          [36m>[39m
+            [0m鎴戠殑鐭ヨ瘑搴?[0m
+          [36m</h1>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-search pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y
+-1/2 text-ink-3"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m21 21-4.34-4.34"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"11"[39m
+              [33mcy[39m=[32m"11"[39m
+              [33mr[39m=[32m"8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"鎼滅储鐭ヨ瘑搴?[39m
+            [33mclass[39m=[32m"w-52 rounded-control border border-rule bg-white py-2 pl-9 pr-3 text-small text-ink-2
+ outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand"[39m
+            [33mplaceholder[39m=[32m"鐭ヨ瘑搴撳悕绉?[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<select[39m
+          [33maria-label[39m=[32m"鎸夌被鍨嬬瓫閫夌煡璇嗗簱"[39m
+          [33mclass[39m=[32m"rounded-control border border-rule bg-white px-3 py-2 text-small text-ink-2 outline-non
+e focus:border-brand"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"all"[39m
+          [36m>[39m
+            [0m鍏ㄩ儴绫诲瀷[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"general"[39m
+          [36m>[39m
+            [0m閫氱敤鐭ヨ瘑搴?[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"website"[39m
+          [36m>[39m
+            [0m缃戠珯鐭ヨ瘑搴?[0m
+          [36m</option>[39m
+        [36m</select>[39m
+        [36m<select[39m
+          [33maria-label[39m=[32m"鐭ヨ瘑搴撴帓搴忔柟寮?[39m
+          [33mclass[39m=[32m"rounded-control border border-rule bg-white px-3 py-2 text-small text-ink-2 outline-non
+e focus:border-brand"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"updated"[39m
+          [36m>[39m
+            [0m鏈€杩戜慨鏀?[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"name"[39m
+          [36m>[39m
+            [0m鎸夊悕绉?[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"chunks"[39m
+          [36m>[39m
+            [0m鎸夊垎鍧楁暟[0m
+          [36m</option>[39m
+        [36m</select>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 rounded-control bg-brand px-3.5 py-2 text-small font-m
+edium text-white shadow-sm transition hover:bg-brand-hover"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-plus h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 5v14"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m 鏂板缓[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto px-6 py-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto w-full max-w-[1400px]"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-2 py-16 text-body text-ink-3"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-loader-circle lucide-loader-2 h-4 w-4 animate-spin"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m 姝ｅ湪鍔犺浇鐭ヨ瘑搴撯€?[0m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"[39m
+          [36m/>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/components/KnowledgeView.test.tsx:[2m61:19[22m[39m
+    [90m 59|[39m     render(<KnowledgeView />);
+    [90m 60|[39m
+    [90m 61|[39m     expect(screen.getByText("杩樻病鏈夌煡璇嗗簱")).toBeInTheDocument();
+    [90m   |[39m                   [31m^[39m
+    [90m 62|[39m     expect(
+    [90m 63|[39m       screen.getByText(/鏂板缓鐭ヨ瘑搴撳悗锛屽彲浠ヤ笂浼犳枃浠?),
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆7/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/KnowledgeView.test.tsx[2m > [22mKnowledgeView[2m > [22m鐐瑰嚮鏂板缓鎸夐挳 鈫?鎵撳紑 Cre
+ateKbModal 骞舵覆鏌撹〃鍗?[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 鍚嶇О
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m"overflow: hidden;"[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col bg-canvas"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-2.5 border-b border-rule bg-white px-6 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mr-auto flex items-center gap-2.5"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-book-open h-5 w-5 text-attention"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 5v16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 
+00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-heading font-semibold text-ink"[39m
+          [36m>[39m
+            [0m鎴戠殑鐭ヨ瘑搴?[0m
+          [36m</h1>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"ml-1 rounded-full bg-canvas px-2.5 py-1 text-small text-ink-3"[39m
+          [36m>[39m
+            [0m1[0m
+            [0m 涓煡璇嗗簱 路 [0m
+            [0m42[0m
+            [0m 涓垎鍧?[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-search pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y
+-1/2 text-ink-3"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m21 21-4.34-4.34"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"11"[39m
+              [33mcy[39m=[32m"11"[39m
+              [33mr[39m=[32m"8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"鎼滅储鐭ヨ瘑搴?[39m
+            [33mclass[39m=[32m"w-52 rounded-control border border-rule bg-white py-2 pl-9 pr-3 text-small text-ink-2
+ outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand"[39m
+            [33mplaceholder[39m=[32m"鐭ヨ瘑搴撳悕绉?[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<select[39m
+          [33maria-label[39m=[32m"鎸夌被鍨嬬瓫閫夌煡璇嗗簱"[39m
+          [33mclass[39m=[32m"rounded-control border border-rule bg-white px-3 py-2 text-small text-ink-2 outline-non
+e focus:border-brand"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"all"[39m
+          [36m>[39m
+            [0m鍏ㄩ儴绫诲瀷[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"general"[39m
+          [36m>[39m
+            [0m閫氱敤鐭ヨ瘑搴?[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"website"[39m
+          [36m>[39m
+            [0m缃戠珯鐭ヨ瘑搴?[0m
+          [36m</option>[39m
+        [36m</select>[39m
+        [36m<select[39m
+          [33maria-label[39m=[32m"鐭ヨ瘑搴撴帓搴忔柟寮?[39m
+          [33mclass[39m=[32m"rounded-control border border-rule bg-white px-3 py-2 text-small text-ink-2 outline-non
+e focus:border-brand"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"updated"[39m
+          [36m>[39m
+            [0m鏈€杩戜慨鏀?[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"name"[39m
+          [36m>[39m
+            [0m鎸夊悕绉?[0m
+          [36m</option>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m"chunks"[39m
+          [36m>[39m
+            [0m鎸夊垎鍧楁暟[0m
+          [36m</option>[39m
+        [36m</select>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 rounded-control bg-brand px-3.5 py-2 text-small font-m
+edium text-white shadow-sm transition hover:bg-brand-hover"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-plus h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 5v14"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m 鏂板缓[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto px-6 py-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto w-full max-w-[1400px]"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"group flex flex-col rounded-panel border border-rule bg-white p-5 text-left transit
+ion-colors hover:border-brand"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-start gap-3.5"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"grid h-11 w-11 shrink-0 place-items-center rounded-panel bg-brand-soft text-bra
+nd"[39m
+                [36m>[39m
+...
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m getAllByLabelText node_modules/@testing-library/dom/dist/queries/label-text.js:[2m111:38[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/components/KnowledgeView.test.tsx:[2m97:19[22m[39m
+    [90m 95|[39m
+    [90m 96|[39m     expect(await screen.findByText("鏂板缓鐭ヨ瘑搴?)).toBeInTheDocument();
+    [90m 97|[39m     expect(screen.getByLabelText("鍚嶇О")).toBeInTheDocument();
+    [90m   |[39m                   [31m^[39m
+    [90m 98|[39m   });
+    [90m 99|[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆8/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/test/test_composer.test.tsx[2m > [22mComposer[2m > [22mEnter 閿Е鍙?submit锛圕trl/Meta + 
+Enter锛?[31m[1mAssertionError[22m: expected "vi.fn()" to be called with arguments: [ 'any', [] ][90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m[2m  [[22m
+[2m    "any",[22m
+[2m    [],[22m
+[31m+   [],[90m
+[2m  ][22m
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m鉂?[22m src/test/test_composer.test.tsx:[2m55:22[22m[39m
+    [90m 53|[39m     await fireEvent.change(textarea, { target: { value: "any" } });
+    [90m 54|[39m     await fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+    [90m 55|[39m     // onSubmit 濂戠害锛?text, attachments, skillIds)銆傛湭鍕鹃€夋妧鑳芥椂绗笁鍙備负绌烘暟缁勩€?    [90m   |[39m         
+             [31m^[39m
+    [90m 56|[39m     expect(onSubmit).toHaveBeenCalledWith("any", [], []);
+    [90m 57|[39m   });
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳痆9/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/test/test_composer.test.tsx[2m > [22mComposer[2m > [22m绮樿创鍥剧墖浼氳繘鍏ラ檮浠跺垪琛?[31m[1mType
+Error[22m: Cannot read properties of undefined (reading '_buffer')[39m
+[36m [2m鉂?[22m fileToPreviewUrl src/components/Composer.tsx:[2m30:14[22m[39m
+    [90m 28|[39m /** 鎶?File / Blob 杞垚鍙湪 UI 棰勮鐨?blob URL銆傝皟鐢ㄦ柟璐熻矗 revoke銆?*/
+    [90m 29|[39m function fileToPreviewUrl(file: File): string {
+    [90m 30|[39m   return URL.createObjectURL(file);
+    [90m   |[39m              [31m^[39m
+    [90m 31|[39m }
+    [90m 32|[39m
+[90m [2m鉂?[22m src/components/Composer.tsx:[2m102:51[22m[39m
+[90m [2m鉂?[22m src/components/Composer.tsx:[2m96:14[22m[39m
+[90m [2m鉂?[22m basicStateReducer node_modules/react-dom/cjs/react-dom-client.development.js:[2m7935:45[22m[39m
+[90m [2m鉂?[22m updateReducerImpl node_modules/react-dom/cjs/react-dom-client.development.js:[2m8048:17[22m[39m
+[90m [2m鉂?[22m updateReducer node_modules/react-dom/cjs/react-dom-client.development.js:[2m7968:14[22m[39m
+[90m [2m鉂?[22m Object.useState node_modules/react-dom/cjs/react-dom-client.development.js:[2m26511:18[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[10/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m灞曠ず涓昏处鍙蜂俊鎭細鐢ㄦ埛鍚?
+/ 瑙掕壊 / 娉ㄥ唽鏃堕棿
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氬瓧娈典负绌烘椂
+鎸夐挳 disabled
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氫袱娆℃柊瀵嗙爜
+涓嶄竴鑷?鈫?鏄剧ず閿欒 Notice
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氬悎娉曡緭鍏?鈫
+?璋?changePassword 骞舵樉绀烘垚鍔?[31m[1mError[22m: [vitest] No "initials" export is defined on the "@/lib/user" mock. Did y
+ou forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+[39m
+vi.mock(import("@/lib/user"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+[36m [2m鉂?[22m Avatar src/components/Avatar.tsx:[2m67:8[22m[39m
+    [90m 65|[39m       )}`}
+    [90m 66|[39m     >
+    [90m 67|[39m       {initials(user)}
+    [90m   |[39m        [31m^[39m
+    [90m 68|[39m     </span>
+    [90m 69|[39m   );
+[90m [2m鉂?[22m Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:[2m25904:2
+0[22m[39m
+[90m [2m鉂?[22m renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:[2m7662:22[22m[39m
+[90m [2m鉂?[22m updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:[2m10166:19[22m[
+39m
+[90m [2m鉂?[22m beginWork node_modules/react-dom/cjs/react-dom-client.development.js:[2m11778:18[22m[39m
+[90m [2m鉂?[22m runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:[2m874:13[22m[39m
+[90m [2m鉂?[22m performUnitOfWork node_modules/react-dom/cjs/react-dom-client.development.js:[2m17641:22[22m[39m
+[90m [2m鉂?[22m workLoopSync node_modules/react-dom/cjs/react-dom-client.development.js:[2m17469:41[22m[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[11/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/security.test.tsx[2m > [22mSecurityPanel[2m > [22m鏀瑰瘑锛氭柊瀵嗙爜涓庢棫瀵嗙爜
+鐩稿悓 鈫?鏄剧ず閿欒
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 褰撳墠瀵嗙爜
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-2"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m鐧诲綍瀵嗙爜[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m淇敼鍚庡叾浠栬澶囩殑鐧诲綍浼氱珛鍗冲け鏁堬紝褰撳墠璁惧淇濇寔鐧诲綍銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<form>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m褰撳墠瀵嗙爜[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33mautocomplete[39m=[32m"current-password"[39m
+                  [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-in
+k outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas di
+sabled:text-ink-3 max-w-sm"[39m
+                  [33mtype[39m=[32m"password"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m鏂板瘑鐮?[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"space-y-2"[39m
+                [36m>[39m
+                  [36m<input[39m
+                    [33mautocomplete[39m=[32m"new-password"[39m
+                    [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-
+ink outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas 
+disabled:text-ink-3 max-w-sm"[39m
+                    [33mtype[39m=[32m"password"[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m/>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                  [36m>[39m
+                    [0m鑷冲皯 [0m
+                    [0m8[0m
+                    [0m 浣嶏紝闇€鍚瓧姣嶄笌鏁板瓧[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m纭鏂板瘑鐮?[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33mautocomplete[39m=[32m"new-password"[39m
+                  [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-in
+k outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas di
+sabled:text-ink-3 max-w-sm"[39m
+                  [33mtype[39m=[32m"password"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2 pt-3.5"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-brand text-white hover:bg-brand-hover s
+hadow-sm disabled:bg-brand-soft "[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"submit"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-key-round h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-
+1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"16.5"[39m
+                    [33mcy[39m=[32m"7.5"[39m
+                    [33mfill[39m=[32m"currentColor"[39m
+                    [33mr[39m=[32m".5"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 鏇存柊瀵嗙爜[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m鐧诲綍璁惧[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m褰撳墠璐﹀彿鐨勬湁鏁堢櫥褰曚細璇濄€傚彂鐜伴檶鐢熻澶囨椂璇风珛鍗虫敼瀵嗐€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"shrink-0"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-sm
+all font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 hover
+:border-rule-strong hover:bg-canvas "[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-refresh-cw h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M21 3v5h-5"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M8 16H3v5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m 鍒锋柊[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"py-6 text-center text-small text-ink-3"[39m
+          [36m>[39m
+            [0m鏆傛棤鏈夋晥浼氳瘽[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-2 pt-3.5"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-sm
+all font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-danger bg-white text-danger ho
+ver:bg-danger-soft "[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-log-out h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m16 17 5-5-5-5"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M21 12H9"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m 閫€鍑哄綋鍓嶈澶?[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m鐧诲綍璁板綍[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鍚け璐ョ殑鐧诲綍灏濊瘯锛岀敤浜庤嚜鏌ュ紓甯哥櫥褰曘€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"py-6 text-center text-small text-ink-3"[39m
+          [36m>[39m
+            [0m鏆傛棤鐧诲綍璁板綍[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m瀹夊叏寤鸿[0m
+            [36m</h3>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<ul[39m
+            [33mclass[39m=[32m"pt-3.5"[39m
+          [36m>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"flex items-start gap-2 py-2 text-small leading-relaxed text-ink-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-shield-alert mt-0.5 h-4 w-4 shrink-0 text-attention"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2
+ 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 8v4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 16h.01"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m瀵瑰鎻愪緵鏈嶅姟鍓嶏紝璇疯绠＄悊鍛樺紑鍚櫥褰曟牎楠岋紱鏈紑鍚椂鎺ュ彛瀵规湭鐧诲綍璇锋眰鍚屾牱寮€鏀俱€?[0m
+            [36m</li>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"flex items-start gap-2 border-t border-rule py-2 text-small leading-relaxed text-in
+k-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-triangle-alert lucide-alert-triangle mt-0.5 h-4 w-4 shrink-0 text-a
+ttention"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 9v4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 17h.01"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m鐧诲綍浠ょ墝淇濆瓨鍦ㄦ祻瑙堝櫒鏈湴瀛樺偍涓紝璇峰嬁鍦ㄥ叕鍏辩粓绔繚鎸佺櫥褰曘€?[0m
+            [36m</li>[39m
+          [36m</ul>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m getAllByLabelText node_modules/@testing-library/dom/dist/queries/label-text.js:[2m111:38[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/components/settings/security.test.tsx:[2m57:29[22m[39m
+    [90m 55|[39m     await screen.findByText("鐧诲綍瀵嗙爜");
+    [90m 56|[39m
+    [90m 57|[39m     fireEvent.change(screen.getByLabelText("褰撳墠瀵嗙爜"), {
+    [90m   |[39m                             [31m^[39m
+    [90m 58|[39m       target: { value: "SamePwd01" },
+    [90m 59|[39m     });
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[12/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/security.test.tsx[2m > [22mSecurityPanel[2m > [22m鏀瑰瘑锛氫袱娆′笉涓€鑷?鈫?
+涓嶈皟鐢?changePassword
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 鏂板瘑鐮?
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-2"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m鐧诲綍瀵嗙爜[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m淇敼鍚庡叾浠栬澶囩殑鐧诲綍浼氱珛鍗冲け鏁堬紝褰撳墠璁惧淇濇寔鐧诲綍銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<form>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m褰撳墠瀵嗙爜[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33mautocomplete[39m=[32m"current-password"[39m
+                  [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-in
+k outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas di
+sabled:text-ink-3 max-w-sm"[39m
+                  [33mtype[39m=[32m"password"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m鏂板瘑鐮?[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"space-y-2"[39m
+                [36m>[39m
+                  [36m<input[39m
+                    [33mautocomplete[39m=[32m"new-password"[39m
+                    [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-
+ink outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas 
+disabled:text-ink-3 max-w-sm"[39m
+                    [33mtype[39m=[32m"password"[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m/>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                  [36m>[39m
+                    [0m鑷冲皯 [0m
+                    [0m8[0m
+                    [0m 浣嶏紝闇€鍚瓧姣嶄笌鏁板瓧[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m纭鏂板瘑鐮?[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33mautocomplete[39m=[32m"new-password"[39m
+                  [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-in
+k outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas di
+sabled:text-ink-3 max-w-sm"[39m
+                  [33mtype[39m=[32m"password"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2 pt-3.5"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-brand text-white hover:bg-brand-hover s
+hadow-sm disabled:bg-brand-soft "[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"submit"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-key-round h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-
+1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"16.5"[39m
+                    [33mcy[39m=[32m"7.5"[39m
+                    [33mfill[39m=[32m"currentColor"[39m
+                    [33mr[39m=[32m".5"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 鏇存柊瀵嗙爜[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibol...
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m getAllByLabelText node_modules/@testing-library/dom/dist/queries/label-text.js:[2m111:38[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/components/settings/security.test.tsx:[2m90:29[22m[39m
+    [90m 88|[39m     await screen.findByText("鐧诲綍瀵嗙爜");
+    [90m 89|[39m
+    [90m 90|[39m     fireEvent.change(screen.getByLabelText("鏂板瘑鐮?), {
+    [90m   |[39m                             [31m^[39m
+    [90m 91|[39m       target: { value: "NewPass123" },
+    [90m 92|[39m     });
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[13/17]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/security.test.tsx[2m > [22mSecurityPanel[2m > [22m鏀瑰瘑锛氬悎娉曡緭鍏?鈫?璋冪
+敤 changePassword 骞舵樉绀烘垚鍔?[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 褰撳墠瀵嗙爜
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-2"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m鐧诲綍瀵嗙爜[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m淇敼鍚庡叾浠栬澶囩殑鐧诲綍浼氱珛鍗冲け鏁堬紝褰撳墠璁惧淇濇寔鐧诲綍銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<form>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m褰撳墠瀵嗙爜[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33mautocomplete[39m=[32m"current-password"[39m
+                  [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-in
+k outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas di
+sabled:text-ink-3 max-w-sm"[39m
+                  [33mtype[39m=[32m"password"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+
+[2m Test Files [22m [1m[31m10 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (12)[39m
+[2m      Tests [22m [1m[31m11 failed[39m[22m[2m | [22m[1m[32m24 passed[39m[22m[90m (35)[39m
+[2m   Start at [22m 22:35:27
+[2m   Duration [22m 10.94s[2m (environment 74%, setup 9%, transform 6%, import 5%, tests 5%, worker 1%)[22m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m鏂板瘑鐮?[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"space-y-2"[39m
+                [36m>[39m
+                  [36m<input[39m
+                    [33mautocomplete[39m=[32m"new-password"[39m
+                    [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-
+ink outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas 
+disabled:text-ink-3 max-w-sm"[39m
+                    [33mtype[39m=[32m"password"[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m/>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                  [36m>[39m
+                    [0m鑷冲皯 [0m
+                    [0m8[0m
+                    [0m 浣嶏紝闇€鍚瓧姣嶄笌鏁板瓧[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+              [36m>[39m
+                [0m纭鏂板瘑鐮?[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33mautocomplete[39m=[32m"new-password"[39m
+                  [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-in
+k outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas di
+sabled:text-ink-3 max-w-sm"[39m
+                  [33mtype[39m=[32m"password"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2 pt-3.5"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-brand text-white hover:bg-brand-hover s
+hadow-sm disabled:bg-brand-soft "[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"submit"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-key-round h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-
+1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"16.5"[39m
+                    [33mcy[39m=[32m"7.5"[39m
+                    [33mfill[39m=[32m"currentColor"[39m
+                    [33mr[39m=[32m".5"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 鏇存柊瀵嗙爜[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibol...
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m getAllByLabelText node_modules/@testing-library/dom/dist/queries/label-text.js:[2m111:38[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/components/settings/security.test.tsx:[2m107:29[22m[39m
+    [90m105|[39m     await screen.findByText("鐧诲綍瀵嗙爜");
+    [90m106|[39m
+    [90m107|[39m     fireEvent.change(screen.getByLabelText("褰撳墠瀵嗙爜"), {
+    [90m   |[39m                             [31m^[39m
+    [90m108|[39m       target: { value: "OldPwd01" },
+    [90m109|[39m     });
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[14/17]鈳?[22m[39m
+
+

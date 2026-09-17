@@ -1,0 +1,58 @@
+﻿
+ [31m鉂?[39m src/components/settings/account.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m4 failed[39m[2m)[22
+m[32m 184[2mms[22m[39m
+ [31m鉂?[39m src/components/settings/security.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m3 failed[39m[2m)[2
+2m[33m 523[2mms[22m[39m
+ [31m鉂?[39m src/components/FilesView.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 
+1085[2mms[22m[39m
+ [31m鉂?[39m src/components/DataSourcesView.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m
+[33m 1137[2mms[22m[39m
+ [31m鉂?[39m src/test/test_composer.test.tsx [2m([22m[2m8 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 76
+1[2mms[22m[39m
+ [31m鉂?[39m src/components/KnowledgeView.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[
+33m 737[2mms[22m[39m
+ [31m鉂?[39m src/components/settings/team.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[
+33m 1986[2mms[22m[39m
+[31m鈳幆鈳幆鈳幆[39m[1m[41m Failed Suites 1 [49m[22m[31m鈳幆鈳幆鈳幆鈳?[39m
+[41m[1m FAIL [22m[49m src/test/test_settings_view.test.tsx[2m [ src/test/test_settings_view.test.tsx ][22m
+[31m鈳幆鈳幆鈳幆[39m[1m[41m Failed Tests 16 [49m[22m[31m鈳幆鈳幆鈳幆鈳?[39m
+[41m[1m FAIL [22m[49m src/components/DataSourcesView.test.tsx[2m > [22mDataSourcesView[2m > [22m鏁版嵁婧愬崱鐗囷細鏄剧ず杩炴帴
+鍚嶄笌绫诲瀷
+[41m[1m FAIL [22m[49m src/components/DataSourcesView.test.tsx[2m > [22mDataSourcesView[2m > [22m鐐瑰嚮銆屾柊寤鸿繛鎺ャ€嶁啋 
+鎵撳紑寮圭獥骞舵覆鏌撹〃鍗?[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 杩炴帴鍚嶇О
+[41m[1m FAIL [22m[49m src/components/DataSourcesView.test.tsx[2m > [22mDataSourcesView[2m > [22m娴嬭瘯杩炴帴锛氳緭鍏ヨ〃鍗?鈫
+?鐐瑰嚮娴嬭瘯 鈫?鏄剧ず鎴愬姛鍙嶉
+[41m[1m FAIL [22m[49m src/components/FilesView.test.tsx[2m > [22mFilesView[2m > [22m绌烘€侊細鎻愮ず銆岃繖涓枃浠跺す鏄┖鐨勩€?[3
+1m[1mTestingLibraryElementError[22m[39m: Found multiple elements with the text: /鎷栨嫿鏂囦欢鍒版澶?
+[41m[1m FAIL [22m[49m src/components/FilesView.test.tsx[2m > [22mFilesView[2m > [22m鏂囦欢鍒楄〃娓叉煋锛氭樉绀烘枃浠跺悕涓庡ぇ灏?[31
+m[1mTestingLibraryElementError[22m[39m: Found multiple elements with the text: 2.0 KB
+[41m[1m FAIL [22m[49m src/components/KnowledgeView.test.tsx[2m > [22mKnowledgeView[2m > [22m绌哄垪琛ㄦ樉绀哄紩瀵兼枃妗堜笌鏂板缓鎸
+夐挳
+[41m[1m FAIL [22m[49m src/components/KnowledgeView.test.tsx[2m > [22mKnowledgeView[2m > [22m鐐瑰嚮鏂板缓鎸夐挳 鈫?鎵撳紑 Cre
+ateKbModal 骞舵覆鏌撹〃鍗?[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 鍚嶇О
+[41m[1m FAIL [22m[49m src/test/test_composer.test.tsx[2m > [22mComposer[2m > [22m绮樿创鍥剧墖浼氳繘鍏ラ檮浠跺垪琛?[31m[1mTest
+ingLibraryElementError[22m[39m: Unable to find an element with the text: /^pasted-.*\.png$/. This could be because th
+e text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your m
+atcher more flexible.
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m灞曠ず涓昏处鍙蜂俊鎭細鐢ㄦ埛鍚?
+/ 瑙掕壊 / 娉ㄥ唽鏃堕棿
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氬瓧娈典负绌烘椂
+鎸夐挳 disabled
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氫袱娆℃柊瀵嗙爜
+涓嶄竴鑷?鈫?鏄剧ず閿欒 Notice
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氬悎娉曡緭鍏?鈫
+?璋?changePassword 骞舵樉绀烘垚鍔?[31m[1mError[22m: [vitest] No "initials" export is defined on the "@/lib/user" mock. Did y
+ou forget to return it from "vi.mock"?
+[41m[1m FAIL [22m[49m src/components/settings/security.test.tsx[2m > [22mSecurityPanel[2m > [22m鏀瑰瘑锛氭柊瀵嗙爜涓庢棫瀵嗙爜
+鐩稿悓 鈫?鏄剧ず閿欒
+[41m[1m FAIL [22m[49m src/components/settings/security.test.tsx[2m > [22mSecurityPanel[2m > [22m鏀瑰瘑锛氫袱娆′笉涓€鑷?鈫?
+涓嶈皟鐢?changePassword
+[41m[1m FAIL [22m[49m src/components/settings/security.test.tsx[2m > [22mSecurityPanel[2m > [22m鏀瑰瘑锛氬悎娉曡緭鍏?鈫?璋冪
+敤 changePassword 骞舵樉绀烘垚鍔?[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 褰撳墠瀵嗙爜
+[41m[1m FAIL [22m[49m src/components/settings/team.test.tsx[2m > [22mTeamPanel[2m > [22mRoleSelect锛歛dmin 璧嬫潈 鈫?
+璋冪敤 adminUpdateUser
+[2m Test Files [22m [1m[31m8 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[90m (12)[39m
+[2m      Tests [22m [1m[31m16 failed[39m[22m[2m | [22m[1m[32m41 passed[39m[22m[90m (57)[39m
+[2m   Duration [22m 11.54s[2m (environment 63%, setup 10%, import 10%, tests 9%, transform 7%, worker 1%)[22m
+
+

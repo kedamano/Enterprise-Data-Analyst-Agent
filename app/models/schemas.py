@@ -15,6 +15,9 @@ class AnalyzeRequest(BaseModel):
         default=False, description="显式全链：即使命中「基于上一结果」也不走增量（E3/02）")
     clarification_answer: Optional[str] = Field(
         default=None, description="对上一轮澄清提问的回答（CLARIFY/01）；也可直接把答案写在 query 里")
+    skill_ids: list[str] = Field(
+        default_factory=list,
+        description="本次对话显式勾选的技能 id（Skills）：仅这些技能的正文注入本轮提示词")
 
 
 class AnalyzeResponse(BaseModel):

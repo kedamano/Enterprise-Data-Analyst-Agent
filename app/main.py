@@ -27,7 +27,9 @@ from .api.routes import (
     health,
     knowledge,
     mcp,
+    mcp_servers,
     security,
+    skills,
     ui,
 )
 from .config import get_settings
@@ -155,6 +157,8 @@ app.include_router(files.router, prefix=settings.api_prefix)
 app.include_router(export.router, prefix=settings.api_prefix)
 app.include_router(caliber.router, prefix=settings.api_prefix)
 app.include_router(mcp.router, prefix=settings.api_prefix)
+app.include_router(mcp_servers.router, prefix=settings.api_prefix)
+app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(security.router, prefix=settings.api_prefix)
 app.include_router(ui.router)
 

@@ -38,7 +38,8 @@ logger = logging.getLogger("da.graph")
 
 
 def _new_state(session_id: str, user_query: str, history: list | None = None,
-               force_full_rerun: bool = False) -> AgentState:
+               force_full_rerun: bool = False,
+               skill_ids: list[str] | None = None) -> AgentState:
     from ....core.attachments import get_attachment_store
     _sid = session_id or ""
     try:
@@ -49,7 +50,7 @@ def _new_state(session_id: str, user_query: str, history: list | None = None,
     effective_query = user_query
     if attach_ctx:
         effective_query = f"{user_query}\n\n{attach_ctx}"
-    return AgentState(
+    state = AgentState(
         session_id=_sid or uuid.uuid4().hex,
         user_query=effective_query,
         attachment_context=attach_ctx,
@@ -57,6 +58,36 @@ def _new_state(session_id: str, user_query: str, history: list | None = None,
         force_full_rerun=force_full_rerun,
         max_replans=get_settings().max_replans,
     )
+    # Skills：把**用户本次勾选**的技能正文渲染进 metadata，由 run_context 注入提示词。
+    # 只认"仍存在且已启用"的技能（禁用=不参与），并受 skill_max_per_request 封顶，
+    # 防止一次全选把上下文撑爆。技能层任何故障都不打断主流水线。
+    _attach_skills(state, skill_ids)
+    return state
+
+
+def _attach_skills(state: AgentState, skill_ids: list[str] | None) -> None:
+    if not skill_ids:
+        return
+    try:
+        from ....core.skills import get_skill_store
+
+        store = get_skill_store()
+        max_n = int(getattr(get_settings(), "skill_max_per_request", 8) or 8)
+        valid: list[str] = []
+        for sid in skill_ids:
+            if not sid or sid in valid:
+                continue
+            item = store.get(sid, include_body=False)
+            if item is not None and item.get("enabled", True):
+                valid.append(sid)
+            if len(valid) >= max_n:
+                break
+        text = store.render(valid)
+        if text:
+            state.metadata["skill_ids"] = valid
+            state.metadata["skills_text"] = text
+    except Exception:
+        return  # 技能是增强项，坏了不能拖垮分析
 
 
 # 连续相同 REPLAN（同计划步骤 + 同 replan_objectives）达到此数视为无进展，提前 FAIL
@@ -192,7 +223,8 @@ def _drive_sync(state: AgentState) -> AgentState:
 
 
 def run_analysis(session_id: str, user_query: str, history: list | None = None,
-                 force_full_rerun: bool = False) -> AgentState:
+                 force_full_rerun: bool = False,
+                 skill_ids: list[str] | None = None) -> AgentState:
     """Run the full analysis pipeline, emitting a persisted structured trace."""
     from .response_cache import enabled as _cache_enabled, get_cached, put_cached
 
@@ -209,7 +241,7 @@ def run_analysis(session_id: str, user_query: str, history: list | None = None,
             except Exception:
                 pass  # 反序列化失败 → 当作未命中
 
-    state = _new_state(session_id, user_query, history, force_full_rerun)
+    state = _new_state(session_id, user_query, history, force_full_rerun, skill_ids)
     with trace_run(run_id=state.session_id):
         # 编排节点抛出的异常（畸形模型输出、上游 5xx、依赖缺失…）**必须**收敛成
         # status=ERROR，而不是裸穿透 `run_analysis`：否则一次调用就把调用方（API / eval
@@ -256,7 +288,8 @@ _TERMINAL_STATUSES = frozenset({"FINISH", "FAILED", "ERROR", "CLARIFY"})
 
 
 def stream_analysis(session_id: str, user_query: str, history: list | None = None,
-                    force_full_rerun: bool = False) -> Iterator[AgentState]:
+                    force_full_rerun: bool = False,
+                    skill_ids: list[str] | None = None) -> Iterator[AgentState]:
     """Yield a state snapshot after each node, wrapped in a persisted trace run.
 
     EXPORT/01：流式路径同样必须在终端态落 checkpoint。此前 ``stream_analysis``
@@ -270,7 +303,8 @@ def stream_analysis(session_id: str, user_query: str, history: list | None = Non
 
     last: AgentState | None = None
     try:
-        for snap in _stream_analysis_inner(session_id, user_query, history, force_full_rerun):
+        for snap in _stream_analysis_inner(session_id, user_query, history,
+                                           force_full_rerun, skill_ids):
             last = snap
             yield snap
     except Exception as exc:  # noqa: BLE001 — 兜网必须宽
@@ -280,7 +314,7 @@ def stream_analysis(session_id: str, user_query: str, history: list | None = Non
         # GeneratorExit / 客户端断连是 BaseException，不会被这里吞掉。
         logger.exception("流式分析流水线异常终止")
         st = last if last is not None else _new_state(
-            session_id, user_query, history, force_full_rerun)
+            session_id, user_query, history, force_full_rerun, skill_ids)
         st.status = "ERROR"
         st.error = f"{type(exc).__name__}: {exc}"
         st.metadata["aborted_by_exception"] = type(exc).__name__
@@ -297,9 +331,10 @@ def stream_analysis(session_id: str, user_query: str, history: list | None = Non
 
 
 def _stream_analysis_inner(session_id: str, user_query: str, history: list | None = None,
-                           force_full_rerun: bool = False) -> Iterator[AgentState]:
+                           force_full_rerun: bool = False,
+                           skill_ids: list[str] | None = None) -> Iterator[AgentState]:
     """Yield a state snapshot after each node, wrapped in a persisted trace run."""
-    state = _new_state(session_id, user_query, history, force_full_rerun)
+    state = _new_state(session_id, user_query, history, force_full_rerun, skill_ids)
     with trace_run(run_id=state.session_id):
         state.status = "INIT"
         yield state
@@ -374,8 +409,9 @@ def _stream_analysis_inner(session_id: str, user_query: str, history: list | Non
 
 
 async def stream_analysis_async(session_id: str, user_query: str, history: list | None = None,
-                                force_full_rerun: bool = False) -> AsyncGenerator[AgentState, None]:
-    for snap in stream_analysis(session_id, user_query, history, force_full_rerun):
+                                force_full_rerun: bool = False,
+                                skill_ids: list[str] | None = None) -> AsyncGenerator[AgentState, None]:
+    for snap in stream_analysis(session_id, user_query, history, force_full_rerun, skill_ids):
         yield snap
 
 

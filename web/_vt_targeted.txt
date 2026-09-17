@@ -1,0 +1,2597 @@
+﻿
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.1 [39m[90mD:/work/椤圭洰/Enterprise Data Analyst Agent/web[39m
+
+ [31m鉂?[39m src/test/test_composer.test.tsx [2m([22m[2m8 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 404[2mms[22m[39m
+   [31m鉂?[39m Composer [2m(8)[22m
+     [32m鉁?[39m 杈撳叆鏂囧瓧 鈫?鍙戦€佹寜閽敱 disabled 鍙?enabled[32m 217[2mms[22m[39m
+     [32m鉁?[39m Enter 閿Е鍙?submit锛圕trl/Meta + Enter锛?[32m 28[2mms[22m[39m
+     [32m鉁?[39m 娣诲姞闄勪欢鍚?AttachmentList 鏄剧ず锛坢ock File锛?[32m 23[2mms[22m[39m
+     [32m鉁?[39m 绉婚櫎闄勪欢鍚庡垪琛ㄦ秷澶?[32m 44[2mms[22m[39m
+     [32m鉁?[39m streaming 鏃?Stop 鎸夐挳瑙﹀彂 onStop[32m 11[2mms[22m[39m
+     [32m鉁?[39m streaming 鏃朵笉娓叉煋鍙戦€佹寜閽紝鍙樉绀哄仠姝㈡彁绀?[32m 9[2mms[22m[39m
+     [32m鉁?[39m 绌?attachments + 绌?text 鏃朵笉璋?onSubmit[32m 34[2mms[22m[39m
+[31m     [31m脳[31m 绮樿创鍥剧墖浼氳繘鍏ラ檮浠跺垪琛?[39m[32m 33[2mms[22m[39m
+ [31m鉂?[39m src/components/settings/account.test.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[33m 2158[2mms[22m[39m
+   [31m鉂?[39m AccountPanel [2m(4)[22m
+[31m     [31m脳[31m 灞曠ず涓昏处鍙蜂俊鎭細鐢ㄦ埛鍚?/ 瑙掕壊 / 娉ㄥ唽鏃堕棿[39m[32m 92[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑 form锛氬瓧娈典负绌烘椂鎸夐挳 disabled[39m[33m 1024[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑 form锛氫袱娆℃柊瀵嗙爜涓嶄竴鑷?鈫?鏄剧ず閿欒 Notice[39m[33m 1019[2mms[22m[39m
+[31m     [31m脳[31m 鏀瑰瘑 form锛氬悎娉曡緭鍏?鈫?璋?changePassword 骞舵樉绀烘垚鍔?[39m[32m 19[2mms[22m[39m
+node.exe : 
+所在位置 行:445 字符: 62
++ ... Agent\web"; & "C:\Users\lcl13\.workbuddy\binaries\node\versions\22.22 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[31m鈳幆鈳幆鈳幆鈳?[39m[1m[41m Failed Tests 5 [49m[22m[31m鈳幆鈳幆鈳幆鈳?[39m
+
+[41m[1m FAIL [22m[49m src/test/test_composer.test.tsx[2m > [22mComposer[2m > [22m绮樿创鍥剧墖浼氳繘鍏ラ檮浠跺垪琛?[31m[1mTest
+ingLibraryElementError[22m[39m: Unable to find an element with the text: /^pasted-.*\.png$/. This could be because th
+e text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your m
+atcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative rounded-panel border border-rule bg-white shadow-sm transition"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap gap-2 border-b border-rule px-3 pt-3 pb-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"group relative h-16 w-16 overflow-hidden rounded-control border border-rule bg-canvas"
+[39m
+          [33mtitle[39m=[32m"pasted-1789655857965.png 路 4 B"[39m
+        [36m>[39m
+          [36m<img[39m
+            [33malt[39m=[32m"pasted-1789655857965.png"[39m
+            [33mclass[39m=[32m"h-full w-full object-cover"[39m
+            [33msrc[39m=[32m"blob:vitest-mock"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"绉婚櫎闄勪欢"[39m
+            [33mclass[39m=[32m"absolute right-0.5 top-0.5 rounded-full bg-ink p-0.5 text-white opacity-0 transition 
+group-hover:opacity-100"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6 6 18"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m6 6 12 12"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-end gap-2 px-3 py-2.5"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33maccept[39m=[32m"image/*,.pdf,.csv,.tsv,.txt,.md,.json,.xlsx,.xls,.docx,.doc,.log,.py,.sql"[39m
+          [33mclass[39m=[32m"hidden"[39m
+          [33mmultiple[39m=[32m""[39m
+          [33mtype[39m=[32m"file"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"涓婁紶鏂囦欢鎴栧浘鐗?[39m
+          [33mclass[39m=[32m"grid h-9 w-9 shrink-0 place-items-center rounded-panel text-ink-3 transition hover:bg-c
+anvas hover:text-brand"[39m
+          [33mtitle[39m=[32m"涓婁紶鏂囦欢鎴栧浘鐗囷紙鏀寔鎷栨嫿 / Ctrl+V 绮樿创锛?[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-paperclip h-5 w-5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a
+6 6 0 1 0 8.485 8.485l8.379-8.551"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative flex-1"[39m
+        [36m>[39m
+          [36m<textarea[39m
+            [33maria-label[39m=[32m"鎻愰棶杈撳叆妗?[39m
+            [33mclass[39m=[32m"block w-full resize-none bg-transparent px-1 py-2 leading-[22px] text-ink placeholder
+:text-ink-3 focus:outline-none focus:ring-0"[39m
+            [33mplaceholder[39m=[32m"鎻忚堪浣犵殑涓氬姟闂锛屾垨涓婁紶 CSV / Excel 鏂囦欢璁╂櫤鑳戒綋鍒嗘瀽"[39m
+            [33mrows[39m=[32m"1"[39m
+            [33mstyle[39m=[32m"height: 40px;"[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"鍙戦€?[39m
+          [33mclass[39m=[32m"grid h-9 w-9 shrink-0 place-items-center rounded-panel transition focus-visible:outline
+-none focus-visible:ring-2 focus-visible:ring-brand bg-brand text-white hover:bg-brand-hover"[39m
+          [33mtitle[39m=[32m"鍙戦€侊紙鈱?Ctrl + Enter锛?[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-send h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-
+.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m21.854 2.147-10.94 10.939"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center justify-between border-t border-rule px-3.5 py-2 text-small text-ink-3"
+[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-expanded[39m=[32m"false"[39m
+              [33maria-haspopup[39m=[32m"listbox"[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 font-medium tra
+nsition border-rule text-ink-3 hover:border-brand hover:text-brand"[39m
+              [33mtitle[39m=[32m"閫夋嫨鏈瀵硅瘽瑕佹敞鍏ョ殑鎶€鑳?[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-sparkles lucide-stars h-3.5 w-3.5"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0
+ 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.55
+8-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 2v4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 4h-4"[39m
+                [36m/>[39m
+                [36m<circle[39m
+                  [33mcx[39m=[32m"4"[39m
+                  [33mcy[39m=[32m"20"[39m
+                  [33mr[39m=[32m"2"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m鎶€鑳?[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"hidden items-center gap-1.5 md:inline-flex"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-image h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mry[39m=[32m"2"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"9"[39m
+                [33mcy[39m=[32m"9"[39m
+                [33mr[39m=[32m"2"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m鏀寔鍥剧墖銆丆SV銆丒xcel銆丳DF銆佹枃鏈€佷唬鐮佹枃浠?[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"hidden sm:inline"[39m
+        [36m>[39m
+          [0mEnter 鎹㈣ 路 [0m
+          [36m<span[39m
+            [33mclass[39m=[32m"rounded bg-canvas px-1 py-0.5 font-mono"[39m
+          [36m>[39m
+            [0m鈱?Ctrl[0m
+          [36m</span>[39m
+          [0m + Enter 鍙戦€?[0m
+        [36m</span>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/test/test_composer.test.tsx:[2m121:19[22m[39m
+    [90m119|[39m     fireEvent.paste(textarea, { clipboardData });
+    [90m120|[39m     // 绮樿创鐨勫浘鐗囦細琚噸鍚嶏紝鏂囦欢鍚嶅舰濡?pasted-*.png
+    [90m121|[39m     expect(screen.getByText(/^pasted-.*\.png$/)).toBeInTheDocument();
+    [90m   |[39m                   [31m^[39m
+    [90m122|[39m   });
+    [90m123|[39m });
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[1/5]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m灞曠ず涓昏处鍙蜂俊鎭細鐢ㄦ埛鍚?
+/ 瑙掕壊 / 娉ㄥ唽鏃堕棿
+[31m[1mTestingLibraryElementError[22m[39m: Found multiple elements with the text: /2026/
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+[36m>[39m
+  [0m2026-01-01 08:00[0m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+[36m>[39m
+  [0m2026-09-15 16:00[0m
+[36m</div>[39m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAl
+lByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m璐﹀彿淇℃伅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄤ簬鐧诲綍涓庡洟闃熻瘑鍒殑韬唤淇℃伅銆傜敤鎴峰悕涓庤处鍙锋潵婧愮敱绯荤粺璁板綍锛屼笉鍙慨鏀广€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m澶村儚[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"shrink-0 select-none overflow-hidden rounded-full h-16 w-16 text-title  grid pl
+ace-items-center font-semibold text-white bg-brand"[39m
+                [36m>[39m
+                  [0mA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro leading-relaxed text-ink-3"[39m
+                [36m>[39m
+                  [0mPNG / JPG / WEBP[0m
+                  [36m<br />[39m
+                  [0m鈮? MB[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<input[39m
+                [33maccept[39m=[32m"image/png,image/jpeg,image/webp,image/gif"[39m
+                [33mclass[39m=[32m"hidden"[39m
+                [33mtype[39m=[32m"file"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 tex
+t-small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 h
+over:border-rule-strong hover:bg-canvas "[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-camera h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 
+0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"13"[39m
+                      [33mr[39m=[32m"3"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m 鏇存崲[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄦ埛鍚?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-baseline gap-2"[39m
+              [36m>[39m
+                [0malice[0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                [36m>[39m
+                  [0m涓嶅彲淇敼[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m瑙掕壊[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-micro font-medium
+ bg-brand-soft text-brand"[39m
+              [36m>[39m
+                [0m鍒嗘瀽甯?[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绉熸埛[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0mdefault[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m娉ㄥ唽鏃堕棿[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-01-01 08:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏈€杩戠櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-09-15 16:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m涓汉璧勬枡[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鏄电О浼氭樉绀哄湪鍥㈤槦鍒楄〃涓庣櫥褰曡褰曢噷銆備慨鏀瑰悗闇€瑕佷繚瀛樻墠鐢熸晥銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏄剧ず鍚嶇О[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"浣犵殑鍚嶅瓧"[39m
+                [33mvalue[39m=[32m"Alice Wang"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閭[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"you@company.com"[39m
+                [33mvalue[39m=[32m"alice@company.com"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鎵嬫満鍙?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"閫夊～"[39m
+                [33mvalue[39m=[32m""[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-start"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绠€浠?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<textarea[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm min-h-[72px] resize-y"[39m
+                [33mmaxlength[39m=[32m"200"[39m
+                [33mplaceholder[39m=[32m"涓€鍙ヨ瘽鎻忚堪浣犵殑鑱岃矗锛屽銆屽崕涓滃尯鏁版嵁鍒嗘瀽璐熻矗浜恒€?[39m
+              [36m>[39m
+                [0m鏁版嵁鍒嗘瀽甯?[0m
+              [36m</textarea>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m浼氳瘽[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑哄悗鏈満涓嶅啀淇濈暀鐧诲綍浠ょ墝锛岄渶瑕侀噸鏂扮櫥褰曟墠鑳界户缁娇鐢ㄣ€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑虹櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m缁撴潫褰撳墠璁惧鐨勭櫥褰曠姸鎬?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 hov
+er:border-rule-strong hover:bg-canvas "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-log-out h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m16 17 5-5-5-5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 12H9"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 閫€鍑虹櫥褰?[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m getElementError node_modules/@testing-library/dom/dist/query-helpers.js:[2m20:35[22m[39m
+[90m [2m鉂?[22m getMultipleElementsFoundError node_modules/@testing-library/dom/dist/query-helpers.js:[2m23:10[22m[
+39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m55:13[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/components/settings/account.test.tsx:[2m79:19[22m[39m
+    [90m 77|[39m     expect(await screen.findByText("alice")).toBeInTheDocument();
+    [90m 78|[39m     expect(screen.getByText("鍒嗘瀽甯?)).toBeInTheDocument();
+    [90m 79|[39m     expect(screen.getByText(/2026/)).toBeInTheDocument();
+    [90m   |[39m                   [31m^[39m
+    [90m 80|[39m   });
+    [90m 81|[39m
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[2/5]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氬瓧娈典负绌烘椂
+鎸夐挳 disabled
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find role="button" and name `/鏇存柊瀵嗙爜/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m璐﹀彿淇℃伅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄤ簬鐧诲綍涓庡洟闃熻瘑鍒殑韬唤淇℃伅銆傜敤鎴峰悕涓庤处鍙锋潵婧愮敱绯荤粺璁板綍锛屼笉鍙慨鏀广€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m澶村儚[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"shrink-0 select-none overflow-hidden rounded-full h-16 w-16 text-title  grid pl
+ace-items-center font-semibold text-white bg-brand"[39m
+                [36m>[39m
+                  [0mA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro leading-relaxed text-ink-3"[39m
+                [36m>[39m
+                  [0mPNG / JPG / WEBP[0m
+                  [36m<br />[39m
+                  [0m鈮? MB[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<input[39m
+                [33maccept[39m=[32m"image/png,image/jpeg,image/webp,image/gif"[39m
+                [33mclass[39m=[32m"hidden"[39m
+                [33mtype[39m=[32m"file"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 tex
+t-small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 h
+over:border-rule-strong hover:bg-canvas "[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-camera h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 
+0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"13"[39m
+                      [33mr[39m=[32m"3"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m 鏇存崲[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄦ埛鍚?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-baseline gap-2"[39m
+              [36m>[39m
+                [0malice[0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                [36m>[39m
+                  [0m涓嶅彲淇敼[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m瑙掕壊[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-micro font-medium
+ bg-brand-soft text-brand"[39m
+              [36m>[39m
+                [0m鍒嗘瀽甯?[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绉熸埛[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0mdefault[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m娉ㄥ唽鏃堕棿[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-01-01 08:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏈€杩戠櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-09-15 16:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m涓汉璧勬枡[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鏄电О浼氭樉绀哄湪鍥㈤槦鍒楄〃涓庣櫥褰曡褰曢噷銆備慨鏀瑰悗闇€瑕佷繚瀛樻墠鐢熸晥銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏄剧ず鍚嶇О[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"浣犵殑鍚嶅瓧"[39m
+                [33mvalue[39m=[32m"Alice Wang"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閭[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"you@company.com"[39m
+                [33mvalue[39m=[32m"alice@company.com"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鎵嬫満鍙?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"閫夊～"[39m
+                [33mvalue[39m=[32m""[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-start"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绠€浠?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<textarea[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm min-h-[72px] resize-y"[39m
+                [33mmaxlength[39m=[32m"200"[39m
+                [33mplaceholder[39m=[32m"涓€鍙ヨ瘽鎻忚堪浣犵殑鑱岃矗锛屽銆屽崕涓滃尯鏁版嵁鍒嗘瀽璐熻矗浜恒€?[39m
+              [36m>[39m
+                [0m鏁版嵁鍒嗘瀽甯?[0m
+              [36m</textarea>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m浼氳瘽[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑哄悗鏈満涓嶅啀淇濈暀鐧诲綍浠ょ墝锛岄渶瑕侀噸鏂扮櫥褰曟墠鑳界户缁娇鐢ㄣ€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑虹櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m缁撴潫褰撳墠璁惧鐨勭櫥褰曠姸鎬?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 hov
+er:border-rule-strong hover:bg-canvas "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-log-out h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m16 17 5-5-5-5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 12H9"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 閫€鍑虹櫥褰?[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m璐﹀彿淇℃伅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄤ簬鐧诲綍涓庡洟闃熻瘑鍒殑韬唤淇℃伅銆傜敤鎴峰悕涓庤处鍙锋潵婧愮敱绯荤粺璁板綍锛屼笉鍙慨鏀广€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m澶村儚[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"shrink-0 select-none overflow-hidden rounded-full h-16 w-16 text-title  grid pl
+ace-items-center font-semibold text-white bg-brand"[39m
+                [36m>[39m
+                  [0mA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro leading-relaxed text-ink-3"[39m
+                [36m>[39m
+                  [0mPNG / JPG / WEBP[0m
+                  [36m<br />[39m
+                  [0m鈮? MB[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<input[39m
+                [33maccept[39m=[32m"image/png,image/jpeg,image/webp,image/gif"[39m
+                [33mclass[39m=[32m"hidden"[39m
+                [33mtype[39m=[32m"file"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 tex
+t-small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 h
+over:border-rule-strong hover:bg-canvas "[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-camera h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 
+0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"13"[39m
+                      [33mr[39m=[32m"3"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m 鏇存崲[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄦ埛鍚?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-baseline gap-2"[39m
+              [36m>[39m
+                [0malice[0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                [36m>[39m
+                  [0m涓嶅彲淇敼[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m瑙掕壊[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-micro font-medium
+ bg-brand-soft text-brand"[39m
+              [36m>[39m
+                [0m鍒嗘瀽甯?[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绉熸埛[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0mdefault[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m娉ㄥ唽鏃堕棿[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-01-01 08:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏈€杩戠櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-09-15 16:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m涓汉璧勬枡[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鏄电О浼氭樉绀哄湪鍥㈤槦鍒楄〃涓庣櫥褰曡褰曢噷銆備慨鏀瑰悗闇€瑕佷繚瀛樻墠鐢熸晥銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏄剧ず鍚嶇О[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"浣犵殑鍚嶅瓧"[39m
+                [33mvalue[39m=[32m"Alice Wang"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閭[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"you@company.com"[39m
+                [33mvalue[39m=[32m"alice@company.com"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鎵嬫満鍙?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"閫夊～"[39m
+                [33mvalue[39m=[32m""[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-start"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绠€浠?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<textarea[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm min-h-[72px] resize-y"[39m
+                [33mmaxlength[39m=[32m"200"[39m
+                [33mplaceholder[39m=[32m"涓€鍙ヨ瘽鎻忚堪浣犵殑鑱岃矗锛屽銆屽崕涓滃尯鏁版嵁鍒嗘瀽璐熻矗浜恒€?[39m
+              [36m>[39m
+                [0m鏁版嵁鍒嗘瀽甯?[0m
+              [36m</textarea>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m浼氳瘽[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑哄悗鏈満涓嶅啀淇濈暀鐧诲綍浠ょ墝锛岄渶瑕侀噸鏂扮櫥褰曟墠鑳界户缁娇鐢ㄣ€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑虹櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m缁撴潫褰撳墠璁惧鐨勭櫥褰曠姸鎬?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 hov
+er:border-rule-strong hover:bg-canvas "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-log-out h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m16 17 5-5-5-5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 12H9"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 閫€鍑虹櫥褰?[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m鉂?[22m waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:[2m163:27[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m86:33[22m[39m
+[36m [2m鉂?[22m src/components/settings/account.test.tsx:[2m85:36[22m[39m
+    [90m 83|[39m     render(<AccountPanel />);
+    [90m 84|[39m
+    [90m 85|[39m     const updateBtn = await screen.findByRole("button", { name: /鏇存柊瀵嗙爜/鈥?    [90m   |[39m        
+                            [31m^[39m
+    [90m 86|[39m     expect(updateBtn).toBeDisabled();
+    [90m 87|[39m   });
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[3/5]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氫袱娆℃柊瀵嗙爜
+涓嶄竴鑷?鈫?鏄剧ず閿欒 Notice
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: /^鏂板瘑鐮?
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m璐﹀彿淇℃伅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄤ簬鐧诲綍涓庡洟闃熻瘑鍒殑韬唤淇℃伅銆傜敤鎴峰悕涓庤处鍙锋潵婧愮敱绯荤粺璁板綍锛屼笉鍙慨鏀广€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m澶村儚[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"shrink-0 select-none overflow-hidden rounded-full h-16 w-16 text-title  grid pl
+ace-items-center font-semibold text-white bg-brand"[39m
+                [36m>[39m
+                  [0mA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro leading-relaxed text-ink-3"[39m
+                [36m>[39m
+                  [0mPNG / JPG / WEBP[0m
+                  [36m<br />[39m
+                  [0m鈮? MB[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<input[39m
+                [33maccept[39m=[32m"image/png,image/jpeg,image/webp,image/gif"[39m
+                [33mclass[39m=[32m"hidden"[39m
+                [33mtype[39m=[32m"file"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 tex
+t-small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 h
+over:border-rule-strong hover:bg-canvas "[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-camera h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 
+0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"13"[39m
+                      [33mr[39m=[32m"3"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m 鏇存崲[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄦ埛鍚?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-baseline gap-2"[39m
+              [36m>[39m
+                [0malice[0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                [36m>[39m
+                  [0m涓嶅彲淇敼[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m瑙掕壊[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-micro font-medium
+ bg-brand-soft text-brand"[39m
+              [36m>[39m
+                [0m鍒嗘瀽甯?[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绉熸埛[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0mdefault[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m娉ㄥ唽鏃堕棿[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-01-01 08:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏈€杩戠櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-09-15 16:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m涓汉璧勬枡[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鏄电О浼氭樉绀哄湪鍥㈤槦鍒楄〃涓庣櫥褰曡褰曢噷銆備慨鏀瑰悗闇€瑕佷繚瀛樻墠鐢熸晥銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏄剧ず鍚嶇О[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"浣犵殑鍚嶅瓧"[39m
+                [33mvalue[39m=[32m"Alice Wang"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閭[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"you@company.com"[39m
+                [33mvalue[39m=[32m"alice@company.com"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鎵嬫満鍙?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"閫夊～"[39m
+                [33mvalue[39m=[32m""[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-start"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绠€浠?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<textarea[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm min-h-[72px] resize-y"[39m
+                [33mmaxlength[39m=[32m"200"[39m
+                [33mplaceholder[39m=[32m"涓€鍙ヨ瘽鎻忚堪浣犵殑鑱岃矗锛屽銆屽崕涓滃尯鏁版嵁鍒嗘瀽璐熻矗浜恒€?[39m
+              [36m>[39m
+                [0m鏁版嵁鍒嗘瀽甯?[0m
+              [36m</textarea>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m浼氳瘽[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑哄悗鏈満涓嶅啀淇濈暀鐧诲綍浠ょ墝锛岄渶瑕侀噸鏂扮櫥褰曟墠鑳界户缁娇鐢ㄣ€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑虹櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m缁撴潫褰撳墠璁惧鐨勭櫥褰曠姸鎬?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 hov
+er:border-rule-strong hover:bg-canvas "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-log-out h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m16 17 5-5-5-5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 12H9"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 閫€鍑虹櫥褰?[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m璐﹀彿淇℃伅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄤ簬鐧诲綍涓庡洟闃熻瘑鍒殑韬唤淇℃伅銆傜敤鎴峰悕涓庤处鍙锋潵婧愮敱绯荤粺璁板綍锛屼笉鍙慨鏀广€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m澶村儚[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"shrink-0 select-none overflow-hidden rounded-full h-16 w-16 text-title  grid pl
+ace-items-center font-semibold text-white bg-brand"[39m
+                [36m>[39m
+                  [0mA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro leading-relaxed text-ink-3"[39m
+                [36m>[39m
+                  [0mPNG / JPG / WEBP[0m
+                  [36m<br />[39m
+                  [0m鈮? MB[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<input[39m
+                [33maccept[39m=[32m"image/png,image/jpeg,image/webp,image/gif"[39m
+                [33mclass[39m=[32m"hidden"[39m
+                [33mtype[39m=[32m"file"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 tex
+t-small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 h
+over:border-rule-strong hover:bg-canvas "[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-camera h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 
+0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"13"[39m
+                      [33mr[39m=[32m"3"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m 鏇存崲[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄦ埛鍚?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-baseline gap-2"[39m
+              [36m>[39m
+                [0malice[0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                [36m>[39m
+                  [0m涓嶅彲淇敼[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m瑙掕壊[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-micro font-medium
+ bg-brand-soft text-brand"[39m
+              [36m>[39m
+                [0m鍒嗘瀽甯?[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绉熸埛[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0mdefault[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m娉ㄥ唽鏃堕棿[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-01-01 08:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏈€杩戠櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-09-15 16:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m涓汉璧勬枡[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鏄电О浼氭樉绀哄湪鍥㈤槦鍒楄〃涓庣櫥褰曡褰曢噷銆備慨鏀瑰悗闇€瑕佷繚瀛樻墠鐢熸晥銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏄剧ず鍚嶇О[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"浣犵殑鍚嶅瓧"[39m
+                [33mvalue[39m=[32m"Alice Wang"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閭[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"you@company.com"[39m
+                [33mvalue[39m=[32m"alice@company.com"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鎵嬫満鍙?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"閫夊～"[39m
+                [33mvalue[39m=[32m""[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-start"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绠€浠?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<textarea[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm min-h-[72px] resize-y"[39m
+                [33mmaxlength[39m=[32m"200"[39m
+                [33mplaceholder[39m=[32m"涓€鍙ヨ瘽鎻忚堪浣犵殑鑱岃矗锛屽銆屽崕涓滃尯鏁版嵁鍒嗘瀽璐熻矗浜恒€?[39m
+              [36m>[39m
+                [0m鏁版嵁鍒嗘瀽甯?[0m
+              [36m</textarea>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m浼氳瘽[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑哄悗鏈満涓嶅啀淇濈暀鐧诲綍浠ょ墝锛岄渶瑕侀噸鏂扮櫥褰曟墠鑳界户缁娇鐢ㄣ€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑虹櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m缁撴潫褰撳墠璁惧鐨勭櫥褰曠姸鎬?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 hov
+er:border-rule-strong hover:bg-canvas "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-log-out h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m16 17 5-5-5-5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 12H9"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 閫€鍑虹櫥褰?[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m鉂?[22m waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:[2m163:27[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m86:33[22m[39m
+[36m [2m鉂?[22m src/components/settings/account.test.tsx:[2m92:33[22m[39m
+    [90m 90|[39m     render(<AccountPanel />);
+    [90m 91|[39m
+    [90m 92|[39m     const inputs = await screen.findAllByLabelText(/^鏂板瘑鐮?);
+    [90m   |[39m                                 [31m^[39m
+    [90m 93|[39m     fireEvent.change(inputs[0], { target: { value: "NewPass123" } });
+    [90m 94|[39m     fireEvent.change(screen.getByLabelText("纭鏂板瘑鐮?), {
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[4/5]鈳?[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/settings/account.test.tsx[2m > [22mAccountPanel[2m > [22m鏀瑰瘑 form锛氬悎娉曡緭鍏?鈫
+?璋?changePassword 骞舵樉绀烘垚鍔?[31m[1mTestingLibraryElementError[22m[39m: Unable to find a label with the text of: 褰撳墠瀵嗙
+爜
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m璐﹀彿淇℃伅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄤ簬鐧诲綍涓庡洟闃熻瘑鍒殑韬唤淇℃伅銆傜敤鎴峰悕涓庤处鍙锋潵婧愮敱绯荤粺璁板綍锛屼笉鍙慨鏀广€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m澶村儚[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"shrink-0 select-none overflow-hidden rounded-full h-16 w-16 text-title  grid pl
+ace-items-center font-semibold text-white bg-brand"[39m
+                [36m>[39m
+                  [0mA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro leading-relaxed text-ink-3"[39m
+                [36m>[39m
+                  [0mPNG / JPG / WEBP[0m
+                  [36m<br />[39m
+                  [0m鈮? MB[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<input[39m
+                [33maccept[39m=[32m"image/png,image/jpeg,image/webp,image/gif"[39m
+                [33mclass[39m=[32m"hidden"[39m
+                [33mtype[39m=[32m"file"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 tex
+t-small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 h
+over:border-rule-strong hover:bg-canvas "[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-camera h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 
+0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"13"[39m
+                      [33mr[39m=[32m"3"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m 鏇存崲[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鐢ㄦ埛鍚?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-baseline gap-2"[39m
+              [36m>[39m
+                [0malice[0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-micro text-ink-3"[39m
+                [36m>[39m
+                  [0m涓嶅彲淇敼[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m瑙掕壊[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-micro font-medium
+ bg-brand-soft text-brand"[39m
+              [36m>[39m
+                [0m鍒嗘瀽甯?[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绉熸埛[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0mdefault[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m娉ㄥ唽鏃堕棿[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-01-01 08:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏈€杩戠櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m2026-09-15 16:00[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m涓汉璧勬枡[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m鏄电О浼氭樉绀哄湪鍥㈤槦鍒楄〃涓庣櫥褰曡褰曢噷銆備慨鏀瑰悗闇€瑕佷繚瀛樻墠鐢熸晥銆?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鏄剧ず鍚嶇О[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"浣犵殑鍚嶅瓧"[39m
+                [33mvalue[39m=[32m"Alice Wang"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閭[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"you@company.com"[39m
+                [33mvalue[39m=[32m"alice@company.com"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m鎵嬫満鍙?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm"[39m
+                [33mplaceholder[39m=[32m"閫夊～"[39m
+                [33mvalue[39m=[32m""[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-start"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m绠€浠?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [36m<textarea[39m
+                [33mclass[39m=[32m"w-full rounded-control border border-rule bg-white px-3 py-2 text-small text-ink 
+outline-none transition placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand disabled:bg-canvas disa
+bled:text-ink-3 max-w-sm min-h-[72px] resize-y"[39m
+                [33mmaxlength[39m=[32m"200"[39m
+                [33mplaceholder[39m=[32m"涓€鍙ヨ瘽鎻忚堪浣犵殑鑱岃矗锛屽銆屽崕涓滃尯鏁版嵁鍒嗘瀽璐熻矗浜恒€?[39m
+              [36m>[39m
+                [0m鏁版嵁鍒嗘瀽甯?[0m
+              [36m</textarea>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"py-6 first:pt-0 last:pb-0 "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-rule pb-2.5"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-body font-semibold text-ink"[39m
+            [36m>[39m
+              [0m浼氳瘽[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-small leading-relaxed text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑哄悗鏈満涓嶅啀淇濈暀鐧诲綍浠ょ墝锛岄渶瑕侀噸鏂扮櫥褰曟墠鑳界户缁娇鐢ㄣ€?[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-5 border-b border-rule py-3 last:border-0 items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-28 shrink-0 text-small text-ink-3"[39m
+            [36m>[39m
+              [0m閫€鍑虹櫥褰?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 text-small text-ink-2"[39m
+            [36m>[39m
+              [0m缁撴潫褰撳墠璁惧鐨勭櫥褰曠姸鎬?[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"shrink-0"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 rounded-control px-3.5 py-2 text-
+small font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-rule bg-white text-ink-2 hov
+er:border-rule-strong hover:bg-canvas "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-log-out h-4 w-4"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"m16 17 5-5-5-5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M21 12H9"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 22:37:33
+[2m   Duration [22m 5.56s[2m (environment 45%, tests 29%, import 14%, setup 7%, transform 5%)[22m
+
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0m 閫€鍑虹櫥褰?[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m鉂?[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m鉂?[22m getAllByLabelText node_modules/@testing-library/dom/dist/queries/label-text.js:[2m111:38[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m鉂?[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m鉂?[22m src/components/settings/account.test.tsx:[2m108:29[22m[39m
+    [90m106|[39m
+    [90m107|[39m     await screen.findByText("alice");
+    [90m108|[39m     fireEvent.change(screen.getByLabelText("褰撳墠瀵嗙爜"), {
+    [90m   |[39m                             [31m^[39m
+    [90m109|[39m       target: { value: "OldPass1" },
+    [90m110|[39m     });
+
+[31m[2m鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆鈳幆[5/5]鈳?[22m[39m
+

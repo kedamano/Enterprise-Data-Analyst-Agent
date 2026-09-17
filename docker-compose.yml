@@ -35,19 +35,23 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_USER=da
-      - POSTGRES_PASSWORD=da
-      - POSTGRES_DB=da_agent
+      - POSTGRES_USER=${POSTGRES_USER:-da}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-da}
+      - POSTGRES_DB=${POSTGRES_DB:-da_agent}
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U da -d da_agent"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-da} -d ${POSTGRES_DB:-da_agent}"]
       interval: 5s
       timeout: 3s
       retries: 10
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
   # Milvus Standalone 依赖 etcd（元数据）+ MinIO（对象存储），二者不是业务微服务。
   #
@@ -74,19 +78,27 @@ services:
 
   minio:
     image: minio/minio:latest
-    # MINIO_ACCESS_KEY/MINIO_SECRET_KEY 已废弃（启动日志会告警），改用 ROOT_* 变量。
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
       - ./data/minio:/minio_data
     command: minio server /minio_data --console-address ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   milvus:
     image: milvusdb/milvus:v2.4.15
@@ -105,17 +117,20 @@ services:
       etcd:
         condition: service_healthy
       minio:
-        condition: service_started
-    # 首次启动要建元数据，start_period 给足时间，避免被误判为不健康。
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
-      interval: 15s
+      interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 90s
+      retries: 15
+      start_period: 120s
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
 networks:
   backend:

@@ -12,6 +12,8 @@ import {
   Database,
   FolderOpen,
   LogIn,
+  Sparkles,
+  ServerCog,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/Avatar";
@@ -19,9 +21,16 @@ import { roleLabel, useAuth } from "@/lib/user";
 
 /**
  * 主区域视图标识。左侧细导航点击后**切换主区域内容**（而不是弹小窗）——
- * 知识库/文件库/数据源/设置都是需要大面积操作的重功能，弹窗装不下。
+ * 知识库/文件库/数据源/技能/MCP/设置都是需要大面积操作的重功能，弹窗装不下。
  */
-export type RailView = "chat" | "knowledge" | "files" | "datasources" | "settings";
+export type RailView =
+  | "chat"
+  | "knowledge"
+  | "files"
+  | "datasources"
+  | "skills"
+  | "mcp"
+  | "settings";
 
 /** 应用 Logo：品牌图标（web/public/logo.png），同时用于浏览器 favicon。 */
 function Logo() {
@@ -230,6 +239,28 @@ export function SideRail({
             active={view === "files"}
           >
             <FolderOpen className="h-5 w-5" strokeWidth={2.25} />
+          </RailLink>
+          <RailLink
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate("skills");
+            }}
+            title="技能"
+            accent="violet"
+            active={view === "skills"}
+          >
+            <Sparkles className="h-5 w-5" strokeWidth={2.25} />
+          </RailLink>
+          <RailLink
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate("mcp");
+            }}
+            title="MCP 服务器"
+            accent="indigo"
+            active={view === "mcp"}
+          >
+            <ServerCog className="h-5 w-5" strokeWidth={2.25} />
           </RailLink>
 
           <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-rule" />

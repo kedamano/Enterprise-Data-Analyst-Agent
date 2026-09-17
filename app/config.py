@@ -392,6 +392,26 @@ class Settings(BaseSettings):
     mcp_enabled: bool = False
     # MCP 调用的归集 session_id（供限流/审计）。不伪造真实会话，默认 "mcp"。
     mcp_session_id: str = "mcp"
+
+    # --- Skills（技能）---
+    # 技能是"给大模型的分析方法论/口径/领域知识"包，用户按需在对话中勾选注入本轮提示词。
+    # 存储约定：`<skills_dir>/<id>/SKILL.md`（YAML frontmatter: name/description + markdown 正文），
+    # 旁挂 `.meta.json` 存 enabled/created_at/origin —— SKILL.md 保持可移植（兼容 Anthropic Skills）。
+    skills_enabled: bool = True
+    skills_dir: str = "data/skills"
+    # 单个技能正文注入上限（字符）。多个技能合计仍受 prompt 预算约束（见 prompts/budget）。
+    skill_max_chars: int = 8000
+    # 单次请求最多注入多少个技能（防"全选"把上下文撑爆）。
+    skill_max_per_request: int = 8
+
+    # --- MCP 客户端管理（连接外部 MCP server 的配置面）---
+    # 与上面的 `mcp_enabled`（服务端：把我们的只读工具暴露出去）**方向相反**：
+    # 这里管理"我们要去连的**外部** MCP server"（如 context7 / fetch / time）。
+    # 本轮只交付 配置 CRUD + 连接测试 + 工具列表，不把外部工具接入 Agent。
+    mcp_servers_enabled: bool = True
+    mcp_servers_path: str = "data/mcp_servers.json"
+    # 连接测试/列工具的超时（秒）。外部 server 冷启动（npx 拉包）可能较慢，给足余量。
+    mcp_client_timeout_s: float = 30.0
     # SEMANTIC/01 业务语义层：维表枚举采集上限与缓存时长
     profile_enum_max_cardinality: int = 20   # > 此基数的列不采枚举（避免高基数列）
     profile_enum_max_values: int = 20        # 每个维表最多取多少个取值

@@ -170,6 +170,7 @@ export async function streamAnalyze(
   history: { role: string; content: string }[],
   onEvent: StreamHandler,
   signal?: AbortSignal,
+  skillIds?: string[],
 ): Promise<void> {
   const res = await fetch("/api/v1/chat/analyze/stream", {
     method: "POST",
@@ -179,6 +180,8 @@ export async function streamAnalyze(
       session_id: sessionId,
       stream: true,
       history: history.slice(-12),
+      // Skills：本次对话勾选的技能 id，仅这些技能注入本轮提示词
+      skill_ids: skillIds ?? [],
     }),
     signal,
   });
@@ -806,4 +809,190 @@ export async function previewFsFile(
   signal?: AbortSignal,
 ): Promise<FsPreviewResponse> {
   return requestJson<FsPreviewResponse>(`/api/v1/files/preview/${nodeId}`, { signal });
+}
+
+// ---------------------------------------------------------------- 技能（Skills）
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  /** manual（界面新建）| imported（zip 导入） */
+  origin: string;
+  created_at: string;
+  updated_at: string;
+  /** 正文字数（列表页展示用，不必拉全文） */
+  chars: number;
+  path: string;
+  version?: string;
+  allowed_tools?: string | string[];
+  /** 仅详情接口返回 */
+  body?: string;
+}
+
+export interface SkillListResponse {
+  skills: Skill[];
+  total: number;
+}
+
+export interface SkillForm {
+  name: string;
+  description?: string;
+  body?: string;
+  enabled?: boolean;
+}
+
+export function fetchSkills(signal?: AbortSignal): Promise<SkillListResponse> {
+  return requestJson<SkillListResponse>("/api/v1/skills", { signal });
+}
+
+export function fetchSkill(id: string, signal?: AbortSignal): Promise<Skill> {
+  return requestJson<Skill>(`/api/v1/skills/${encodeURIComponent(id)}`, { signal });
+}
+
+export function createSkill(form: SkillForm): Promise<Skill> {
+  return requestJson<Skill>("/api/v1/skills", {
+    method: "POST",
+    body: JSON.stringify(form),
+  });
+}
+
+export function updateSkill(
+  id: string,
+  patch: Partial<SkillForm>,
+): Promise<Skill> {
+  return requestJson<Skill>(`/api/v1/skills/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteSkill(id: string): Promise<{ ok: boolean; id: string }> {
+  return requestJson(`/api/v1/skills/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function setSkillEnabled(id: string, enabled: boolean): Promise<Skill> {
+  return requestJson<Skill>(`/api/v1/skills/${encodeURIComponent(id)}/enabled`, {
+    method: "POST",
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+/** zip 导入（含 SKILL.md 的目录形态）；单个失败不中断其余。 */
+export function importSkillsZip(
+  file: File,
+): Promise<{ imported: Skill[]; errors: string[] }> {
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  return requestJson("/api/v1/skills/import", { method: "POST", body: fd });
+}
+
+// ---------------------------------------------------------------- MCP 客户端管理
+//
+// 注意：这里管理的是「**我们要去连的**外部 MCP server」（stdio/sse/http）。
+// 与把本产品的只读工具**暴露出去**（/api/v1/mcp/tools）方向相反。
+
+export type MCPTransport = "stdio" | "sse" | "http";
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  transport: MCPTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  enabled: boolean;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MCPTool {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+export interface MCPProbeResult {
+  ok: boolean;
+  tools: MCPTool[];
+  tool_count: number;
+  error: string | null;
+  /** timeout | config | connection */
+  error_kind?: string | null;
+  latency_ms: number;
+  target: string;
+}
+
+export interface MCPServerForm {
+  name: string;
+  transport: MCPTransport;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
+  enabled?: boolean;
+  description?: string;
+}
+
+export function fetchMcpServers(signal?: AbortSignal): Promise<{ servers: MCPServer[]; total: number }> {
+  return requestJson("/api/v1/mcp/servers", { signal });
+}
+
+export function createMcpServer(form: MCPServerForm): Promise<MCPServer> {
+  return requestJson<MCPServer>("/api/v1/mcp/servers", {
+    method: "POST",
+    body: JSON.stringify(form),
+  });
+}
+
+export function updateMcpServer(
+  id: string,
+  patch: Partial<MCPServerForm>,
+): Promise<MCPServer> {
+  return requestJson<MCPServer>(`/api/v1/mcp/servers/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteMcpServer(id: string): Promise<{ ok: boolean; id: string }> {
+  return requestJson(`/api/v1/mcp/servers/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function setMcpServerEnabled(id: string, enabled: boolean): Promise<MCPServer> {
+  return requestJson<MCPServer>(
+    `/api/v1/mcp/servers/${encodeURIComponent(id)}/enabled`,
+    { method: "POST", body: JSON.stringify({ enabled }) },
+  );
+}
+
+/** 连接测试已保存的 server（连上 → initialize → list_tools → 断开）。 */
+export function testMcpServer(id: string): Promise<MCPProbeResult> {
+  return requestJson<MCPProbeResult>(
+    `/api/v1/mcp/servers/${encodeURIComponent(id)}/test`,
+    { method: "POST" },
+  );
+}
+
+/** 测试**尚未保存**的配置（界面里先测再存）。 */
+export function testMcpServerAdHoc(form: MCPServerForm): Promise<MCPProbeResult> {
+  return requestJson<MCPProbeResult>("/api/v1/mcp/servers/test", {
+    method: "POST",
+    body: JSON.stringify(form),
+  });
+}
+
+export function fetchMcpServerTools(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ server_id: string; ok: boolean; tools: MCPTool[]; tool_count: number; error: string | null; latency_ms: number }> {
+  return requestJson(
+    `/api/v1/mcp/servers/${encodeURIComponent(id)}/tools`,
+    { signal },
+  );
 }

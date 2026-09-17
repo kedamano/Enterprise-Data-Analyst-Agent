@@ -187,3 +187,5 @@ tests/run_demo.py                # 离线端到端演示
 4. **知识库**：`POST /documents/ingest` 入库；配置 Milvus 后自动切换到向量检索 + 可选重排。
 5. **可视化/报告**：`visualization` 用 matplotlib 出图，`generate_report` 提供确定性模板，
    Reporter 节点在真实 LLM 模式下用模型润色。
+
+MCP管理和sills管理好像这没有做，还有多agent协作
