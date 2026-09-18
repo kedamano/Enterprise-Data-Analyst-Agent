@@ -68,38 +68,38 @@
 
 **对话主界面** —— 示例问题一键起手，输入框下方可直接挂技能。
 
-![ui-home.png](docs%2Fimages%2Fui-home.png)
+![ui-home.png](docs/images/ui-home.png)
 
 **真实执行轨迹** —— 6 个编排节点逐段点亮，每次工具调用带工具名、摘要、耗时，可展开看日志。
 下图是真实 LLM + 真实 SQLite 跑出来的一轮（问题：*对比各区域营收表现，识别增长最快的地区*）：
 
-![ui-run-timeline.png](docs%2Fimages%2Fui-run-timeline.png)
+![ui-run-timeline.png](docs/images/ui-run-timeline.png)
 
 **业务报告** —— 结构化章节 + 指标表格，关键数字与驱动因素拆解，并主动标注数据覆盖局限。
 
-![ui-report.png](docs%2Fimages%2Fui-report.png)
+![ui-report.png](docs/images/ui-report.png)
 
 **关键发现** —— 每条发现给出证据、业务含义与置信度，可疑模式会被显式指出。
 
-![ui-findings.png](docs%2Fimages%2Fui-findings.png)
+![ui-findings.png](docs/images/ui-findings.png)
 
 **技能管理** —— 用 `SKILL.md` 沉淀方法论 / 口径 / 领域知识；支持 zip 导入（兼容 Anthropic 约定）。
 
-![ui-skills.png](docs%2Fimages%2Fui-skills.png)
+![ui-skills.png](docs/images/ui-skills.png)
 
 **对话中勾选技能** —— 只把勾中的技能注入**本轮**请求，勾选跨消息保留。
 下图勾了「同比环比表述规范」和「经营指标口径统一规范」：
 
-![ui-skill-picker.png](docs%2Fimages%2Fui-skill-picker.png)
+![ui-skill-picker.png](docs/images/ui-skill-picker.png)
 
 **MCP 服务器管理** —— 配置要去连接的外部 MCP server（stdio / sse / http），
 保存前可先「测试连接」，连上后直接看到它暴露的工具清单：
 
-![ui-mcp.png](docs%2Fimages%2Fui-mcp.png)
+![ui-mcp.png](docs/images/ui-mcp.png)
 
 **知识库** —— 多知识库隔离，文档 / 网页 / 纯文本三种入库方式，可对单库做检索预览。
 
-![ui-knowledge.png](docs%2Fimages%2Fui-knowledge.png)
+![ui-knowledge.png](docs/images/ui-knowledge.png)
 
 ---
 
