@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HelpCircle, Send } from "lucide-react";
+import { HelpCircle, Send } from "@/components/icons";
 import type { Clarification } from "../lib/api";
 
 /**

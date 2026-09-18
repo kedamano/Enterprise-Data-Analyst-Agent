@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   ListChecks,
-} from "lucide-react";
+} from "@/components/icons";
 import type { AgentEvent, StepInfo } from "@/lib/api";
 import { stageLabel } from "@/lib/api";
 

@@ -6,7 +6,7 @@ import {
   LogOut,
   Trash2,
   UserPlus,
-} from "lucide-react";
+} from "@/components/icons";
 import { Avatar } from "@/components/Avatar";
 import {
   Badge,

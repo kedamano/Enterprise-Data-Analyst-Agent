@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, MessageSquare, Trash2, PanelLeftClose } from "lucide-react";
+import { Plus, MessageSquare, Trash2, PanelLeftClose } from "@/components/icons";
 import type { Conversation } from "@/lib/types";
 
 function timeAgo(ts: number): string {

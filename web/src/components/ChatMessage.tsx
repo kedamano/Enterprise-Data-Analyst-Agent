@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Copy, Check, AlertTriangle, Bot, Download, FileText, FileCode2, Image as ImageIcon } from "lucide-react";
+import { Copy, Check, AlertTriangle, Bot, Download, FileText, FileCode2, Image as ImageIcon } from "@/components/icons";
 import { Report } from "./Report";
 import { PlanCard } from "./PlanCard";
 import { ClarifyCard } from "./ClarifyCard";

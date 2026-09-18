@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Minus } from "lucide-react";
+import { Check, Minus } from "@/components/icons";
 import {
   Badge,
   Loading,

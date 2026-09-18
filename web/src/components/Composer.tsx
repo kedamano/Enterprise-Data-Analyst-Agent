@@ -7,7 +7,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import { Paperclip, Send, Square, X, Image as ImageIcon, FileText, FileCode2, Sparkles, Check } from "lucide-react";
+import { Paperclip, Send, Square, X, Image as ImageIcon, FileText, FileCode2, Sparkles, Check } from "@/components/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { fetchSkills, type Skill } from "@/lib/api";

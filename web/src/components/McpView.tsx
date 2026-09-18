@@ -12,7 +12,7 @@ import {
   ServerCog,
   Trash2,
   Wrench,
-} from "lucide-react";
+} from "@/components/icons";
 import {
   createMcpServer,
   deleteMcpServer,

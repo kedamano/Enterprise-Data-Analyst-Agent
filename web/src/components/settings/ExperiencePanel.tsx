@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Cpu, Palette, ShieldCheck, Trash2, Zap } from "lucide-react";
+import { Cpu, Palette, ShieldCheck, Trash2, Zap } from "@/components/icons";
 import {
   Badge,
   Button,

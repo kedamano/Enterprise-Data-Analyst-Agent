@@ -1,4 +1,4 @@
-import { BarChart3, Bot, Database, BookOpen, Upload, ShieldCheck } from "lucide-react";
+import { Database, BookOpen, Upload, ShieldCheck } from "@/components/icons";
 
 const EXAMPLES = [
   "对比各区域营收表现，识别增长最快的地区",
@@ -74,7 +74,7 @@ export function Welcome({
               className="rounded-panel border border-rule bg-white p-3.5 text-left"
             >
               <div className="mb-2.5 flex items-center gap-2">
-                <Icon className="h-5 w-5 shrink-0 text-brand" strokeWidth={2} />
+                <Icon className="h-5 w-5 shrink-0 text-brand" />
                 <h3 className="text-body font-semibold text-ink">{title}</h3>
               </div>
               <p className="text-small leading-relaxed text-ink-3">{desc}</p>

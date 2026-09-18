@@ -6,7 +6,7 @@ import {
   Sliders,
   UserCog,
   Users,
-} from "lucide-react";
+} from "@/components/icons";
 import { AccountPanel, AuthEntry } from "./settings/AccountPanel";
 import { ExperiencePanel } from "./settings/ExperiencePanel";
 import { PermissionsPanel } from "./settings/PermissionsPanel";

@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Sparkles,
   Trash2,
-} from "lucide-react";
+} from "@/components/icons";
 import {
   createSkill,
   deleteSkill,

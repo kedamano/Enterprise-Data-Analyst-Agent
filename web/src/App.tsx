@@ -6,7 +6,7 @@ import {
   ModalBody,
   ModalContent,
 } from "@/components/ui/animated-modal";
-import { History, Settings2 } from "lucide-react";
+import { History, Settings2 } from "@/components/icons";
 import { SideRail } from "@/components/SideRail";
 import { ConversationList } from "@/components/ConversationList";
 import { Welcome } from "@/components/Welcome";

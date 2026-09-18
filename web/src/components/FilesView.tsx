@@ -20,7 +20,7 @@ import {
   Trash2,
   Upload,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 import {
   createFsFolder,
   deleteFsNode,

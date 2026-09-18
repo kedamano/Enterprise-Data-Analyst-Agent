@@ -1,4 +1,4 @@
-import { Bot, Check, Circle } from "lucide-react";
+import { Bot, Check, Circle } from "@/components/icons";
 import type { AgentEvent, ExecutionPlan } from "@/lib/api";
 
 const TASK_LABEL: Record<string, string> = {

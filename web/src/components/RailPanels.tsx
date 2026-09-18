@@ -4,7 +4,7 @@ import {
   ModalBody,
   ModalContent,
 } from "@/components/ui/animated-modal";
-import { History, MessageSquare, Search, Trash2 } from "lucide-react";
+import { History, MessageSquare, Search, Trash2 } from "@/components/icons";
 import type { Conversation } from "@/lib/types";
 
 /**

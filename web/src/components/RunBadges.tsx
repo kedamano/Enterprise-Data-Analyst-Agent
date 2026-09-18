@@ -1,4 +1,4 @@
-import { AlertTriangle, GitBranch, ShieldAlert } from "lucide-react";
+import { AlertTriangle, GitBranch, ShieldAlert } from "@/components/icons";
 import {
   iterationLabel,
   type AgentEvent,

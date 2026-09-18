@@ -14,7 +14,7 @@ import {
   LogIn,
   Sparkles,
   ServerCog,
-} from "lucide-react";
+} from "@/components/icons";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/Avatar";
 import { roleLabel, useAuth } from "@/lib/user";
@@ -120,7 +120,7 @@ function UserEntry({
         aria-label="登录 / 注册"
         className="grid h-9 w-9 place-items-center rounded-panel text-ink-3 transition hover:bg-canvas hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
-        <LogIn className="h-5 w-5" strokeWidth={2.25} />
+        <LogIn className="h-5 w-5" />
       </button>
     );
   }
@@ -184,7 +184,7 @@ export function SideRail({
             accent="indigo"
             active={view === "chat"}
           >
-            <Plus className="h-5 w-5" strokeWidth={2.25} />
+            <Plus className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -195,7 +195,7 @@ export function SideRail({
             accent="sky"
             active={showList}
           >
-            <MessagesSquare className="h-5 w-5" strokeWidth={2.25} />
+            <MessagesSquare className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -205,7 +205,7 @@ export function SideRail({
             title="历史记录"
             accent="sky"
           >
-            <History className="h-5 w-5" strokeWidth={2.25} />
+            <History className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -216,7 +216,7 @@ export function SideRail({
             accent="emerald"
             active={view === "datasources"}
           >
-            <Database className="h-5 w-5" strokeWidth={2.25} />
+            <Database className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -227,7 +227,7 @@ export function SideRail({
             accent="amber"
             active={view === "knowledge"}
           >
-            <BookOpen className="h-5 w-5" strokeWidth={2.25} />
+            <BookOpen className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -238,7 +238,7 @@ export function SideRail({
             accent="rose"
             active={view === "files"}
           >
-            <FolderOpen className="h-5 w-5" strokeWidth={2.25} />
+            <FolderOpen className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -249,7 +249,7 @@ export function SideRail({
             accent="violet"
             active={view === "skills"}
           >
-            <Sparkles className="h-5 w-5" strokeWidth={2.25} />
+            <Sparkles className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -260,7 +260,7 @@ export function SideRail({
             accent="indigo"
             active={view === "mcp"}
           >
-            <ServerCog className="h-5 w-5" strokeWidth={2.25} />
+            <ServerCog className="h-5 w-5" />
           </RailLink>
 
           <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-rule" />
@@ -273,7 +273,7 @@ export function SideRail({
             title="使用文档"
             accent="indigo"
           >
-            <FileText className="h-5 w-5" strokeWidth={2.25} />
+            <FileText className="h-5 w-5" />
           </RailLink>
           <RailLink
             onClick={(e) => {
@@ -284,7 +284,7 @@ export function SideRail({
             accent="slate"
             active={view === "settings"}
           >
-            <Settings className="h-5 w-5" strokeWidth={2.25} />
+            <Settings className="h-5 w-5" />
           </RailLink>
 
           <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-rule" />

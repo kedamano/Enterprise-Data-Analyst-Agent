@@ -8,7 +8,7 @@ import {
   ShieldAlert,
   Trash2,
   Users,
-} from "lucide-react";
+} from "@/components/icons";
 import { Avatar } from "@/components/Avatar";
 import {
   Badge,

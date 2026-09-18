@@ -1,4 +1,4 @@
-import { Gauge } from "lucide-react";
+import { Gauge } from "@/components/icons";
 import type { AgentEvent, MetricCard } from "@/lib/api";
 
 /**

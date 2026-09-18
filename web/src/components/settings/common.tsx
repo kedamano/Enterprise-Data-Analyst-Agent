@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertCircle, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, KeyRound, Loader2 } from "@/components/icons";
 
 /**
  * 设置页各面板共用的最小 UI 原语。

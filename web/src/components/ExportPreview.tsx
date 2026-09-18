@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Loader2, PackageOpen, X } from "lucide-react";
+import { Download, Loader2, PackageOpen, X } from "@/components/icons";
 import { fetchManifest, type ExportManifest } from "@/lib/api";
 import { AuthError } from "@/lib/auth";
 

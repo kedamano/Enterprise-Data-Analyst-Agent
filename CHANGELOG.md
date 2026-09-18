@@ -2,6 +2,27 @@
 
 注：每一条都能在 `docs/progress/pending-real.md` 或 `docs/progress/eval-*.md` 中找到对应的真跑证据。**没有具体数字的条目标 🟡。**
 
+## D61 (2026-09-17) — 面试短板修复：RAG 基线 + E2E CI 流程落地
+
+> 修复前文「#三一眼可见的短板」中影响面试说服力的 2 项。
+
+### 1. RAG synthetic benchmark（offline）
+
+- 新文件 `scripts/benchmark_rag.py`（406 行）：
+  - 60 条合成短文档 / 6 主题 / 12 条 query，ground truth 人工标注；
+  - hashing trick 64-dim 嵌入 + BM25 + RRF + 项目既有 deterministic reranker；
+  - 输出 Recall@1 / Recall@3 / Recall@5 / MRR / Duration。
+- 新文件 `benchmarks/RESULTS.md`（含表格 + 解读 + 逐条明细）。
+- README 顶部已插入徽章行：
+  > **RAG 基准（合成语料，offline）：Recall@1 37.5% · Recall@3 68.1% · Recall@5 75.0%。**
+
+**实测**：`conda run -n base python scripts/benchmark_rag.py` → 70ms，输出如上。
+
+### 2. E2E 运行流程文档化（Playwright 浏览器被 proxy 墙挡住，CI 是正路）
+
+- 新文件 `docs/E2E_RUNBOOK.md`，覆盖：CI 如何跑 / 本机如何绕过 proxy（`PLAYWRIGHT_DOWNLOAD_HOST`）/ headless+headed 切换 / reporter 输出位置。
+- 新文件 `scripts/install_playwright_browsers.sh`：封装 Playwright 浏览器下载（国内镜像 fallback）。
+
 ## D60 (2026-09-17) — 安全/测试/RAG/Docker SPA 路由全量修复（#11 全清单）
 
 本轮按深层扫描发现的 6 项安全/RAG 测试缺口 + SPA URL 路由 + AuthCentre 退出链路 + 骨架屏，逐项修复。

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Share2, MessageSquare, ShieldCheck } from "lucide-react";
+import { Share2, MessageSquare, ShieldCheck } from "@/components/icons";
 
 /**
  * #6 协作骨架 v1（占位 + 最小可用）：

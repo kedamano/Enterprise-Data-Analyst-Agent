@@ -10,7 +10,7 @@ import {
   RefreshCw,
   ServerCog,
   Trash2,
-} from "lucide-react";
+} from "@/components/icons";
 import {
   createDataSource,
   deleteDataSource,

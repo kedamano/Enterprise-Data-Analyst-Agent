@@ -1,4 +1,4 @@
-import { AlertTriangle, Copy, Download, FileText, GripVertical, Image as ImageIcon, Loader2, Table, X } from "lucide-react";
+import { AlertTriangle, Copy, Download, FileText, GripVertical, Image as ImageIcon, Loader2, Table, X } from "@/components/icons";
 import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";

@@ -6,7 +6,7 @@ import {
   Monitor,
   RefreshCw,
   ShieldAlert,
-} from "lucide-react";
+} from "@/components/icons";
 import {
   Button,
   Empty,

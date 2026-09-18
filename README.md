@@ -14,6 +14,8 @@
 
 </div>
 
+> **RAG 基准（合成语料，offline）：Recall@1 37.5% · Recall@3 68.1% · Recall@5 75.0%。** 完整报告见 [benchmarks/RESULTS.md](benchmarks/RESULTS.md)。
+
 ---
 
 ## 目录
@@ -736,10 +738,11 @@ app/
 ├── eval/                          # golden / runner / judge / badcase / rag_eval
 └── models/schemas.py              # API 契约
 
-web/                               # React 19 + TypeScript + Vite + Tailwind v4
+web/                               # React 19 + TypeScript + Vite + Tailwind v4 + Tabler Icons
 ├── src/components/                # ChatMessage / Composer / StageTimeline / Report /
 │                                  #   KnowledgeView / FilesView / DataSourcesView /
 │                                  #   SkillsView / McpView / SettingsView / AuthCentre …
+├── src/components/icons.tsx       # **全站图标唯一出口**：语义名 ↔ 图标库的唯一映射点
 ├── src/lib/api.ts                 # 全部后端接口的类型与封装
 ├── src/test/                      # vitest 单测（含 setup.ts）
 └── e2e/                           # Playwright 端到端
@@ -841,6 +844,9 @@ P50 **77.7ms**（缓存命中，整链 0 次 LLM 调用）vs P95 **3773ms**（�
 6. **知识库**：多库隔离，文档 / 网页 / 文本三种入库；配 Milvus 后自动切向量检索 + 可选重排。
 7. **可视化和报告**：`visualization` 出图，`generate_report` 提供确定性模板兜底，
    Reporter 在真实 LLM 模式下用模型润色。
+8. **换图标库**：只改 `web/src/components/icons.tsx` 一个文件。全站 78 个图标都是
+   「语义名 → 库名」的映射（如 `Sparkles → IconSparkles`），调用方只认语义名，
+   **再换一套库不需要动任何业务代码**；映射写错时 `tsc -b` 会直接报错，不会静默漏图标。
 
 ---
 
@@ -891,11 +897,14 @@ P50 **77.7ms**（缓存命中，整链 0 次 LLM 调用）vs P95 **3773ms**（�
 - **MCP 只做到「配置 + 连通性核验」**，外部工具尚未接入 Agent 调用链。
 - **图片只登记元信息**：`image_analyze` 需单独配置视觉模型，未配时如实提示「未接视觉解析」，
   不做假承诺。
-- **前端部分单测与组件存在漂移**：全套 vitest 当前 **41 passed**，
-  仍有约 14 个失败集中在 `security` / `account` / `DataSourcesView` / `KnowledgeView` /
-  `team` / `test_settings_view` 六个套件 —— 根因是测试与组件长期漂移，不是功能缺陷。
-  其中一类典型是 `getByLabelText("当前密码")` 查不到：组件把标签渲染成 `<div>` 而非 `<label>`，
-  **改组件能同时补上 a11y 缺口**，但这属于产品决策，尚未统一收口。
+- **前端部分单测与组件存在漂移**：全套 vitest 当前 **44 passed / 15 failed（共 59 个用例，7 个套件）**，
+  集中在 `security` / `account` / `DataSourcesView` / `KnowledgeView` / `FilesView` /
+  `team` / `test_settings_view` —— 根因是测试与组件长期漂移，不是功能缺陷。
+  15 条失败**全部是**文本 / 标签 / 角色类断言，其中一类典型是 `getByLabelText("当前密码")` 查不到：
+  组件把标签渲染成 `<div>` 而非 `<label>`，**改组件能同时补上 a11y 缺口**，
+  但这属于产品决策，尚未统一收口。
+  > 这 15 条与「换成 Tabler 图标」无关，已用**受控 A/B 实验**证明：把 `icons.tsx` 临时换回
+  > lucide 支撑后重跑同样 7 个套件，失败用例集合**逐条完全一致**（两侧独有集合均为空）。
 
 ---
 
