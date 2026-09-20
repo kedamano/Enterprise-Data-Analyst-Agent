@@ -529,6 +529,13 @@ class Settings(BaseSettings):
     oidc_cookie_secret: str = ""
     # cookie 有效期（秒）。
     oidc_state_ttl_s: int = 600
+    # 授权 URL 上的 scope 列表（空格分隔）。默认 "openid email profile"。
+    # 按需加 "offline_access" 让 IdP 返回 refresh_token。
+    oidc_scope: str = "openid email profile"
+    # 校验 id_token 允许的签名算法（逗号分隔）。默认 RS256,ES256。
+    oidc_id_token_algos: str = "RS256,ES256"
+    # token_endpoint 的 client 认证方式：client_secret_post（默认）/ client_secret_basic。
+    oidc_token_endpoint_auth_method: str = "client_secret_post"
 
     # --- HTTPS / mTLS（env-gated，fail-open） ---
     # 配 SSL_CERT_FILE / SSL_KEY_FILE 即启用 HTTPS 入口（uvicorn ssl_* 参数）。

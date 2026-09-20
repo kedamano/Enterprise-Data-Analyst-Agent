@@ -1,13 +1,14 @@
 """AUTH/03 — OIDC API 路由。
 
-三个端点：
+五个端点：
   - ``GET /api/v1/auth/oidc/config``  → 前端探测 OIDC 是否可用
-  - ``GET /api/v1/auth/oidc/login``   → 302 到 IdP 授权 URL（写 state/nonce cookie）
+  - ``GET /api/v1/auth/oidc/login``   → 302 到 IdP 授权 URL（写 state/nonce/sid cookie）
   - ``GET /api/v1/auth/oidc/callback`` → IdP 授权后回调：换 token → upsert user → 返 HTML 自动闭窗
+  - ``POST /api/v1/auth/oidc/refresh`` → 用 refresh_token 换新 access_token（需 sid cookie）
+  - ``GET /api/v1/auth/oidc/logout``  → RP-Initiated Logout：清会话 → 302 到 IdP 登出端点
 
 **全部 env-gated**：OIDC 未配时 config 仍 200（返回 {configured:false}）；
-login 与 callback 返回 501。
-"""
+login / callback / refresh / logout 返回 501。"""
 from __future__ import annotations
 
 import logging
@@ -23,8 +24,11 @@ from .oidc import (
     OIDCDiscoveryError,
     OIDCValidationError,
     build_authorization_url,
+    build_logout_url,
+    destroy_oidc_session,
     handle_callback as oidc_handle_callback,
     is_oidc_configured,
+    refresh_access_token,
     upsert_oidc_user,
 )
 
@@ -34,6 +38,7 @@ router = APIRouter(prefix="/auth/oidc", tags=["auth-oidc"])
 
 _COOKIE_STATE = "oidc_state"
 _COOKIE_NONCE = "oidc_nonce"
+_COOKIE_SID = "oidc_sid"
 
 
 def _cookie_secret() -> str:
@@ -115,6 +120,13 @@ def oidc_login(request: Request):
         max_age=ttl, httponly=True, samesite="lax",
         secure=True,
     )
+    # session id：把 client 临时绑到服务端暂存的 refresh_token / id_token
+    sid = secrets.token_urlsafe(24)
+    resp.set_cookie(
+        _COOKIE_SID, _sign_value(sid),
+        max_age=ttl, httponly=True, samesite="lax",
+        secure=True,
+    )
     return resp
 
 
@@ -135,9 +147,10 @@ def oidc_callback(
             status_code=501,
         )
 
-    # ---- 取 state / nonce cookie ----
+    # ---- 取 state / nonce / sid cookie ----
     state_cookie = _unsign_value(request.cookies.get(_COOKIE_STATE) or "")
     nonce_cookie = _unsign_value(request.cookies.get(_COOKIE_NONCE) or "")
+    sid_cookie = _unsign_value(request.cookies.get(_COOKIE_SID) or "")
 
     if not state_cookie:
         logger.warning("OIDC callback 缺 state cookie（或过期）")
@@ -176,6 +189,15 @@ def oidc_callback(
         email=profile["email"], name=profile["name"],
     )
 
+    # ---- 暂存 refresh_token / id_token 到服务端 session store ----
+    from .oidc import _session_set
+    if sid_cookie:
+        _session_set(
+            sid_cookie,
+            refresh_token=profile.get("refresh_token", ""),
+            id_token=profile.get("id_token", ""),
+        )
+
     # ---- 发内部 Bearer token ----
     store = __import__("app.core.security.users", fromlist=["get_store"]).get_store()
     sess = store.issue_token(user["id"], user_agent=request.headers.get("user-agent", "")[:300])
@@ -187,7 +209,7 @@ def oidc_callback(
     else:
         resp = HTMLResponse(_SUCCESS_HTML(sess["token"]), status_code=200)
 
-    # 清掉 state cookie
+    # 清掉 state / nonce cookie；sid 留到 refresh / logout 用过再清
     resp.delete_cookie(_COOKIE_STATE)
     resp.delete_cookie(_COOKIE_NONCE)
     return resp
@@ -216,3 +238,79 @@ def _CLOSE_HTML(message: str) -> str:
 <p>{message}</p>
 <p style="color:#667085;font-size:13px">请关闭此页，回到原窗口重试。</p>
 </body></html>"""
+
+
+# ---------------------------------------------------------------- Refresh Token
+@router.post("/refresh")
+def oidc_refresh(request: Request) -> JSONResponse:
+    """用 authorize 时暂存的 refresh_token 换新 access_token。
+
+    需要 sid cookie（login 时下发）；缺 cookie / 缺 refresh_token → 400；
+    IdP 拒绝（撤权 / 过期）→ 401 提示重新登录。
+    """
+    if not is_oidc_configured():
+        return JSONResponse({"detail": "OIDC 未配置"}, status_code=501)
+
+    sid_cookie = _unsign_value(request.cookies.get(_COOKIE_SID) or "")
+    if not sid_cookie:
+        return JSONResponse(
+            {"detail": "缺 sid cookie，无法 refresh"},
+            status_code=400,
+        )
+
+    try:
+        new_tok = refresh_access_token(sid_cookie)
+    except OIDCValidationError as exc:
+        code = getattr(exc, "args", ("",))
+        if code and code[0] == "refresh_denied":
+            # refresh 被拒 → 连服务端 session 一并清掉，要求用户重新登录
+            destroy_oidc_session(sid_cookie)
+            return JSONResponse(
+                {"detail": "refresh_token 已失效，请重新登录", "relogin": True},
+                status_code=401,
+            )
+        logger.warning("OIDC refresh 失败: %s", exc)
+        return JSONResponse({"detail": f"refresh 失败: {exc}"}, status_code=400)
+
+    return JSONResponse({
+        "access_token": new_tok.get("access_token"),
+        "expires_in": new_tok.get("expires_in"),
+        "token_type": new_tok.get("token_type", "Bearer"),
+    })
+
+
+# ---------------------------------------------------------------- RP-Initiated Logout
+@router.get("/logout")
+def oidc_logout(
+    request: Request,
+    post_logout_redirect_uri: str = Query(""),
+) -> RedirectResponse:
+    """RP-Initiated Logout：清服务端暂存 → 302 到 IdP 的 end_session_endpoint。
+
+    IdP 完成自身会话清理后把用户重定向回 post_logout_redirect_uri（应在本 IdP
+     client 的 post_logout_redirect_uris 白名单中）。
+    """
+    if not is_oidc_configured():
+        return JSONResponse({"detail": "OIDC 未配置"}, status_code=501)
+
+    sid_cookie = _unsign_value(request.cookies.get(_COOKIE_SID) or "")
+    if sid_cookie:
+        destroy_oidc_session(sid_cookie)
+
+    try:
+        logout_url = build_logout_url(
+            sid_cookie or "",
+            post_logout_redirect_uri=post_logout_redirect_uri,
+        )
+    except OIDCValidationError as exc:
+        # IdP 未暴露 end_session_endpoint 时降级：已清会话，直接回首页
+        logger.warning("OIDC build_logout_url 失败（降级）: %s", exc)
+        resp = RedirectResponse("/", status_code=302)
+        resp.delete_cookie(_COOKIE_SID)
+        return resp
+
+    resp = RedirectResponse(logout_url, status_code=302)
+    resp.delete_cookie(_COOKIE_SID)
+    resp.delete_cookie(_COOKIE_STATE)
+    resp.delete_cookie(_COOKIE_NONCE)
+    return resp
