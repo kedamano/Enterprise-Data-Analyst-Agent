@@ -29,7 +29,7 @@ class StubLLM(BaseLLM):
         self.fail = fail
         self.calls = 0
 
-    def complete(self, system, user, stage="", json_mode=False, temperature=None) -> str:
+    def _do_complete(self, system, user, stage="", json_mode=False, temperature=None) -> str:
         self.calls += 1
         if self.fail:
             raise ConnectionError(f"{self.name} down")

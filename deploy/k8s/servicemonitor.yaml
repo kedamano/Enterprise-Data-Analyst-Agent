@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: edaa-backend-monitor
+  namespace: edaa
+  labels:
+    app: edaa
+    component: backend
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: edaa
+      component: backend
+  namespaceSelector:
+    matchNames:
+      - edaa
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

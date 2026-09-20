@@ -326,6 +326,37 @@ class BaseLLM:
         json_mode: bool = False,
         temperature: Optional[float] = None,
     ) -> str:
+        """Guard entry point: sanitize → harden → dispatch to ``_do_complete``.
+
+        Fail-open: any guard error passes original ``system``/``user`` through.
+        """
+        from .guard import PromptGuard, set_guard_ctx
+        from ...config import get_settings
+
+        settings = get_settings()
+        result = None
+        try:
+            if getattr(settings, "prompt_guard_enabled", True) and user:
+                result = PromptGuard.sanitize_user_input(user, stage or "")
+                hardened_system = PromptGuard.harden_system_prompt(system, result)
+                set_guard_ctx(result)
+                return self._do_complete(
+                    hardened_system, result.text, stage, json_mode, temperature,
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("PromptGuard 异常，fail-open 放行: %s", exc)
+        set_guard_ctx(result)
+        return self._do_complete(system, user, stage, json_mode, temperature)
+
+    def _do_complete(
+        self,
+        system: str,
+        user: str,
+        stage: Stage = "",
+        json_mode: bool = False,
+        temperature: Optional[float] = None,
+    ) -> str:
+        """Actual LLM dispatch — subclass hook."""
         raise NotImplementedError
 
     def vision(
@@ -440,7 +471,7 @@ class OpenAILLM(BaseLLM):
                 chain.append(m)
         return chain or [primary]
 
-    def complete(
+    def _do_complete(
         self,
         system: str,
         user: str,
@@ -462,7 +493,7 @@ class OpenAILLM(BaseLLM):
             # DEGRADE/01：降级用 error 级（可被告警规则捕获），不再"悄悄 warning 一下"
             logger.error("LLM call failed (%s); falling back to mock: %s", stage, exc)
             record_fallback(stage, exc)
-            return MockLLM().complete(system, user, stage, json_mode, temperature)
+            return MockLLM()._do_complete(system, user, stage, json_mode, temperature)
 
     def _complete_chain(
         self, *, system: str, content: Any, stage: Stage,
@@ -583,7 +614,7 @@ class MockLLM(BaseLLM):
     # 触发无意义的 REPLAN 空转（这正是 sleep.csv 案例三轮打转的根因之一）。
     _CTX_RE = re.compile(r"<task_context>\s*(.*?)\s*</task_context>", re.DOTALL)
 
-    def complete(
+    def _do_complete(
         self,
         system: str,
         user: str,
@@ -867,15 +898,25 @@ _llm: Optional[BaseLLM] = None
 
 
 def get_llm(settings: Optional[Settings] = None) -> BaseLLM:
-    """Return a cached LLM client: Mock → weighted RouterLLM → single OpenAILLM."""
+    """Return a cached LLM client: Mock → StageLLM → weighted RouterLLM → single OpenAILLM."""
     global _llm
     settings = settings or get_settings()
     if _llm is None:
+        from .model_router import parse_routes
+
         if settings.use_mock_llm:
             logger.info("Using MockLLM (no API key / MOCK_LLM=1)")
             _llm = MockLLM()
+        elif settings.llm_routes and any(
+            isinstance(r, dict) and r.get("tier") for r in parse_routes(settings.llm_routes)
+        ):
+            # At least one route carries a `tier` field -> enable StageLLM.
+            from .stage_router import StageLLM
+
+            _llm = StageLLM(settings)
+            logger.info("StageLLM enabled (tiered routing)")
         elif settings.llm_routes:
-            from .model_router import ModelConfig, RouterLLM, parse_routes
+            from .model_router import ModelConfig, RouterLLM
 
             configs = [ModelConfig.from_dict(d, settings) for d in parse_routes(settings.llm_routes)]
             logger.info("Using RouterLLM with %d providers", len(configs))

@@ -95,7 +95,7 @@ def test_injection_stays_out_of_system_message(monkeypatch, mock_llm_env):
     captured_msgs: dict[str, str] = {}
 
     class SpyLLM(MockLLM):
-        def complete(self, system, user, stage="", json_mode=False, temperature=None):
+        def _do_complete(self, system, user, stage="", json_mode=False, temperature=None):
             captured_msgs["system"] = system
             captured_msgs["user"] = user
             return "{}"

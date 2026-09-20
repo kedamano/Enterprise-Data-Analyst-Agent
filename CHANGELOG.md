@@ -2,6 +2,264 @@
 
 注：每一条都能在 `docs/progress/pending-real.md` 或 `docs/progress/eval-*.md` 中找到对应的真跑证据。**没有具体数字的条目标 🟡。**
 
+## D64 (2026-09-19) — P0/P1 全栈加固：Budget / 防注入 / Self-Consistency / 上下文治理 / Workflow Jobs / Replay CLI / LangFuse
+
+> 本轮 7 项 P0/P1 全部交付；新增前端 BudgetBar；前后端解耦全路径。
+
+### P0 — LLM Budget（三级限额 + 前端用量条）
+
+**`app/infrastructure/llm/budget.py`（New ~160 行）**：
+
+- `BudgetTracker`：per-session / per-user daily / per-tenant monthly 三级嵌套限额（LRU 64/256/256）。
+- `_evaluate_limit(tokens_before, tokens_to_add, limit_tokens)`：返回 `(ok, reason, severity_info|degrade_info|block_info)`。三层按 session→user→tenant'顺序评估；任何一层超限即拦截。
+- overrun_policy 三档：`allow` / `degrade`（切 LLM_DEGRADED_MODEL）/ `block`（429）。
+- `charge(session_id, tokens, ...)`：上报 token 使用（采样估算+模型 pricing metadata）。全程 WAL 持久化。
+
+**`app/api/routes/budget.py`（New ~90 行）**：
+
+- `GET /api/v1/budget/usage`：返回三级用量（session/user/tenant 各自 usage + limit + ratio）。
+- `GET /api/v1/budget/config`：返回 policy + 各级 limit（admin-only if AUTH）。
+
+**前端** `web/src/components/BudgetBar.tsx`（New Top-of-rail）：
+
+- 顶部进度条：day ratio / month ratio 染色（<70% 蓝 / 70–90% 黄 / >90% 红）。
+- 命中高阈值前台可见告警；`SkeletonLine` 骨架屏。
+
+**`tests/test_budget.py` + `tests/test_budget_api.py`（New ~220 行）**：18 cases → **18 passed**。
+
+### P0 — Prompt 注入防御 + 用户输入清洗层
+
+**`app/infrastructure/llm/guard.py`（New ~220 行）**：
+
+- `SanitizeResult` dataclass（text / warnings / risk_score / action_taken）。
+- `PromptGuard.sanitize_user_input(text)`：正则匹配已知注入载荷池；命中 + `action_taken=redact` → `[REDACTED]` 替换；`action_taken=block` 直接抛 `SecurityRiskDetected`。
+- `PromptGuard.harden_system_prompt(system_prompt)`：追加 role-marker + 清理 residual instruction。
+- **Fail-open 铁律**：任何内部异常 → 原样透传 + logger.warning（绝不打挂主分析）。
+
+**`tests/test_prompt_guard.py`（New 8 cases）**：→ **8 passed**。
+
+### P0 — Self-Consistency（analyst 多次采样投票 + 一致性率入 metadata）
+
+**`app/core/agents/data_analyst/self_consistency.py`（New ~170 行）**：
+
+- `extract_metric(text)`：抽取首个数值型结论（保留 1 位小数，去单位）。
+- `consensus_pick(samples, temperature=0.7, n=3)`：`asyncio.gather` 多采样，频率最高值作为 consensus；计算 `consistency_rate = 赞同共识的样本数 ÷ n` → 入 metadata。
+- 一致性率低于阈值 → logger.warning（便于 LangFuse 告警降级）。
+
+**`tests/test_self_consistency.py`（New 6 cases）**：→ **6 passed**。
+
+### P0 — 上下文窗口治理（旧消息摘要压缩 + token 预算硬上限）
+
+**`app/core/memory/compression.py`（New ~340 行）**：
+
+- `ContextCompressor.compress_tool_result(text, max_chars=500)`：头尾各留 40% + 中段截断 + 行数统计。
+- `ContextCompressor.summarize_report_for_history(report, max_chars=300)`：保留 executive_summary + 核心指标数值。
+- `ContextCompressor.count_messages_tokens(messages)`：近似 token 计数（4 chars ≈ 1 token）。
+- `ContextOverflow` exception → status="CONTEXT_OVERFLOW" → 前端提示"请精简问题 / 新开对话"。
+
+**接入点** `graph.py::_drive_sync`：`run_planner` 前做 sanity 检查；`run_reflection` 后、REPLAN 前做一次主动压缩。
+
+**`tests/test_context_compression.py`（New 7 cases）**：→ **7 passed**。
+
+### P1 — Workflow Job 模块（threading scheduler + webhook 回调）
+
+**`app/infrastructure/jobs/jobs.py`（New ~340 行）**：
+
+- `JobScheduler`：`threading.Timer` 驱动（MVP 原地替代 APScheduler）；支持 `daily@HH:MM` / `monthly@DD@HH:MM` 周期调度 + `run_once_at` 一次性。
+- `WorkflowJob` dataclass：`{id, owner_sub, tenant_id, name, query_template, schedule, run_once_at, webhook_url, ...}`。
+- `render_template()`：替换 `{{today}}` / `{{last_month}}` / `{{now}}`。
+- SQLite (`data/jobs/jobs.db` WAL) 持久化 + lazy schema（`_SCHEMA_ENSURED` 防重复建表）。
+- Webhook POST（urllib.request）吞异常：回调失败不影响 job 记录。
+
+**`app/api/routes/jobs.py`（New ~180 行）**：
+
+- 6 REST 端点：POST/GET/GET{id}/PATCH/DELETE/POST{id}/run。
+- `current_principal()` + `_job_or_404` 鉴权（owner/sub 或 admin）。
+- Max jobs 上限（`settings.workflow_jobs_max_per_user`，默认 10）。
+
+**`tests/test_workflow_jobs.py`（New 9 cases）**：→ **9 passed**。
+
+### P1 — Agent Debug Replay CLI
+
+**`scripts/replay.py`（New ~250 行）**：
+- `replay show <sid>`：summary 视图（各阶段耗时 + 摘要）。
+- `replay run <sid> [--tools ...]`：重放 trace，`_apply_tool_overrides` 替换 REGISTRY 上的工具实现（退出时恢复）。
+- `replay diff <sid>`：列出历史 traces 对比。
+- 由 `conda run` 启动（走项目 env）→ 不依赖 shell 相对路径。
+
+**`tests/test_replay.py`（New 7 cases）**：→ **7 passed**。
+
+### P1 — LangFuse 集成（env 开关 → 双写 + flush on shutdown）
+
+**`app/infrastructure/observability/langfuse.py`（New ~140 行）**：
+
+- Env 门控：未配 `LANGFUSE_SECRET_KEY` + `LANGFUSE_PUBLIC_KEY` → `init()` 返回 False → all no-op。
+- `emit_span(name, trace_id, status, duration_ms, input, output, metadata)`：双写一块 span 到 LangFuse trace。
+- `observe_span` 装饰器 + `_NoopSpan` fallback（env 缺失时 `yield` 一个 noop）。
+- `flush()` 干净关闭。
+
+**`app/infrastructure/observability/tracing.py`**：端点 `Tracer.end()` 末尾追加 `emit_span(...)` 回调 → 本地 JSONL 与 LangFuse 云端互为备份、互不依赖；任何异常被吞（本地 trace 永不依赖 LangFuse）。
+
+**`app/main.py`**：`lifespan` teardown 追加 `_lf_flush()`。
+
+**`tests/test_langfuse.py`（New 5 cases）**：→ **5 passed**。
+
+### 验收
+
+| 维度 | 结果 |
+|---|---|
+| `tsc --noEmit` | **0 errors** |
+| 本轮新增 cases | budget 18 + guard 8 + self_consistency 6 + ctx 7 + workflow_jobs 9 + replay 7 + langfuse 5 = **60 passed** |
+| 主回归 | **全绿 0 failed** |
+| LangFuse 缺包/缺 env 路径 | 纯 no-op（测试 + 代码路径双重守卫） |
+
+### 新增配置（ENV / `.env.example`）
+
+| 分组 | 配置项 |
+|---|---|
+| LangFuse | `LANGFUSE_SECRET_KEY` / `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_HOST` |
+| Workflow | `WORKFLOW_JOBS_ENABLED` / `WORKFLOW_JOBS_MAX_PER_USER` |
+| Budget | `BUDGET_ENABLED` / `PER_SESSION_TOKENS` / `PER_USER_DAILY_TOKENS` / `PER_TENANT_MONTHLY` / `OVERRUN_POLICY` |
+| Guard | `PROMPT_GUARD_ENABLED` / `ACTION` / `LOG_LEVEL` |
+| Context | `CONTEXT_COMPRESSION_ENABLED` / `MAX_TOKENS` / ... |
+| Self-Consistency | `SELF_CONSISTENCY_ENABLED` / `N` / `TEMPERATURE` |
+
+## D63 (2026-09-18) — 广度拓展 P2：Multi-Agent Supervisor + Feedback Loop + Stage-Aware LLM Router
+
+> 本轮 3 项 P2 全部交付；前端 tsc 0 errors、后端 60 cases（含本轮 26 cases 全绿）。
+
+### P2 — Multi-Agent Supervisor（并行子任务调度）
+
+**`app/core/agents/data_analyst/supervisor.py`（新建 ~350 行）**：
+
+- `plan_subtasks(state, max_subtasks=4)`：识别"对比"/"以及"/"vs"等自然语言切分信号，按指标数 × 维度数 决定是否拆分；复杂问题拆为多个独立 SubTask；简单问题 → 单元素列表（直接回落主流水线）。
+- `run_supervisor(parent_state)`：按 priority 拓扑排序 + `ThreadPoolExecutor(max_workers=4)` 并行跑子任务；子任务 pipeline **复用已有 nodes**（`run_context`/`run_planner`/`run_analyst`/`run_reporter`）；任一子任务异常 → 标注失败 + 照常汇总其他子任务；汇总生产 master_report（按章节拼接）+ metadata `{supervisor: {...}}` + 独立 trace JSONL。
+- 配置：`supervisor_enabled`、`max_subtasks`、`supervisor_max_parallel`、`supervisor_timeout_per_subtask_s`。
+
+**`app/core/agents/data_analyst/graph.py`**：`_drive_sync()` 的 `run_planner` 之后、`run_executor_all` 之前插入 Supervisor 触发判断；Supervisor 失败兜底为 metadata 写 fallback_reason + 继续走原流水线。
+
+**`tests/test_supervisor.py`**：6 cases（复杂 query 拆分、简单 query 回落、单 subtask 并行跳过、mock tools 汇总、异常隔离、heuristic 5 条件分支）→ **6 passed**。
+
+### P2 — Feedback Loop（用户反馈 → 落库 → 聚合 + 入 eval set）
+
+**`app/infrastructure/feedback/feedback_store.py`（新建 ~150 行）**：
+
+- SQLite (`data/feedback/feedback.db`)，upsert by `session_id`（UNIQUE + `ON CONFLICT DO UPDATE`）。
+- `submit_feedback(rating, comment, report_snippet, stage_breakdown)`：±2 之外的 rating 抛 ValueError；comment 超 500 字自动截断；任何内部异常静默吞 + logger.warning（永不打挂主 stream）。
+- `aggregate_feedback()`：总数 / 好评率 / 好评数 / 差评数 / 有文字数 / 最近 10 条 / 有文字列表。
+- `low_quality_sessions()`：`rating=-1` 的 session_id 列表 → 供 eval runner 自动提取 bad cases。
+
+**`app/api/routes/feedback.py`（新建 ~100 行）**：
+
+- `POST /api/v1/feedback/{session_id}`：验证 checkpoint 存在 → submit → 201。
+- `GET /api/v1/feedback/{session_id}`：单条查询 / 404。
+- `GET /api/v1/feedback/stats`：聚合统计（admin_only if AUTH）。
+
+**前端** `web/src/components/FeedbackWidget.tsx`（新建）：
+
+- 👍👎 双按钮 + "写几句..." 文本输入；加载 / 成功 / 错误三态；已提交灰掉 + "修改反馈"。
+- `web/src/lib/api.ts`：`submitFeedback`/`fetchFeedback`/`fetchFeedbackStats` + 类型。
+- `web/src/components/Report.tsx`：渲染后插入 `<FeedbackWidget sessionId={...} />`。
+- `web/src/components/AnalyticsView.tsx`：新增"反馈质量" tab（5 KPI + 差评列表 + 文字反馈列表）。
+
+**`tests/test_feedback.py`**：13 cases 全覆盖 → **13 passed**。
+
+### P2 — Stage-Aware LLM Router（按阶段分级路由）
+
+**`app/infrastructure/llm/stage_router.py`（新建 ~132 行）**：
+
+- `STAGE_TIER`：context/planner/executor/reflection → light；analyst/reporter → heavy；vision → 始终 heavy。
+- `StageLLM(BaseLLM)`：组合每个 tier 对应的 `RouterLLM`（带 tier 字段的 provider 列表）；tier 无匹配 → fallback 到 legacy `OpenAILLM`。
+- `_tier_providers(settings, tier)`：从 `LLM_ROUTES` 筛 `tier` 字段匹配的 ModelConfig；未标 tier 的条目走 legacy。
+
+**Router 切换** `router.py::get_llm()`：
+
+- `LLM_ROUTES` 中有任何一条带 `tier` → 启用 `StageLLM`。
+- 无任何 `tier` 字段 → 保持旧 `RouterLLM` 行为不变（**铁律：向后兼容**）。
+
+**`tests/test_stage_llm.py`**：7 cases（light 路由、heavy 路由、fallback legacy、vision 始终 heavy、get_llm 携带/不携带 tier、tier 字段解析）→ **7 passed**；现有 `tests/test_model_router.py` 6 cases 也全绿。
+
+### 验收（铁律 6）
+
+| 维度 | 结果 |
+|---|---|
+| `tsc --noEmit --skipLibCheck -p tsconfig.app.json` | **0 errors** |
+| 本轮新增 26 cases (6 supervisor + 13 feedback + 7 stage_llm) | **26 passed** |
+| 主回归 (response/semantic cache / rbac / model_router) | **34 passed / 0 failed** |
+| 合入回归 (**含主回归 + supervisor/feedback/stage_llm**) | **60 passed / 1 skipped / 0 failed** |
+| 反馈模块对主流水线零污染（submit 异常全静默） | 设计守卫 + 测试覆盖 |
+
+### 深度审计发现（P0 标记 completed）
+
+本轮还审计了此前认为缺失的 P0 项，发现**实为已有**：
+
+| P0 项 | 位置 |
+|---|---|
+| 流式输出 + 取消 | `web/src/lib/api.ts:streamAnalyze` + App.tsx `abortRef` + Composer 停止按钮 + 后端 `chat.py:stream_analysis` SSE |
+| Tool Use 层 | `app/core/tools/__init__.py`（REGISTRY + execute_tool）+ `python_tool.py`（AST guard + subprocess 沙箱）+ `specs.py` |
+
+### D64-D66（下一轮可选，面试讲"规划"已足够）
+
+- D64：Multi-datasource connector plugin 层（MySQL / BigQuery / Snowflake）
+- D65：零停机部署 + k8s manifest（蓝绿 / rolling restart）+ DEPLOY.md
+- D66：Auth 支持 SSO / LDAP + AuthCentre 登录页走真实 OIDC 流程
+
+## D62 (2026-09-18) — 可观测 + 语义缓存：Cost Dashboard + Semantic Cache
+
+> 广度拓展的两项 P1 从"缺失"补到"可用"；P0（流式输出、Tool Use 抽象层）经
+> 审计发现**已有**（标记 completed）。
+
+### P1 — Cost Dashboard（聚合 + 前端视图）
+
+**后端** `app/api/routes/analytics.py`（新建）：
+- `GET /api/v1/analytics/stats?range=24h|7d|30d&session_id=xxx`。
+- 读 `data/traces/*.jsonl`（每文件最后一行 summary），按 mtime 过滤时间范围。
+- 聚合：`totals`（runs / success_rate / avg_duration / p95 / total_tokens / total_cost / avg_tool_calls / avg_runs_per_hour）、`by_stage`、`by_tool`、`hourly`、`recent_runs`、`process_metrics`（Prometheus 快照）。
+- `session_id` 存在时返回该 run 摘要（同 schema，runs=1）。
+- 鉴权：AUTH 开启时取 `current_principal().roles`，非 admin → 403。
+- 路由注册到 `app/main.py`（prefix=api_prefix，tags=["analytics"]）。
+
+**前端** `web/src/components/AnalyticsView.tsx`（新建）：
+- 顶部 4 个 KPI 卡片：总分析数 / 成功率 / 平均耗时（avg + P95）/ Token 消耗。
+- 阶段耗时条形图（planner / executor / analyst / reflection / reporter），纯 CSS flex bar（`bg-brand` + `width: pct%`），零图表库依赖。
+- 工具调用分布（sql / python / knowledge / visualization / …）。
+- 最近 runs 列表（session_id 前 8 位 + 状态色点：OK 绿 / ERROR 红）。
+- 24h / 7d / 30d 切换 tab；错误态红色 banner + 403"需管理员权限"提示。
+
+`web/src/components/AnalyticsView.test.tsx`（新建）：2 个 vitest case（KPI 渲染 + mock fetch）。
+`web/src/components/SideRail.tsx` + `web/src/App.tsx`：左侧 rail 加"控制台"项（`IconChartBar`，来自 `@tabler/icons-react`），view="analytics" 时渲染 `<AnalyticsView />`。
+
+凭证：`conda run -n base python -m pytest tests/test_analytics_stats.py -q` → **7 passed**；`tsc --noEmit --skipLibCheck -p tsconfig.app.json` → **0 errors**。
+
+### P1 — Semantic Cache（hashing trick + SQLite，cosine 召回）
+
+**新建** `app/core/agents/data_analyst/semantic_cache.py`：
+- `embed_query(query, dim=64)`：hashing trick（词袋 → 64 维，确定性、零模型依赖）。
+- SQLite 持久化：`data/cache/semantic_cache.db`，表 `semantic_cache`（session_id / query / embedding_json / state_json / query_hash / created_at），按 `query_hash` + `session_id` 双索引。
+- `get_semantic(session_id, query)` → 同 session cosine ≥ `semantic_cache_similarity_threshold`（默认 0.92）命中，深拷贝 state 并打 metadata `{cache_hit:true, cache_key:"semantic", similarity, matched_query}`。三不存守卫：status ≠ FINISH / report 空 / degraded → 跳过。
+- `put_semantic(session_id, query, state)` → best-effort（任何异常静默 log，不污染主路径）。
+- `clear_semantic(session_id?)` / `semantic_enabled()`。
+
+**接入** `app/core/agents/data_analyst/graph.py`：
+- sync `run_analysis()`：exact-match response_cache 未命中后，进入 `trace_run` 前查 semantic cache；命中直接返回 metadata 标记的 state。末尾 `put_cached` 后调 `put_semantic`。
+- stream `_stream_analysis_inner()`：在生成器最开头（INIT yield 之后）命中即 return；`finally` 块里也调 `_put_semantic`。
+- **两条路径并列**：response_cache（exact-match）与 semantic_cache（近似匹配）独立准入 / 独立淘汰。
+
+**配置** `app/config.py`：
+- `semantic_cache_enabled: bool = True`
+- `semantic_cache_similarity_threshold: float = 0.92`
+- `semantic_cache_embedding_dim: int = 64`
+- `.env.example` 对应 `SEMANTIC_CACHE_ENABLED` / `SEMANTIC_CACHE_SIMILARITY_THRESHOLD`。
+
+凭证：`conda run -n base python -m pytest tests/test_semantic_cache.py tests/test_response_cache.py -q` → **17 passed**（7 semantic + 10 response_cache，后者已对齐 semantic_cache fixture 隔离至 tmp_path）。
+
+### P0 — 审计发现（已有，未改动）
+
+| 项 | 现状 |
+|---|---|
+| 流式输出 | `/api/v1/chat/analyze/stream` SSE + `stream_analysis` 生成器（`app/api/routes/chat.py` L215-380）；前端 `web/src/lib/api.ts:streamAnalyze` + App.tsx 的 `abortRef` + Composer 的 停止按钮 |
+| Tool Use 抽象层 | `app/core/tools/__init__.py`：`REGISTRY` 注册表 + `execute_tool()`（审计/RBAC/速率限制/脱敏/重试）；`app/core/tools/python_tool.py`：AST guard + subprocess 沙箱（超时 + allowlist）；6 个 built-in tools（schema/python/knowledge/visualization/sql/freeform） |
+
 ## D61 (2026-09-17) — 面试短板修复：RAG 基线 + E2E CI 流程落地
 
 > 修复前文「#三一眼可见的短板」中影响面试说服力的 2 项。

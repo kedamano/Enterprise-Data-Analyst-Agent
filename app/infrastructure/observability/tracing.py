@@ -114,6 +114,23 @@ class Tracer:
             _log.info(f"[span] {span.stage:<10} {span.status:<7} "
                       f"{span.duration_ms}ms  run={span.trace_id}")
         _RECENT.append(data)
+        # LangFuse 联动：每个 span 结束都往 LangFuse 推一个观测块（env 未配置时为 noop）。
+        try:
+            from .langfuse import emit_span
+            emit_span(
+                name=span.stage,
+                trace_id=self.run_id,
+                status=span.status,
+                duration_ms=getattr(span, "duration_ms", None),
+                input=getattr(span, "input", None),
+                output=getattr(span, "output", None),
+                metadata={
+                    k: v for k, v in getattr(span, "metadata", {}).items()
+                    if isinstance(v, (str, int, float, bool)) and k != "error"
+                },
+            )
+        except Exception:
+            pass
         if self._active is span:
             self._active = None
 

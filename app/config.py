@@ -161,6 +161,12 @@ class Settings(BaseSettings):
     # mock responder so the full pipeline can run end-to-end without network access.
     mock_llm: bool = False
 
+    # --- Prompt 注入防御 ---
+    # 双层防御：结构清洗 + 注入检测（fail-open；guard 异常绝不影响主分析）。
+    prompt_guard_enabled: bool = True
+    prompt_guard_action: str = "redact"    # passthrough | redact | block
+    prompt_guard_log_level: str = "WARNING"
+
     # --- Enterprise analytical data source (what the agent queries) ---
     # Demo default points to a bundled SQLite sample; production overrides with a
     # postgres/warehouse DSN. Supports dialects: sqlite, postgresql, mysql.
@@ -440,17 +446,112 @@ class Settings(BaseSettings):
     # 按会话隔离；只缓存 FINISH；force_full_rerun 绕过并刷新
     response_cache_enabled: bool = True
     response_cache_ttl_s: float = 3600.0
+    # Semantic 缓存（与 response_cache 并列）：exact-match 未命中时再走语义。
+    # 同 session 内 embedding cosine >= threshold 即命中，不调 LLM。
+    # 用 hashing trick（无需外部模型），存储 SQLite。
+    semantic_cache_enabled: bool = True
+    semantic_cache_similarity_threshold: float = 0.92
+    semantic_cache_embedding_dim: int = 64
     # P1-1 并行化：依赖无关的计划步骤按「波次」并发执行（线程池）。
     # <=1 表示关闭并行、退化为逐步骤顺序执行（与原行为一致）。
     parallel_executor_workers: int = 4
+    # Dxx Supervisor：多 Agent 并行子任务分析
+    supervisor_enabled: bool = True        # 总开关；False → 即使复杂问题也不拆分
+    max_subtasks: int = 4                  # 单次最多拆成多少子任务
+    supervisor_max_parallel: int = 4       # ThreadPoolExecutor 并发 worker 数
+    supervisor_timeout_per_subtask_s: float = 120.0  # 单子任务墙钟超时（秒）
+    # --- Self-Consistency / 多次采样投票 ---
+    # 对 analyst 阶段的「核心结论 + 数值」跑 N 次独立采样（temperature=0.7），
+    # 用启发式协同取共识结果 + 入 consistency metadata。
+    # force_full_rerun 时跳过（用户显式要求重算，不走投票）；MockLLM 模式跳过（每次输出相同）。
+    self_consistency_enabled: bool = True
+    self_consistency_n: int = 3          # 投票次数（采样次数）
+    self_consistency_temperature: float = 0.7  # 采样 temperature（提升多样性）
+    self_consensus_threshold: float = 0.6  # 单指标需 >= 60% 投票一致（ceil(N * 0.6)）
+
     # AgentState 检查点目录（可回放/可续跑）
     checkpoint_dir: str = "data/checkpoints"
     # 长期记忆（跨会话）JSONL 落盘路径（PG 可用时走 PG；此处是可测试/可迁移的兜底位置）
     long_term_path: str = "data/long_term.jsonl"
 
+    # --- 多级 LLM 用量预算 ---
+    budget_enabled: bool = True
+    budget_per_session_tokens: int = 50_000
+    budget_per_user_daily_tokens: int = 200_000
+    budget_per_tenant_monthly_tokens: int = 10_000_000
+    # 超限策略：deny（直接 429）| degrade（降级到便宜模型）| queue（入队择机重试，MVP 走 degrade 兜底）
+    budget_overrun_policy: str = "degrade"
+    # 降级模型名（budget_overrun_policy=degrade 时生效；空 = 不降级，走 deny 语义）
+    budget_degraded_model: str = ""
+
+    # --- 多轮上下文窗口治理 ---
+    # **默认开**：长对话场景下自动压缩旧 tool_result / 旧 report 为摘要，防 token 溢出。
+    # 关闭时 run_cycle 不做任何上下文压缩，messages 持续累增（退回旧行为，便于排障 / 评测基线）。
+    context_compression_enabled: bool = True
+    # 目标上下文上限（工程约束，非模型限制）。总 token 估算超过 compress_threshold × 此值时触发压缩。
+    context_max_tokens: int = 60_000
+    # 触发压缩的阈值比例（0.0~1.0）。0.8 = tokens 达到 max_tokens 的 80% 时开始压缩。
+    context_compress_threshold: float = 0.8
+    # 硬上限：压缩后仍超此值 → 抛 ContextOverflow → status="CONTEXT_OVERFLOW" → 前端提示"请精简问题 / 新开对话"。
+    context_hard_max_tokens: int = 80_000
+    # 压缩后单个 tool_result 的最大字符数（超出部分截断 + 首尾保留 + 行数统计）。
+    context_compress_tool_result_chars: int = 500
+    # 历史 report 压缩为 executive_summary 的最大字符数（保留核心指标数值 + 1-2 句结论）。
+    context_compress_report_chars: int = 300
+
+    # ---- Workflow Jobs（定时 / 一次性调度 + webhook 回调） ----
+    # **默认开**：启用后用户可创建定时 job；分析结果按 schedule 自动跑并推 webhook。
+    workflow_jobs_enabled: bool = True
+    # 单用户最大 job 数（超限 POST 返回 429）。
+    workflow_jobs_max_per_user: int = 10
+
+    # ---- LangFuse 远程可观测（env 开关；不配 LANGFUSE_SECRET_KEY 则纯本地 trace） ----
+    # **默认关**：本地 trace JSONL 不受影响；配对 key 后每个 span 双写到 LangFuse 云端。
+    langfuse_secret_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+
+    # --- AUTH/03 OIDC (Authorization Code Flow, env-gated, fail-open) ---
+    # 与 AUTH/01/02 的分工：前两套解决**身份**（机器 key / 人账号），
+    # 这里解决**外部 IdP 托管认证**（企业微信 / Okta / AzureAD 等 OIDC 兼容方）。
+    # **默认全空** → 整条 OIDC 链路静默不启用，既有行为零影响。
+    # OIDC_ISSUER 配了才算"打开"，缺失其余三项时 build_authorization_url 抛 OIDCNotConfigured。
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_redirect_uri: str = "https://localhost:8000/api/v1/auth/oidc/callback"
+    # .well-known/openid-configuration 的 HTTP 缓存时长（秒）。
+    oidc_discovery_ttl_s: int = 3600
+    # IdP 的 HTTP 请求超时（秒）。
+    oidc_http_timeout_s: float = 10.0
+    # signed cookie 密钥（缺则按启动时间随机生成——重启前端的 state 会失效，
+    # 开发环境够用；生产请显式配一个稳定值）。
+    oidc_cookie_secret: str = ""
+    # cookie 有效期（秒）。
+    oidc_state_ttl_s: int = 600
+
+    # --- HTTPS / mTLS（env-gated，fail-open） ---
+    # 配 SSL_CERT_FILE / SSL_KEY_FILE 即启用 HTTPS 入口（uvicorn ssl_* 参数）。
+    # 都不配 → 退化为纯 HTTP（既有行为不变）。
+    # SSL_CLIENT_CA 配了时 uvicorn 启用 mTLS（验证客户端证书）。
+    ssl_cert_file: str = "certs/server.crt"
+    ssl_key_file: str = "certs/server.key"
+    ssl_client_ca: str = ""
+    # HTTP 监听端口（HTTPS 启用后 HTTP 仅做 308 重定向）。
+    ssl_http_port: int = 8000
+    ssl_https_port: int = 8443
+    # 是否做 HTTP→HTTPS 308 重定向（需要同时开一个 HTTP uvicorn 入口；
+    # 单进程做不到，所以默认关——生产前端的 HTTPS 直接用不着这个）。
+    ssl_return_redirect: bool = False
+
     @property
     def use_mock_llm(self) -> bool:
         return self.mock_llm or not self.llm_api_key
+
+    @property
+    def oidc_enabled(self) -> bool:
+        """OIDC 总开关：issuer + client_id 都配了才算。"""
+        return bool(self.oidc_issuer) and bool(self.oidc_client_id)
 
 
 @lru_cache

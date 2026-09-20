@@ -6,6 +6,7 @@ Mounts health / chat / documents routers and wires CORS + logging. Run with::
 """
 from __future__ import annotations
 
+import logging
 import pathlib
 from contextlib import asynccontextmanager
 
@@ -15,16 +16,20 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from .api.routes import (
+    analytics,
     attachments,
     auth,
+    budget,
     caliber,
     chat,
     datasources,
     debug,
     document,
     export,
+    feedback,
     files,
     health,
+    jobs,
     knowledge,
     mcp,
     mcp_servers,
@@ -34,6 +39,9 @@ from .api.routes import (
 )
 from .config import get_settings
 from .infrastructure.observability.tracing import setup_logging
+from .infrastructure.auth.routes import router as oidc_router
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 setup_logging(settings.log_level)
@@ -84,7 +92,31 @@ async def _lifespan(_app: FastAPI):
         from .core.tools import knowledge_tool
 
         threading.Thread(target=knowledge_tool.warm_up_embedder, daemon=True).start()
+
+    # Workflow Jobs：init DB 路径 + 启动调度
+    if settings.workflow_jobs_enabled:
+        from .infrastructure.jobs import get_scheduler, init_db_path as _init_jobs_db
+
+        _init_jobs_db(str(pathlib.Path("data") / "jobs" / "jobs.db"))
+        pathlib.Path("data").mkdir(exist_ok=True)
+        try:
+            scheduler = get_scheduler()
+            scheduler.start()
+        except Exception as exc:
+            logger.warning("Job scheduler init skipped: %s", exc)
     yield
+
+    # teardown：flush LangFuse 遥测 → 停调度
+    try:
+        from .infrastructure.observability.langfuse import flush as _lf_flush
+        _lf_flush()
+    except Exception:
+        pass
+    try:
+        from .infrastructure.jobs import get_scheduler as _get_shutdown_scheduler
+        _get_shutdown_scheduler().shutdown()
+    except Exception:
+        pass
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=_lifespan)
@@ -160,6 +192,13 @@ app.include_router(mcp.router, prefix=settings.api_prefix)
 app.include_router(mcp_servers.router, prefix=settings.api_prefix)
 app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(security.router, prefix=settings.api_prefix)
+app.include_router(budget.router, prefix=settings.api_prefix)
+app.include_router(analytics.router, prefix=settings.api_prefix)
+app.include_router(feedback.router, prefix=settings.api_prefix)
+if settings.workflow_jobs_enabled:
+    app.include_router(jobs.router, prefix=settings.api_prefix)
+# AUTH/03：OIDC 路由（env-gated；未配置时 /oidc/config 仍 200，/oidc/login 与 /oidc/callback 返回 501）
+app.include_router(oidc_router, prefix=settings.api_prefix)
 app.include_router(ui.router)
 
 # 托管前端构建产物（web/dist）的静态资源
@@ -224,6 +263,39 @@ def _upload_check():
     if p.exists():
         return FileResponse(str(p), media_type="text/html")
     return _missing()
+
+
+# ---------------------------------------------------------------------------- #
+# HTTPS / mTLS 入口（env-gated）
+# ---------------------------------------------------------------------------- #
+_HTTPS_ENABLED = pathlib.Path(settings.ssl_cert_file).exists() and pathlib.Path(settings.ssl_key_file).exists()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    if _HTTPS_ENABLED:
+        ssl_ca = settings.ssl_client_ca if pathlib.Path(settings.ssl_client_ca).exists() else None
+        logger.info(
+            "HTTPS 入口已启用 → https://localhost:%s (mTLS=%s)",
+            settings.ssl_https_port, ssl_ca is not None,
+        )
+        uvicorn.run(
+            "app.main:app",
+            host="0.0.0.0",
+            port=settings.ssl_https_port,
+            ssl_certfile=str(pathlib.Path(settings.ssl_cert_file)),
+            ssl_keyfile=str(pathlib.Path(settings.ssl_key_file)),
+            ssl_ca_certs=ssl_ca,
+            log_level=settings.log_level.lower(),
+        )
+    else:
+        uvicorn.run(
+            "app.main:app",
+            host="0.0.0.0",
+            port=settings.ssl_http_port,
+            log_level=settings.log_level.lower(),
+        )
 
 
 # 应用图标：浏览器 favicon + 侧栏/顶栏品牌 Logo（web/public 下同源单图）。

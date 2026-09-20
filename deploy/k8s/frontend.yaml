@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: edaa-frontend
+  namespace: edaa
+  labels:
+    app: edaa
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: edaa
+    component: frontend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edaa-frontend
+  namespace: edaa
+  labels:
+    app: edaa
+    component: frontend
+    version: blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: edaa
+      component: frontend
+      version: blue
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: edaa
+        component: frontend
+        version: blue
+    spec:
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: frontend
+          image: edaa/frontend:latest
+          ports:
+            - containerPort: 80
+              protocol: TCP
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              component: frontend
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: edaa-frontend-hpa
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: edaa-frontend
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

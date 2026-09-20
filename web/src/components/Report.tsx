@@ -1,3 +1,4 @@
+import { FeedbackWidget } from "./FeedbackWidget";
 import { Markdown } from "./Markdown";
 
 /**
@@ -146,7 +147,7 @@ function normalizeMarkdownTables(md: string): string {
   return text;
 }
 
-export function Report({ raw }: { raw: string }) {
+export function Report({ raw, sessionId }: { raw: string; sessionId?: string }) {
   const { content, degraded } = unwrapReport(raw);
 
   if (degraded) {
@@ -161,5 +162,10 @@ export function Report({ raw }: { raw: string }) {
     );
   }
 
-  return <Markdown>{normalizeMarkdownTables(content)}</Markdown>;
+  return (
+    <>
+      <Markdown>{normalizeMarkdownTables(content)}</Markdown>
+      {sessionId ? <FeedbackWidget sessionId={sessionId} /> : null}
+    </>
+  );
 }

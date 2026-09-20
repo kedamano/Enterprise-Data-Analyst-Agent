@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/query";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { CommandPalette } from "@/components/CommandPalette";
 import {
   ModalProvider,
   Modal,
@@ -7,6 +10,7 @@ import {
   ModalContent,
 } from "@/components/ui/animated-modal";
 import { History, Settings2 } from "@/components/icons";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 import { SideRail } from "@/components/SideRail";
 import { ConversationList } from "@/components/ConversationList";
 import { Welcome } from "@/components/Welcome";
@@ -17,6 +21,7 @@ import { streamAnalyze, isTerminal, uploadAttachments, fetchHealth } from "@/lib
 import type { AgentEvent, HealthInfo } from "@/lib/api";
 import { AuthError } from "@/lib/api";
 import { AuthCentre } from "@/components/AuthCentre";
+import { useOidcCallbackListener } from "@/lib/oidc";
 import { HistoryModal } from "@/components/RailPanels";
 import { KnowledgeView } from "@/components/KnowledgeView";
 import { FilesView } from "@/components/FilesView";
@@ -24,6 +29,8 @@ import { DataSourcesView } from "@/components/DataSourcesView";
 import { SkillsView } from "@/components/SkillsView";
 import { McpView } from "@/components/McpView";
 import { SettingsView } from "@/components/SettingsView";
+import { AnalyticsView } from "@/components/AnalyticsView";
+import { BudgetBar } from "@/components/BudgetBar";
 import { refreshAuth } from "@/lib/user";
 import type { RailView } from "@/components/SideRail";
 import type { Conversation, Message, Attachment } from "@/lib/types";
@@ -39,7 +46,7 @@ function readViewFromHash(): RailView {
   if (!v) return "chat";
   const name = v.startsWith("view=") ? v.slice(5) : "";
   const allowed: RailView[] = [
-    "chat", "knowledge", "files", "datasources", "skills", "mcp", "settings",
+    "chat", "knowledge", "files", "datasources", "skills", "mcp", "settings", "analytics",
   ];
   return allowed.includes(name as RailView) ? (name as RailView) : "chat";
 }
@@ -244,6 +251,14 @@ export default function App() {
   // 放在 App 而非设置页——令牌可能在别处失效，导航栏的用户头像要能反映真实登录态。
   useEffect(() => {
     void refreshAuth();
+  }, []);
+
+  // cmdk 命令面板：主题切换 + 反馈弹窗开关
+  const [feedbackSessionId, setFeedbackSessionId] = useState<string | null>(null);
+  const [themeDark, setThemeDark] = useState(false);
+  const toggleTheme = useCallback(() => {
+    setThemeDark((d) => !d);
+    document.documentElement.classList.toggle("dark");
   }, []);
 
   const clearAllConversations = useCallback(() => {
@@ -468,7 +483,11 @@ export default function App() {
     if (p) void send(p.text, p.attachments, p.skillIds);
   }, [send]);
 
+  // OIDC callback 页在另一个 tab 写完 token 后通过 CustomEvent 通知主页面
+  useOidcCallbackListener(handleAuthed);
+
   return (
+    <QueryClientProvider client={queryClient}>
     <ModalProvider>
       <SidebarProvider>
         <div className="flex h-full w-full overflow-hidden bg-canvas text-ink">
@@ -505,6 +524,7 @@ export default function App() {
           />
 
           <main className="relative flex min-w-0 flex-1 flex-col bg-canvas">
+            {view === "chat" && <BudgetBar />}
             {view !== "chat" ? (
               <div className="min-h-0 flex-1 overflow-hidden">
                 {view === "knowledge" && <KnowledgeView />}
@@ -515,6 +535,7 @@ export default function App() {
                 {view === "settings" && (
                   <SettingsView onClearAll={clearAllConversations} />
                 )}
+                {view === "analytics" && <AnalyticsView />}
               </div>
             ) : (
               <>
@@ -605,6 +626,21 @@ export default function App() {
           onSkip={() => setNeedAuth(false)}
         />
       )}
+
+      {/* cmdk 命令面板 —— Ctrl/Cmd+K 打开 */}
+      <CommandPalette
+        onSwitchView={(v) => setView(v as RailView)}
+        onToggleTheme={toggleTheme}
+        onFeedbackOpen={() => setFeedbackSessionId(activeId)}
+        onNewConversation={() => {
+          newConversation();
+          setView("chat");
+        }}
+      />
+      {feedbackSessionId && (
+        <FeedbackWidget sessionId={feedbackSessionId} />
+      )}
     </ModalProvider>
+    </QueryClientProvider>
   );
 }

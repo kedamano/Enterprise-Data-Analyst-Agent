@@ -13,7 +13,7 @@ class FakeSummarizer(BaseLLM):
         self.text = text
         self.calls = 0
 
-    def complete(self, system, user, stage="", json_mode=False, temperature=None) -> str:
+    def _do_complete(self, system, user, stage="", json_mode=False, temperature=None) -> str:
         self.calls += 1
         return self.text
 
@@ -47,7 +47,7 @@ def test_condense_records_concrete_info_in_prompt():
 
 def test_summarize_degrades_when_llm_fails():
     class Boom(BaseLLM):
-        def complete(self, *a, **k):
+        def _do_complete(self, *a, **k):
             raise ConnectionError
 
     out = summarize_text("A" * 600, llm=Boom())

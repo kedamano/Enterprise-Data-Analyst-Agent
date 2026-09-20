@@ -508,3 +508,22 @@ class AuthConfigResponse(BaseModel):
     password_min_length: int = 8
     has_users: bool = False             # false 时提示"第一个注册者将成为管理员"
     wechat: WeChatStatus = Field(default_factory=WeChatStatus)
+
+
+# --------------------------------------------------------------------------- #
+# Feedback Loop — user ratings / comments on analysis results
+# --------------------------------------------------------------------------- #
+class FeedbackIn(BaseModel):
+    rating: int                                                   # -1 or 1
+    comment: str = ""                                             # optional text (≤500 chars)
+    stage_breakdown: Optional[dict[str, float]] = None            # optional stage scores
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    session_id: str
+    rating: int
+    comment: Optional[str] = None
+    report_snippet: Optional[str] = None
+    stage_breakdown: Optional[dict[str, float]] = None
+    created_at: str

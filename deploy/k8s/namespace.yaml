@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edaa
+  labels:
+    app: edaa
+    environment: production
+    istio-injection: disabled

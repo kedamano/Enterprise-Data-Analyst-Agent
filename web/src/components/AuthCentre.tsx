@@ -2,6 +2,19 @@ import { useEffect, useState } from "react";
 import { setApiKey } from "@/lib/auth";
 import { login, register } from "@/lib/user";
 
+type OidcConfig = { configured: boolean; issuer: string | null };
+
+async function fetchOidcConfig(): Promise<OidcConfig> {
+  try {
+    const r = await fetch("/api/v1/auth/oidc/config");
+    if (!r.ok) return { configured: false, issuer: null };
+    const data = await r.json();
+    return { configured: Boolean(data.configured), issuer: data.issuer ?? null };
+  } catch {
+    return { configured: false, issuer: null };
+  }
+}
+
 /**
  * 整合版登录 / 注册落地页（替代 AuthGate 的单弹窗）。
  *
@@ -30,7 +43,12 @@ export function AuthCentre({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onSkip]);
+  // 探测后端是否配了 OIDC：有 → 显示「使用 OIDC 登录」按钮
+  useEffect(() => {
+    fetchOidcConfig().then((cfg) => setShowOidc(cfg.configured));
+  }, []);
   const [mode, setMode] = useState<Mode>("login");
+  const [showOidc, setShowOidc] = useState(false);
   const [loginName, setLoginName] = useState("");
   const [loginKey, setLoginKey] = useState("");
   const [regName, setRegName] = useState("");
@@ -206,6 +224,15 @@ export function AuthCentre({
             <p className="mt-2 px-4 text-center text-small text-ink-3">
               输入访问密钥，继续之前的会话
             </p>
+            {showOidc && (
+              <button
+                type="button"
+                onClick={() => { location.href = "/api/v1/auth/oidc/login"; }}
+                className="mt-4 h-[38px] w-full rounded-full border-2 border-solid border-brand bg-transparent text-small font-medium text-brand transition hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                使用 OIDC 登录
+              </button>
+            )}
             <input
               type="text"
               value={loginName}
@@ -213,7 +240,7 @@ export function AuthCentre({
               onChange={(e) => setLoginName(e.target.value)}
               placeholder="用户名"
               aria-label="用户名"
-              className="mt-5 w-full rounded-control border border-rule bg-canvas px-3 py-2.5 text-body text-ink outline-none transition focus:border-brand"
+              className="mt-4 w-full rounded-control border border-rule bg-canvas px-3 py-2.5 text-body text-ink outline-none transition focus:border-brand"
             />
             <input
               type="password"

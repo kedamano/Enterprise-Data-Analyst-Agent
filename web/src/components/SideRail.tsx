@@ -14,6 +14,7 @@ import {
   LogIn,
   Sparkles,
   ServerCog,
+  BarChart3,
 } from "@/components/icons";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/Avatar";
@@ -30,7 +31,8 @@ export type RailView =
   | "datasources"
   | "skills"
   | "mcp"
-  | "settings";
+  | "settings"
+  | "analytics";
 
 /** 应用 Logo：品牌图标（web/public/logo.png），同时用于浏览器 favicon。 */
 function Logo() {
@@ -261,6 +263,17 @@ export function SideRail({
             active={view === "mcp"}
           >
             <ServerCog className="h-5 w-5" />
+          </RailLink>
+          <RailLink
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate("analytics");
+            }}
+            title="分析控制台"
+            accent="amber"
+            active={view === "analytics"}
+          >
+            <BarChart3 className="h-5 w-5" />
           </RailLink>
 
           <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-rule" />

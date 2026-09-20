@@ -1,0 +1,168 @@
+# 默认拒绝所有入站/出站流量
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Ingress: 允许 ingress controller → frontend 80
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-frontend
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector:
+    matchLabels:
+      component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80
+---
+# Ingress: 允许 ingress controller → backend 8000
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-backend
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector:
+    matchLabels:
+      component: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+# Backend: 允许 backend → postgres 5432
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-to-postgres
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector:
+    matchLabels:
+      component: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              component: backend
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Backend: 允许 backend → redis 6379
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-to-redis
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector:
+    matchLabels:
+      component: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              component: backend
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# Prometheus: 允许 monitoring namespace → backend /metrics
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector:
+    matchLabels:
+      component: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+# 允许所有 Pod 出站 DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 允许 backend 出站访问外部 API（LLM endpoint）
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-external-egress
+  namespace: edaa
+  labels:
+    app: edaa
+spec:
+  podSelector:
+    matchLabels:
+      component: backend
+  policyTypes:
+    - Egress
+  egress:
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443

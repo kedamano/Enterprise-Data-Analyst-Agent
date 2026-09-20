@@ -315,6 +315,55 @@ export async function uploadAttachments(
   return { ok, failed };
 }
 
+// ---------------------------------------------------------------- Budget（用量预算）
+
+export interface BudgetUsage {
+  session_ratio: number;
+  user_daily_ratio: number;
+  tenant_monthly_ratio: number;
+  user_daily_used?: number;
+  user_daily_limit?: number;
+  tenant_monthly_used?: number;
+  tenant_monthly_limit?: number;
+  overrun_policy?: string;
+}
+
+export interface BudgetConfig {
+  enabled: boolean;
+  per_session_tokens: number;
+  per_user_daily_tokens: number;
+  per_tenant_monthly_tokens: number;
+  overrun_policy: string;
+}
+
+/** GET /api/v1/budget/usage —— 当前用户的日/月用量。 */
+export async function fetchBudgetUsage(signal?: AbortSignal): Promise<BudgetUsage> {
+  const res = await fetch("/api/v1/budget/usage", {
+    headers: { ...authHeaders() },
+    signal,
+  });
+  if (!res.ok) {
+    const authErr = maybeAuthError(res, `获取用量失败 HTTP ${res.status}`);
+    if (authErr) throw authErr;
+    throw new Error(`获取用量失败 HTTP ${res.status}`);
+  }
+  return (await res.json()) as BudgetUsage;
+}
+
+/** GET /api/v1/budget/config —— 服务端预算上限。 */
+export async function fetchBudgetConfig(signal?: AbortSignal): Promise<BudgetConfig> {
+  const res = await fetch("/api/v1/budget/config", {
+    headers: { ...authHeaders() },
+    signal,
+  });
+  if (!res.ok) {
+    const authErr = maybeAuthError(res, `获取预算配置失败 HTTP ${res.status}`);
+    if (authErr) throw authErr;
+    throw new Error(`获取预算配置失败 HTTP ${res.status}`);
+  }
+  return (await res.json()) as BudgetConfig;
+}
+
 export { AuthError };
 
 // ---------------------------------------------------------------- 文件库 / 数据源
@@ -995,4 +1044,105 @@ export function fetchMcpServerTools(
     `/api/v1/mcp/servers/${encodeURIComponent(id)}/tools`,
     { signal },
   );
+}
+
+// ---------------------------------------------------------------- Analytics
+
+export interface AnalyticsStats {
+  range: string;
+  totals: {
+    runs: number;
+    success: number;
+    failed: number;
+    success_rate: number;
+    avg_duration_ms: number;
+    p95_duration_ms: number;
+    total_prompt_tokens: number;
+    total_completion_tokens: number;
+    total_cost_usd: number;
+    avg_tool_calls_per_run: number;
+    avg_runs_per_hour: number;
+  };
+  by_stage: { stage: string; avg_ms: number; count: number }[];
+  by_tool: { tool: string; count: number; avg_ms: number; success_rate: number }[];
+  daily: { hour: string; runs: number; tokens: number }[];
+  recent_runs: { session_id: string; ts: number; duration_ms: number; status: string; tokens: number }[];
+  process_metrics: {
+    counters: Record<string, number>;
+    gauges: Record<string, number>;
+    histograms: Record<string, { n: number; p50: number; p95: number; p99: number; max: number }>;
+  };
+}
+
+/** GET /api/v1/analytics/stats – aggregated trace statistics. */
+export async function fetchAnalyticsStats(
+  range = "24h",
+  sessionId?: string | null,
+  signal?: AbortSignal,
+): Promise<AnalyticsStats> {
+  const params = new URLSearchParams({ range });
+  if (sessionId) params.set("session_id", sessionId);
+  return requestJson<AnalyticsStats>(`/api/v1/analytics/stats?${params}`, { signal });
+}
+
+// ---------------------------------------------------------------- Feedback Loop
+
+export interface FeedbackPayload { rating: 1 | -1; comment?: string; stage_breakdown?: Record<string, number>; }
+
+export interface FeedbackRecord {
+  id: number;
+  session_id: string;
+  rating: number;
+  comment?: string | null;
+  report_snippet?: string | null;
+  stage_breakdown?: Record<string, number> | null;
+  created_at: string;
+}
+
+export async function submitFeedback(sessionId: string, payload: FeedbackPayload): Promise<void> {
+  const res = await fetch(`/api/v1/feedback/${encodeURIComponent(sessionId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const authErr = maybeAuthError(res, `提交反馈失败 HTTP ${res.status}`);
+    if (authErr) throw authErr;
+    let detail = `提交反馈失败 HTTP ${res.status}`;
+    try {
+      const j = (await res.json()) as { detail?: string };
+      if (j?.detail) detail = j.detail;
+    } catch {
+      /* keep */
+    }
+    throw new Error(detail);
+  }
+}
+
+export async function fetchFeedback(sessionId: string): Promise<FeedbackRecord | null> {
+  const res = await fetch(`/api/v1/feedback/${encodeURIComponent(sessionId)}`, {
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const authErr = maybeAuthError(res, `获取反馈失败 HTTP ${res.status}`);
+    if (authErr) throw authErr;
+    throw new Error(`获取反馈失败 HTTP ${res.status}`);
+  }
+  return (await res.json()) as FeedbackRecord;
+}
+
+// ---------------------------------------------------------------- Feedback stats (admin)
+
+export interface FeedbackStats {
+  total: number;
+  thumbs_up: number;
+  thumbs_down: number;
+  satisfaction_rate: number;
+  recent_10: { session_id: string; rating: number; comment: string | null; report_snippet: string | null; created_at: string }[];
+  comments_with_text: { session_id: string; rating: number; comment: string | null; created_at: string }[];
+}
+
+export async function fetchFeedbackStats(signal?: AbortSignal): Promise<FeedbackStats> {
+  return requestJson<FeedbackStats>("/api/v1/feedback/stats", { signal });
 }

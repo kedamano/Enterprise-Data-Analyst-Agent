@@ -2,7 +2,7 @@
 // 用法：在 loading=true 分支渲染 <Skeleton /> 替代整片空白
 import { cn } from "@/lib/utils";
 
-function SkeletonLine({
+export function SkeletonLine({
   className,
   style,
 }: {

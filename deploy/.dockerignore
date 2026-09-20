@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Node
+node_modules
+npm-debug.log*
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+.pytest_cache
+.mypy_cache
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Tests
+tests/
+e2e/
+test-results/
+playwright-report/
+
+# Env
+.env
+.env.*
+*.local
+
+# Docs
+*.md
+deploy/README.md
+
+# Misc
+*.log
+.DS_Store

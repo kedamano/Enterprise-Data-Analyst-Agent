@@ -121,9 +121,9 @@ class RouterLLM(BaseLLM):
         llms = build_candidates(configs, settings)
         return cls(list(zip(configs, llms)), settings)
 
-    def complete(self, system: str, user: str, stage: str = "",
-                 json_mode: bool = False,
-                 temperature: Optional[float] = None) -> str:
+    def _do_complete(self, system: str, user: str, stage: str = "",
+                     json_mode: bool = False,
+                     temperature: Optional[float] = None) -> str:
         if not self.providers:
             raise RuntimeError("RouterLLM 无候选模型")
         configs = [c for c, _ in self.providers]
@@ -133,7 +133,7 @@ class RouterLLM(BaseLLM):
         for cfg in ordered_candidates(configs, self.rng):
             cand = by_config[cfg]
             try:
-                return cand.complete(system, user, stage, json_mode, temperature)
+                return cand._do_complete(system, user, stage, json_mode, temperature)
             except Exception as exc:  # 候选自带熔断/重试，失败即换下一个
                 last = exc
                 logger.warning("model candidate failed (%s): %s", cfg.model, exc)
@@ -143,4 +143,4 @@ class RouterLLM(BaseLLM):
             raise last or RuntimeError("all model candidates failed")
         logger.error("all %d model candidates failed; falling back to mock", len(self.providers))
         record_fallback(stage, last or RuntimeError("all candidates failed"))
-        return MockLLM().complete(system, user, stage, json_mode, temperature)
+        return MockLLM()._do_complete(system, user, stage, json_mode, temperature)

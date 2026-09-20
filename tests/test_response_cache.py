@@ -18,11 +18,19 @@ def cache_env(monkeypatch, tmp_path):
     monkeypatch.setenv("REDIS_URL", "")
     monkeypatch.setenv("CHECKPOINT_DIR", str(tmp_path / "ck"))
     monkeypatch.setenv("RESPONSE_CACHE_ENABLED", "true")
+    # 隔离语义缓存到 tmp_path，避免测试数据污染响应缓存测试（二者共享 SQLite 文件）
+    monkeypatch.setenv("SEMANTIC_CACHE_DB_PATH", str(tmp_path / "semantic_cache.db"))
     get_settings.cache_clear()
     reset_llm()
     short_term._store.clear()
     response_cache.clear()
+    # 重置语义缓存连接（让新 DB 路径生效）
+    from app.core.agents.data_analyst.semantic_cache import _reset_connection, clear_semantic
+    _reset_connection()
+    clear_semantic()
     yield
+    clear_semantic()
+    _reset_connection()
     get_settings.cache_clear()
     reset_llm()
     short_term._store.clear()
@@ -131,6 +139,7 @@ def test_force_full_rerun_bypasses_and_refreshes(cache_env, spy_context):
 
 def test_cache_can_be_disabled(cache_env, spy_context, monkeypatch):
     monkeypatch.setenv("RESPONSE_CACHE_ENABLED", "false")
+    monkeypatch.setenv("SEMANTIC_CACHE_ENABLED", "false")
     get_settings.cache_clear()
 
     from app.core.agents.data_analyst.graph import run_analysis

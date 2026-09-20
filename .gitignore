@@ -74,3 +74,32 @@ Thumbs.db
 
 # ---------- 工作记忆与 Agent 运行时目录 ----------
 .workbuddy/
+
+# ---------- D64-D69 新增排除 ----------
+# 本地 scratch（单下划线前缀 = 临时实验）
+_ab_*.py
+_cmp_*.py
+_check_*.py
+_find_*.py
+_map_*.py
+_probe_ports.py
+_prove_*.py
+_repro_*.py
+_run_build.py
+_scan_asar*.py
+_seed_demo_assets.py
+_swap_icons.py
+_verify_*.py
+_ports.txt
+scripts/_gen_arch_pptx.py
+scripts/build_readme_preview.py
+# A/B 测试中间产物
+web/_ab_*.json
+web/_oxlint_icons.txt
+web/_tsc_icons.txt
+web/_vt_*.txt
+web/public/_logo_backup_*/
+# demo seed 输出
+demo_ws/
+# 临时测试输出
+_tmp_*.txt

@@ -35,3 +35,12 @@ unstructured>=0.13
 psycopg2-binary>=2.9
 # MySQL 方言驱动（SQLAlchemy mysql+pymysql://…）；只读守卫/跨方言 live 验证需要
 pymysql>=1.1
+
+# AUTH/03：OIDC Authorization Code Flow（env-gated / fail-open）
+authlib>=1.3
+PyJWT>=2.8
+cryptography>=44
+httpx>=0.27
+
+# 自签 CA + server/client 证书（本机 HTTPS / mTLS 联调用，trustme >= 0.9）
+trustme>=0.9

@@ -10,11 +10,16 @@
 [![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![ARQ](https://img.shields.io/badge/ARQ-Redis-FF4438?logo=redis&logoColor=white)](https://arq-docs.helpmanual.io/)
+[![Kubernetes](https://img.shields.io/badge/K8s-Ready-326CE5?logo=kubernetes&logoColor=white)](deploy/k8s/)
+[![Tests](https://img.shields.io/badge/pytest-1686%2B%20passed-brightgreen)](#后端测试)
 [![License](https://img.shields.io/badge/License-Internal-lightgrey)](#)
 
 </div>
 
 > **RAG 基准（合成语料，offline）：Recall@1 37.5% · Recall@3 68.1% · Recall@5 75.0%。** 完整报告见 [benchmarks/RESULTS.md](benchmarks/RESULTS.md)。
+>
+> **D65-D69 (2026-09-19) 新交付：** ARQ Redis 调度 · TanStack Query + cmdk 前端 · MTLS/OIDC 认证 · K8s 蓝绿部署 · [架构总览 PPT](docs/Enterprise-Data-Analyst-Arch.pptx) · [演练手册](docs/E2E_RUNBOOK.md)。详见 [CHANGELOG D64](CHANGELOG.md#d64-2026-09-19--)。
 
 ---
 
@@ -856,6 +861,19 @@ P50 **77.7ms**（缓存命中，整链 0 次 LLM 调用）vs P95 **3773ms**（�
 |---|---|---|
 | [DeepAnalyze](https://github.com/ruc-datalab/DeepAnalyze)（人大 / 清华） | 自主数据科学 Agent 的「思考-写码-执行-回答」闭环、**受限沙箱执行**、多界面形态 | 本项目 `python_analysis` 的沙箱思路来源于此；编排形态不同 |
 | [ai-agent-interview-guide / project-python](https://github.com/bcefghj/ai-agent-interview-guide) | 企业级分层骨架（api / core / infrastructure / etl / models）与**依赖选型**、基础设施可选降级 | 该项目的编排为手写 ReAct / Plan-and-Execute 且未用 LangGraph；本项目的 6 阶段编排与 `core/prompts`、`core/agents` 目录是依规格说明书自行设计 |
+
+### 13-B. 部署与运维（D65-D69 新增）
+
+- **Kubernetes：** 17 个清单覆盖 Deployment / HPA / Ingress / NetworkPolicy / ServiceMonitor，详见 [`deploy/README.md`](deploy/README.md)。
+- **本地一键 Kind：** `deploy/scripts/kind-bootstrap.sh` 装集群 + ingress + cert-manager + Prometheus + 全套部署。
+- **蓝绿切换：** `deploy/scripts/blue-green-switch.sh <blue\|green> <image-tag>` 切版本、`rollout status` 等待、失败自动 `rollout undo`。
+- **形态：** 多阶段 Docker 构建（backend slim + frontend nginx）+ initContainer 等 PG/Redis 就绪 + `preStop` 优雅下线。
+
+### 13-C. 演示与面试材料
+
+- **架构总览 PPT：** [`docs/Enterprise-Data-Analyst-Arch.pptx`](docs/Enterprise-Data-Analyst-Arch.pptx)（8 页中文，每页附讲者备注）。
+- **端到端演练手册：** [`docs/E2E_RUNBOOK.md`](docs/E2E_RUNBOOK.md)。
+- **变更日志 / 用法：** [`CHANGELOG.md`](CHANGELOG.md) · [`USAGE_UPDATE.md`](USAGE_UPDATE.md)。
 
 ---
 

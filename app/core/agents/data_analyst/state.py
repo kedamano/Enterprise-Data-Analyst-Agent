@@ -22,6 +22,7 @@ AgentStatus = Literal[
     "CLARIFY",   # CLARIFY/01：一次对话回合的终止态（等用户回答）
     "ERROR",
     "FAILED",
+    "CONTEXT_OVERFLOW",  # 多轮上下文窗口治理：压缩后仍超上限 → 前端提示"请精简问题 / 新开对话"
 ]
 
 
