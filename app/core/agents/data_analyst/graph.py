@@ -451,7 +451,17 @@ def run_analysis(session_id: str, user_query: str, history: list | None = None,
 
     # INTERVIEW/01 ④：请求级缓存——同会话同问直接命中，省下整条链的 LLM 调用。
     # force_full_rerun 是"用户显式要求重算"，绕过缓存并刷新它。
-    if _cache_enabled() and not force_full_rerun and session_id:
+    # 增量 query（is_followup）不走**语义**缓存：增量检测依赖当前数据集状态做
+    # guard，命中缓存的其他调用结果（全链回退 / 增量执行）会导致错配——同一文本
+    # 增量意图的 guard 结果因数据集演化而不同，必须实时走 _try_iteration。
+    _is_followup = False
+    try:
+        from .iteration import is_followup as _is_followup_fn
+        _is_followup = _is_followup_fn(user_query)
+    except Exception:
+        pass
+
+    if _cache_enabled() and not force_full_rerun and session_id and not _is_followup:
         cached = get_cached(session_id, user_query)
         if cached:
             try:
@@ -463,7 +473,7 @@ def run_analysis(session_id: str, user_query: str, history: list | None = None,
                 pass  # 反序列化失败 → 当作未命中
 
     # ---- Semantic 缓存（exact-match 未命中时再走语义）----
-    if _semantic_enabled() and not force_full_rerun and session_id:
+    if _semantic_enabled() and not force_full_rerun and session_id and not _is_followup:
         hit = get_semantic(session_id, user_query)
         if hit is not None:
             hit.metadata["cache_key"] = "semantic"

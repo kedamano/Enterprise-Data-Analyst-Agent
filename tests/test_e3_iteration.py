@@ -20,9 +20,20 @@ from app.infrastructure.llm.router import reset_llm
 def mock_env(monkeypatch, tmp_path):
     monkeypatch.setenv("MOCK_LLM", "true")
     monkeypatch.setenv("CHECKPOINT_DIR", str(tmp_path / "ck"))
+    # 清缓存：响应缓存（_MEM）+ 语义缓存（SQLite）都是跨测试持久化的，
+    # 不清理会因命中旧 session 的缓存增量结果导致后续测试误判为 iteration。
+    from app.core.agents.data_analyst.response_cache import clear as _clear_resp
+    from app.core.agents.data_analyst.semantic_cache import _reset_connection, clear_semantic
+
+    _clear_resp()
+    clear_semantic(None)
+    _reset_connection()
     get_settings.cache_clear()
     reset_llm()
     yield
+    _clear_resp()
+    clear_semantic(None)
+    _reset_connection()
     get_settings.cache_clear()
     reset_llm()
 
