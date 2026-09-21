@@ -83,6 +83,8 @@ export function ChatMessage({ message, sessionId, onAnswer }: {
 }) {
   const [copied, setCopied] = useState(false);
 
+  if (!message) return null;
+
   if (message.role === "user") {
     const attachments = message.attachments ?? [];
     return (

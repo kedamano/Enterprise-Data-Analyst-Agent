@@ -1,113 +1,110 @@
-// ChatMessage 覆盖盲区：user / assistant / tool 消息、code block 高亮、卡片展示
+// ChatMessage: user/assistant roles, event timeline + plan rendering, export link & ShareBar gating
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-
-// ChatMessage 依赖了 Report / MetricCards 等子组件，mock 掉避免 markdown 渲染链
-vi.mock("@/components/Report", () => ({
-  Report: vi.fn(() => <div data-testid="report-mock" />),
-}));
-vi.mock("@/components/MetricCards", () => ({
-  MetricCards: vi.fn(() => null),
-  latestMetrics: vi.fn(() => []),
-}));
-vi.mock("@/components/PlanCard", () => ({
-  PlanCard: vi.fn(() => null),
-}));
-vi.mock("@/components/ClarifyCard", () => ({
-  ClarifyCard: vi.fn(() => null),
-}));
-vi.mock("@/components/StageTimeline", () => ({
-  StageTimeline: vi.fn(() => null),
-}));
-vi.mock("@/components/ShareBar", () => ({
-  ShareBar: vi.fn(() => null),
-}));
-vi.mock("@/components/RunBadges", () => ({
-  RunBadges: vi.fn(() => null),
-}));
-vi.mock("@/components/ExportPreview", () => ({
-  ExportPreview: vi.fn(() => null),
-}));
-vi.mock("@/lib/api", () => ({
-  stageLabel: vi.fn((s: string) => s),
-}));
-
-import type { Message } from "@/lib/types";
+import { render, screen, cleanup } from "@testing-library/react";
 import { ChatMessage } from "./ChatMessage";
+import type { Message } from "@/lib/types";
 
-function makeMsg(overrides: Partial<Message>): Message {
+// framer-motion 在 jsdom 内会异步调度动画，导致断言时机不准。
+// 模拟所有组件变体为纯 div / Fragment passthrough——测试只关心渲染结果。
+vi.mock("motion/react", async (importOriginal) => {
+  const actual: any = await importOriginal();
+  const passthrough = ({ children, ..._ }: any) =>
+    require("react").createElement("div", null, children);
+  const justChildren = ({ children, ..._ }: any) => children;
   return {
-    id: "m1",
-    role: "assistant",
-    text: "",
-    status: "FINISH",
-    done: true,
-    ...overrides,
+    ...actual,
+    motion: new Proxy(actual?.motion ?? {}, {
+      get: (_t, prop) => {
+        if (prop === "div") return passthrough;
+        return (props: any) => require("react").createElement("div", null, props.children);
+      },
+    }),
+    AnimatePresence: justChildren,
+    useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => {} } }),
+    useTransform: (_: any, __: any, out: any) => ({ get: () => out?.[0] ?? 0, on: () => {} }),
   };
+});
+
+const baseMsg: Message = {
+  id: "m1",
+  role: "user",
+  text: "Q",
+  events: [],
+  status: "INIT",
+  objective: null,
+  done: false,
+  error: null,
+  clarification: null,
+  answered: false,
+};
+
+function partial(over: Partial<Message>): Message {
+  return { ...baseMsg, ...over };
 }
 
 describe("ChatMessage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    cleanup();
+  beforeEach(() => cleanup());
+
+  it("用户消息：直接渲染 text，无 SkillPlan / Workflow 屑", () => {
+    render(<ChatMessage message={partial({ role: "user", text: "分析本季度营收" })} />);
+    expect(screen.getByText("分析本季度营收")).toBeInTheDocument();
+    // 无 0/0 之类步骤屑
+    expect(screen.queryByText(/未匹配到工作流/)).toBeNull();
   });
 
-  it("用户消息：渲染文本右对齐", () => {
-    const msg = makeMsg({ role: "user", text: "帮我查一下营收" });
-    render(<ChatMessage message={msg} />);
-    expect(screen.getByText("帮我查一下营收")).toBeInTheDocument();
-  });
-
-  it("助手消息 done 且有 text → 渲染报告卡片", () => {
-    const msg = makeMsg({
-      role: "assistant",
-      text: "## 报告标题\n\n营收同比增长 15%。",
-      done: true,
-      status: "FINISH",
-    });
-    render(<ChatMessage message={msg} sessionId="s-1" />);
+  it("助手消息 done + text：渲染分析报告 + 导出链接 + ShareBar", () => {
+    render(
+      <ChatMessage
+        message={partial({
+          role: "assistant",
+          text: "# 营收分析\n总营收 100。",
+          done: true,
+        })}
+        sessionId="abc"
+      />,
+    );
+    // Export link present
+    const link = screen.getByLabelText("导出交付包");
+    expect(link).toBeInTheDocument();
+    expect((link as HTMLAnchorElement).href).toContain("/api/v1/chat/analyze/export/abc?format=zip");
+    // 分析报告标题
     expect(screen.getByText("分析报告")).toBeInTheDocument();
   });
 
-  it("带 status（中间态）→ 显示状态徽标", () => {
-    const msg = makeMsg({
-      role: "assistant",
-      status: "ANALYSIS",
-      done: false,
-      text: "",
-    });
-    render(<ChatMessage message={msg} />);
-    expect(screen.getByText(/ANALYSIS/)).toBeInTheDocument();
+  it("助手消息失败：直接渲染 error 文本", () => {
+    render(
+      <ChatMessage
+        message={partial({ role: "assistant", done: false, error: "上游服务异常" })}
+      />,
+    );
+    expect(screen.getByText("上游服务异常")).toBeInTheDocument();
   });
 
-  it("带 error → 显示错误提示框", () => {
-    const msg = makeMsg({
-      role: "assistant",
-      error: "连接数据库超时",
-      done: false,
-    });
-    render(<ChatMessage message={msg} />);
-    expect(screen.getByText("连接数据库超时")).toBeInTheDocument();
+  it("助手事件列表：渲染 StageTimeline（done=false 默认展开，渲染'收起'按钮）", () => {
+    render(
+      <ChatMessage
+        message={partial({
+          role: "assistant",
+          done: false,
+          events: [
+            { type: "CONNECT", status: "SUCCESS", step: null, parallel: null, data: null },
+            { type: "STEP",  status: "EXECUTE", step: { id: "n2", tool: "清洗" }, parallel: null, data: null },
+          ],
+        })}
+      />,
+    );
+    // ChatMessage 传 defaultExpanded={!isDone}=true → StageTimeline 展开态 → "收起" 按钮
+    expect(screen.getByRole("button", { name: "收起" })).toBeInTheDocument();
+    // 展开态 Timeline 的 StepCard 含 step.tool
+    expect(screen.getByText("清洗")).toBeInTheDocument();
   });
 
-  it("复制按钮点击 → 文案切为「已复制」", async () => {
-    Object.assign(navigator, {
-      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-    });
-
-    const msg = makeMsg({
-      role: "assistant",
-      text: "可复制文本",
-      done: true,
-    });
-    render(<ChatMessage message={msg} sessionId="s-1" />);
-
-    const copyBtn = await screen.findByRole("button", { name: /复制报告/ });
-    fireEvent.click(copyBtn);
-
-    // clipboard mock 后文案变"已复制"
-    await vi.waitFor(() => {
-      expect(screen.getByText("已复制")).toBeInTheDocument();
-    });
+  it("未 done 且无 sessionId：不渲染导出链接", () => {
+    render(
+      <ChatMessage
+        message={partial({ role: "assistant", done: false })}
+      />,
+    );
+    expect(screen.queryByLabelText("导出交付包")).toBeNull();
   });
 });

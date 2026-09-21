@@ -26,6 +26,8 @@ try:
     from arq.connections import RedisSettings
 except ImportError:  # arq 未装 → 占位
     arq = None  # type: ignore[assignment]
+    cron = None  # type: ignore[assignment]
+    RedisSettings = None  # type: ignore[assignment]
 
 # 每 tick 最多并发执行多少个 job（防 worker 超载）
 _MAX_CONCURRENCY = int(os.getenv("ARQ_JOB_CONCURRENCY", "4"))
@@ -157,19 +159,34 @@ class WorkerSettings:
 
     env 需要 ``redis://...``。
     """
+
     functions = []
-    cron_jobs = [cron(_arq_tick, second={0, 30}, run_at_startup=False)]
-    redis_settings = RedisSettings.from_dsn(_redis_url) if _redis_url else None
-    job_timeout = 600
-    max_jobs = _MAX_CONCURRENCY
-    sem = asyncio.Semaphore(_MAX_CONCURRENCY)
 
-    async def on_startup(self, ctx):
-        ctx["_semaphore"] = self.sem
-        logger.info("ARQ worker started (redis=%s)", _redis_url[:20] + "..." if _redis_url else "(fallback)")
 
-    async def on_shutdown(self, ctx):
-        logger.info("ARQ worker shutdown")
+if cron is not None and RedisSettings is not None:
+    # arq 已装 → 填上 cron_jobs / redis_settings（模块加载时求值，必须在 arq 可用时）
+    WorkerSettings.cron_jobs = [cron(_arq_tick, second={0, 30}, run_at_startup=False)]  # type: ignore[attr-defined]
+    WorkerSettings.redis_settings = RedisSettings.from_dsn(_redis_url) if _redis_url else None  # type: ignore[attr-defined]
+else:
+    WorkerSettings.cron_jobs = []  # type: ignore[attr-defined]
+    WorkerSettings.redis_settings = None  # type: ignore[attr-defined]
+
+WorkerSettings.job_timeout = 600
+WorkerSettings.max_jobs = _MAX_CONCURRENCY
+WorkerSettings.sem = asyncio.Semaphore(_MAX_CONCURRENCY)
+
+
+async def on_startup(self, ctx):
+    ctx["_semaphore"] = self.sem
+    logger.info("ARQ worker started (redis=%s)", _redis_url[:20] + "..." if _redis_url else "(fallback)")
+
+
+async def on_shutdown(self, ctx):
+    logger.info("ARQ worker shutdown")
+
+
+WorkerSettings.on_startup = on_startup
+WorkerSettings.on_shutdown = on_shutdown
 
 
 def arq_available() -> bool:
