@@ -44,6 +44,26 @@ vi.mock("@/lib/user", () => ({
 import { SecurityPanel } from "./SecurityPanel";
 import { changePassword, fetchMySessions } from "@/lib/user";
 
+/**
+ * SecurityPanel 的 Row 用 div 做标签（无 label-for / id 关联），
+ * 无法用 getByLabelText 访问。按顺序取密码输入框。
+ */
+function getPasswordInputs(): {
+  oldPwd: HTMLInputElement;
+  newPwd: HTMLInputElement;
+  confirm: HTMLInputElement;
+} {
+  const pw = document.querySelectorAll<HTMLInputElement>("input[type=password]");
+  if (pw.length < 3) {
+    throw new Error(`期望 3 个密码输入框，实际只有 ${pw.length} 个`);
+  }
+  return {
+    oldPwd: pw[0],
+    newPwd: pw[1],
+    confirm: pw[2],
+  };
+}
+
 describe("SecurityPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -54,12 +74,11 @@ describe("SecurityPanel", () => {
     render(<SecurityPanel />);
     await screen.findByText("登录密码");
 
-    fireEvent.change(screen.getByLabelText("当前密码"), {
-      target: { value: "SamePwd01" },
-    });
-    fireEvent.change(screen.getByLabelText("新密码"), {
-      target: { value: "SamePwd01" },
-    });
+    const { oldPwd, newPwd, confirm } = getPasswordInputs();
+
+    fireEvent.change(oldPwd, { target: { value: "SamePwd01" } });
+    fireEvent.change(newPwd, { target: { value: "SamePwd01" } });
+    fireEvent.change(confirm, { target: { value: "SamePwd01" } });
 
     await waitFor(() => {
       expect(screen.getByText("新密码不能与当前密码相同")).toBeInTheDocument();
@@ -85,15 +104,17 @@ describe("SecurityPanel", () => {
   it("改密：两次不一致 → 不调用 changePassword", async () => {
     render(<SecurityPanel />);
 
-    await screen.findByText("登录密码");
+    const { newPwd, confirm } = getPasswordInputs();
 
-    fireEvent.change(screen.getByLabelText("新密码"), {
-      target: { value: "NewPass123" },
+    fireEvent.change(newPwd, { target: { value: "NewPass123" } });
+    fireEvent.change(confirm, { target: { value: "Diff45678" } });
+
+    await waitFor(() => {
+      expect(screen.getByText("两次输入的新密码不一致")).toBeInTheDocument();
     });
-    fireEvent.change(screen.getByLabelText("确认新密码"), {
-      target: { value: "Diff45678" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /更新密码/ }));
+
+    const updateBtn = screen.getByRole("button", { name: /更新密码/ });
+    fireEvent.click(updateBtn);
 
     expect(changePassword).not.toHaveBeenCalled();
   });
@@ -104,15 +125,11 @@ describe("SecurityPanel", () => {
 
     await screen.findByText("登录密码");
 
-    fireEvent.change(screen.getByLabelText("当前密码"), {
-      target: { value: "OldPwd01" },
-    });
-    fireEvent.change(screen.getByLabelText("新密码"), {
-      target: { value: "NewPass123" },
-    });
-    fireEvent.change(screen.getByLabelText("确认新密码"), {
-      target: { value: "NewPass123" },
-    });
+    const { oldPwd, newPwd, confirm } = getPasswordInputs();
+
+    fireEvent.change(oldPwd, { target: { value: "OldPwd01" } });
+    fireEvent.change(newPwd, { target: { value: "NewPass123" } });
+    fireEvent.change(confirm, { target: { value: "NewPass123" } });
     fireEvent.click(screen.getByRole("button", { name: /更新密码/ }));
 
     await waitFor(() => {

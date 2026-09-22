@@ -28,7 +28,28 @@ logger = logging.getLogger("da.semantic_cache")
 # 嵌入维度默认 64（可通过 config 覆盖）
 _DEFAULT_DIM = 64
 
-# cosine 实现：优先 numpy，没装退纯 Python
+# 参数化命中风险：query 中含数字/期间 → 同模板仅参数不同时 cosine 仍会很高，
+# 命中则把 A 的结论给 B（例如"2024年总营收"命中"2025年总营收"）。
+# 这类 query 跳过语义缓存，只走精确匹配 response_cache。
+# 注意：同时被 graph.py 的 is_followup 门覆盖（增量 query 完全不走缓存）。
+_PARAMETRIC_RE = re.compile(
+    r"\d|"
+    r"[一二三四五六七八九十]+[个只条件条次]|"
+    r"[0-9]{4}\s*年|"
+    r"[上下本]月|[上下本]周|"
+    r"昨天|今天|明天|去年|今年|明年|"
+    r"前[天周月年]|后[天周月年]"
+)
+
+
+def has_parametric_values(query: str) -> bool:
+    """query 含数字/期间参数 → 跳过语义缓存。
+
+    理由：hashing trick 对数字/期间不敏感（「2024」和「2025」逐字 cosine 仅差 1-2 维），
+    同模板 query 极易跨参数命中。例如"2024年总营收"和"2025年总营收"cosine > 0.95，
+    命中意味着把去年的结论直接给今年 —— 业务错误且不可接受。
+    """
+    return bool(_PARAMETRIC_RE.search(query or ""))
 try:
     import numpy as np
 

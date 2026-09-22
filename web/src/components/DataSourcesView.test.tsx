@@ -51,7 +51,13 @@ describe("DataSourcesView", () => {
 
     expect(await screen.findByText("biz_mysql")).toBeInTheDocument();
     expect(screen.getByText("MySQL")).toBeInTheDocument();
-    expect(screen.getByText(/只读/)).toBeInTheDocument();
+    // 「只读」在卡片和页头副文字里均出现。限定在卡片容器内取第一个。
+    const card = screen.getByText("biz_mysql").closest('[class*="rounded-panel"]');
+    expect(card).toBeTruthy();
+    expect(card!.querySelector("svg")).toBeTruthy();
+    // 页头「只读，不会产生写入」含「只读」；卡片里也有「只读」。用 getAllByText。
+    const readonlyBadges = screen.getAllByText("只读");
+    expect(readonlyBadges.length).toBeGreaterThan(0);
   });
 
   it("空数据源 → 显示「还没有数据源」", async () => {
@@ -77,7 +83,8 @@ describe("DataSourcesView", () => {
     expect(
       await screen.findByRole("dialog", { name: "新建连接" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("连接名称")).toBeInTheDocument();
+    // 弹窗 label 用 htmlFor，可通过 getByLabelText 访问
+    expect(screen.getByLabelText(/连接名称/)).toBeInTheDocument();
   });
 
   it("测试连接：输入表单 → 点击测试 → 显示成功反馈", async () => {
@@ -91,10 +98,10 @@ describe("DataSourcesView", () => {
     fireEvent.click(screen.getByRole("button", { name: /新建连接/ }));
     await screen.findByRole("dialog", { name: "新建连接" });
 
-    // 填表
-    const nameInput = screen.getByLabelText("连接名称");
+    // 填表（label 通过 htmlFor 关联 input）
+    const nameInput = screen.getByLabelText(/连接名称/);
     fireEvent.change(nameInput, { target: { value: "test_db" } });
-    fireEvent.change(screen.getByLabelText("数据库名"), {
+    fireEvent.change(screen.getByLabelText(/数据库名/), {
       target: { value: "testdb" },
     });
 

@@ -58,7 +58,9 @@ describe("FilesView", () => {
     expect(
       await screen.findByText("这个文件夹是空的"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/拖拽文件到此处/)).toBeInTheDocument();
+    // 拖拽提示可能出现在空态 <td> 和页脚两处，用 getAllByText
+    const dragHints = screen.getAllByText(/拖拽文件到此处/);
+    expect(dragHints.length).toBeGreaterThan(0);
   });
 
   it("文件列表渲染：显示文件名与大小", async () => {
@@ -68,7 +70,9 @@ describe("FilesView", () => {
     render(<FilesView />);
 
     expect(await screen.findByText("orders.csv")).toBeInTheDocument();
-    expect(screen.getByText("2.0 KB")).toBeInTheDocument();
+    // 大小既在行 <td> 又在页脚摘要出现，用 getAllByText 取所有匹配
+    const sizes = screen.getAllByText("2.0 KB");
+    expect(sizes.length).toBeGreaterThan(0);
   });
 
   it("点击上传按钮触发 file input", async () => {

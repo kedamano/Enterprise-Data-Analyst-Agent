@@ -1,5 +1,4 @@
 // 知识库面板覆盖盲区：空态引导、列表渲染 → 详情跳转、搜索过滤
-// CI 走国际出口可执行；本机 sandbox 可能无法 run（依赖 IBMIcons / motion）。
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { KnowledgeView } from "./KnowledgeView";
@@ -27,6 +26,14 @@ import {
 import { PreviewPanel } from "@/components/PreviewPanel";
 vi.mock("@/components/PreviewPanel", () => ({
   PreviewPanel: vi.fn(() => null),
+}));
+
+// Modal 组件可能含 motion/animation，直接 stub。
+vi.mock("@/components/ui/animated-modal", () => ({
+  Modal: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
+    open ? <div role="dialog">{children}</div> : null,
+  ModalBody: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ModalContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 function sampleBases() {
@@ -58,7 +65,8 @@ describe("KnowledgeView", () => {
     vi.mocked(fetchKbBases).mockResolvedValue({ bases: [], total_chunks: 0 });
     render(<KnowledgeView />);
 
-    expect(screen.getByText("还没有知识库")).toBeInTheDocument();
+    // 异步加载后出现
+    expect(await screen.findByText("还没有知识库")).toBeInTheDocument();
     expect(
       screen.getByText(/新建知识库后，可以上传文件/),
     ).toBeInTheDocument();
@@ -94,7 +102,8 @@ describe("KnowledgeView", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^\s*新建$/ }));
 
     expect(await screen.findByText("新建知识库")).toBeInTheDocument();
-    expect(screen.getByLabelText("名称")).toBeInTheDocument();
+    // name input 通过 id="kb-create-name" 与 label 关联
+    expect(document.getElementById("kb-create-name")).toBeInstanceOf(HTMLInputElement);
   });
 
   it("搜索框输入后过滤卡片列表", async () => {

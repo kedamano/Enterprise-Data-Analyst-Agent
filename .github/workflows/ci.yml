@@ -40,7 +40,9 @@ jobs:
 
       - name: Type check (mypy, info-only)
         continue-on-error: true
-        run: mypy app --ignore-missing-imports --no-error-summary --output-format=github || true
+        # 去掉冗余的 || true：continue-on-error 已承担 info-only 语义，|| true 会吞掉错误码
+        # 让信息输出真实反映当前 type 状态，后续收紧为 block 门时只需去掉 continue-on-error
+        run: mypy app --ignore-missing-imports --no-error-summary --output-format=github
 
       # === 「增量收紧」—— 新代码 block、老代码 info ===
       # 候选人「新 PR 不能引入新的 ruff / mypy 问题」真的在 CI 落地了。
@@ -80,10 +82,15 @@ jobs:
           REDIS_URL: ""
           POSTGRES_DSN: ""
           MILVUS_HOST: ""
+        # 去掉 -x：全量展示失败，避免「修一个冒出下一个」的打地鼠。
+        # 分模块并行（test-export job）缩短 wall time。
         run: |
-          python -m pytest tests/ -q --ignore=tests/test_agent_real.py \
+          python -m pytest tests/ -q --tb=line --no-header \
+            --ignore=tests/test_agent_real.py \
             --ignore=tests/test_pg_live.py --ignore=tests/test_redis_live.py \
-            --ignore=tests/test_milvus_live.py -x
+            --ignore=tests/test_milvus_live.py \
+            --ignore=tests/test_export.py \
+            -p no:randomly
 
       - name: Eval mock baseline
         env:
@@ -96,6 +103,45 @@ jobs:
           MOCK_LLM: "true"
         run: |
           python -m pytest tests/test_judge.py tests/test_metrics.py tests/test_rbac.py -q
+
+  test-export:
+    name: Export + E3 iteration tests
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Export + E3 tests
+        env:
+          MOCK_LLM: "true"
+          AUTH_ENABLED: "false"
+          CHECKPOINT_DIR: /tmp/da_ck_export
+        run: |
+          python -m pytest tests/test_export.py tests/test_e3_iteration.py -v --tb=line
+
+  frontend:
+    name: Frontend unit tests (vitest)
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci || npm install
+      - run: npx vitest run --reporter=verbose 2>&1 | tail -80
 
   e2e:
     name: Frontend E2E (Playwright)

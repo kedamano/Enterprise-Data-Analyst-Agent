@@ -447,19 +447,23 @@ def run_analysis(session_id: str, user_query: str, history: list | None = None,
       默认沿用 tracing 模块的 ``data/traces``。
     """
     from .response_cache import enabled as _cache_enabled, get_cached, put_cached
-    from .semantic_cache import semantic_enabled as _semantic_enabled, get_semantic, put_semantic
+    from .semantic_cache import semantic_enabled as _semantic_enabled, get_semantic, put_semantic, has_parametric_values
 
     # INTERVIEW/01 ④：请求级缓存——同会话同问直接命中，省下整条链的 LLM 调用。
     # force_full_rerun 是"用户显式要求重算"，绕过缓存并刷新它。
     # 增量 query（is_followup）不走**语义**缓存：增量检测依赖当前数据集状态做
     # guard，命中缓存的其他调用结果（全链回退 / 增量执行）会导致错配——同一文本
     # 增量意图的 guard 结果因数据集演化而不同，必须实时走 _try_iteration。
+    # 含参数化 query（数字/期间 → 同模板仅参数不同时 cosine 仍会很高）也跳过：
+    # 否则"2024年总营收"会命中"2025年总营收"的缓存（业务上不可接受）。
     _is_followup = False
     try:
         from .iteration import is_followup as _is_followup_fn
         _is_followup = _is_followup_fn(user_query)
     except Exception:
         pass
+    _is_parametric = has_parametric_values(user_query)
+    _skip_semantic = _is_followup or _is_parametric
 
     if _cache_enabled() and not force_full_rerun and session_id and not _is_followup:
         cached = get_cached(session_id, user_query)
@@ -473,7 +477,7 @@ def run_analysis(session_id: str, user_query: str, history: list | None = None,
                 pass  # 反序列化失败 → 当作未命中
 
     # ---- Semantic 缓存（exact-match 未命中时再走语义）----
-    if _semantic_enabled() and not force_full_rerun and session_id and not _is_followup:
+    if _semantic_enabled() and not force_full_rerun and session_id and not _skip_semantic:
         hit = get_semantic(session_id, user_query)
         if hit is not None:
             hit.metadata["cache_key"] = "semantic"

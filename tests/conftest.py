@@ -72,7 +72,7 @@ from app.infrastructure.llm.router import (  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _reset_state():
-    """Fresh LLM/settings cache + D59 EMV override + D61 default rewriter before every test."""
+    """Fresh LLM/settings cache + D59 EMV override + D61 default rewriter + response/semantic cache before every test."""
     from app.core.tools.knowledge_tool import set_emv_override
 
     # D61：把默认 QueryRewriter 单例 + 模块级 metrics 一起归零——避免上一次测试的
@@ -89,9 +89,34 @@ def _reset_state():
     # 回填进 lru_cache，导致后续测试读到陈旧配置（2026-09-15 实测踩坑）。
     set_emv_override(None)
     get_settings.cache_clear()
+    # E3 跨测试缓存隔离：response_cache._MEM 与 semantic_cache (SQLite) 都是跨测试持久化，
+    # 命中缓存增量结果会导致后续 run_analysis 路径「该全链时被压成增量 / 该增量时返回旧全链」。
+    # P1：把这个清理放到全局 conftest，所有测试默认隔离；单测若需保留缓存语义，可显式 override。
+    try:
+        from app.core.agents.data_analyst.response_cache import clear as _clear_resp
+        _clear_resp()
+    except Exception:
+        pass
+    try:
+        from app.core.agents.data_analyst.semantic_cache import clear_semantic, _reset_connection
+        clear_semantic(None)
+        _reset_connection()
+    except Exception:
+        pass
     yield
     set_emv_override(None)
     reset_llm()
+    try:
+        from app.core.agents.data_analyst.response_cache import clear as _clear_resp
+        _clear_resp()
+    except Exception:
+        pass
+    try:
+        from app.core.agents.data_analyst.semantic_cache import clear_semantic, _reset_connection
+        clear_semantic(None)
+        _reset_connection()
+    except Exception:
+        pass
 
 @pytest.fixture
 def session_id() -> str:

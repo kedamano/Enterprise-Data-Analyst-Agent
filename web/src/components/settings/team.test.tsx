@@ -8,7 +8,6 @@ import {
   waitFor,
 } from "@testing-library/react";
 
-// mock @/lib/user 使 useAuth 返回 admin 身份 + mock API
 const adminUser = {
   id: "u-admin",
   username: "boss",
@@ -96,10 +95,13 @@ describe("TeamPanel", () => {
 
     await screen.findByText("Alice");
 
-    // 第二个成员的 select（第一个是 admin 自身、disabled）
-    const selects = screen.getAllByRole("combobox");
-    // alice 的 select 是第二个（第一个是 admin 自己的）
-    fireEvent.change(selects[1], { target: { value: "analyst" } });
+    // Alice 所在行的 select：从 Alice 文本向上找最近的 tr，其 select 非 disabled
+    const aliceRow = screen.getByText("Alice").closest("tr");
+    if (!aliceRow) throw new Error("找不到 alice 所在行");
+    const aliceSelect = aliceRow.querySelector("select:not([disabled])") as HTMLSelectElement | null;
+    if (!aliceSelect) throw new Error("找不到 alice 的可编辑 select");
+
+    fireEvent.change(aliceSelect, { target: { value: "analyst" } });
 
     await waitFor(() => {
       expect(adminUpdateUser).toHaveBeenCalledWith("u-2", { role: "analyst" });
