@@ -1,3 +1,0 @@
-﻿KILL 35360 :: "D:\work\项目\Enterprise Data Analyst Agent\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app
-KILL 12732 :: "D:\work\项目\Enterprise Data Analyst Agent\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app
-PORT8000=FREE
