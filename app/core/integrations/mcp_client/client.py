@@ -37,7 +37,7 @@ def _tool_views(tools: Any) -> list[dict[str, Any]]:
 
 def _import_sdk():
     try:
-        from mcp import ClientSession  # noqa: F401
+        from mcp import ClientSession
     except Exception as exc:  # pragma: no cover - 依赖缺失路径
         raise MCPClientError(
             "MCP SDK 未安装。请 `pip install .[mcp]`（pyproject.toml 的 optional-dependencies.mcp）"
@@ -144,7 +144,7 @@ def probe(server: dict[str, Any], timeout_s: Optional[float] = None) -> dict[str
             "error_kind": "config",
             "latency_ms": int((time.time() - started) * 1000), "target": target,
         }
-    except Exception as exc:  # noqa: BLE001 —— 连接失败一律结构化返回
+    except Exception as exc:
         return {
             "ok": False, "tools": [], "tool_count": 0,
             "error": f"{type(exc).__name__}: {exc}",

@@ -90,7 +90,7 @@ def get_client() -> Any | None:
         from pymilvus import MilvusClient
 
         client = MilvusClient(uri=uri)
-    except Exception as exc:  # noqa: BLE001 - 回退是设计，但绝不能无声
+    except Exception as exc:
         # 配了 Milvus 却拿不到客户端，**必须留痕**：否则"URI 写错/服务没起"
         # 会与"压根没配"表现成同一个结果（静默降级，铁律 3 禁止）。
         _state["last_error"] = f"{type(exc).__name__}: {exc}"

@@ -244,7 +244,7 @@ def _run_now_inner(
             JobScheduler._fire_webhook(
                 _PseudoJob(jid, jname, wh), sid, status, report
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("webhook failed for job %s: %s", jid, exc)
     _record_run(jid, started.isoformat(), finished.isoformat(),
                 status, err_msg, duration_ms)

@@ -25,7 +25,7 @@ _mock_embed = patch(
 _mock_embed.start()
 
 
-def teardown_module(module):  # noqa: ARG001 — pytest 钩子签名
+def teardown_module(module):
     _mock_embed.stop()
 
 

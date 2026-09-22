@@ -1584,7 +1584,7 @@ def iter_executor_all(state: AgentState) -> Iterator[AgentState]:
     try:
         yield from _executor_all_steps(state)
         _end(True)
-    except BaseException as exc:  # noqa: BLE001 — 生成器需同时兜 GeneratorExit
+    except BaseException as exc:
         _end(False, exc)
         raise
 

@@ -24,7 +24,7 @@ from ...interfaces import trace_run  # A: 经 core.interfaces 中转，解耦 in
 from .checkpoint import load as checkpoint_load, save as checkpoint_save
 from .state import AgentState
 
-from .nodes import (  # noqa: E402
+from .nodes import (
     iter_executor_all,
     run_analyst,
     run_context,
@@ -491,7 +491,7 @@ def run_analysis(session_id: str, user_query: str, history: list | None = None,
         # 这里是**最后一道网**；能用状态表达的错误应在各节点内处理。
         try:
             final = _drive_sync(state)
-        except Exception as exc:  # noqa: BLE001 — 兜网必须宽
+        except Exception as exc:
             logger.exception("分析流水线异常终止")
             state.status = "ERROR"
             state.error = f"{type(exc).__name__}: {exc}"
@@ -547,7 +547,7 @@ def stream_analysis(session_id: str, user_query: str, history: list | None = Non
     只要已经推进到终端态就保存；中途中断（非终端态）不保存，避免半截状态被当成成品。
     """
     from .response_cache import enabled as _cache_enabled, put_cached
-    from .semantic_cache import put_semantic as _put_semantic  # noqa: F811
+    from .semantic_cache import put_semantic as _put_semantic
 
     last: AgentState | None = None
     try:
@@ -555,7 +555,7 @@ def stream_analysis(session_id: str, user_query: str, history: list | None = Non
                                            force_full_rerun, skill_ids):
             last = snap
             yield snap
-    except Exception as exc:  # noqa: BLE001 — 兜网必须宽
+    except Exception as exc:
         # 与同步路径 run_analysis（本文件上方 try/except 收敛为 status=ERROR）对齐。
         # 流式路径此前**没有**这层网：planner 抛 ModelOutputError 会直接穿透 ASGI，
         # SSE 连接死掉、前端收不到任何错误帧（只有"连接已断开"）。

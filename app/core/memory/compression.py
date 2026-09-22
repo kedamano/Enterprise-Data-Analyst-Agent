@@ -86,16 +86,15 @@ class ContextCompressor:
 
     @staticmethod
     def compress_via_llm(raw_result: str, query: str) -> str:
-        """LLM 压缩（仅在 lightweight LLM 可用时调用；失败 → fallback 截断）。
+        """LLM 压缩（post-MVP：lightweight tier 可用时启用）。
 
-        TODO: 实际调用 LLM 生成 "Tool returned X rows, key findings: ..." 摘要。
-        MVP 阶段始终 fallback（零额外 API 调用）。
+        NOTE (post-MVP): 目前始终 fallback 零 LLM 调用。
+        生效条件：配置 LLM_LIGHT_TIER_ENDPOINT 后：
+            llm = get_llm(tier="light")
+            prompt = f"将以下 tool result 压缩到 2-3 句摘要（关键指标数值+行数）:\nQuery: {query}\n\nResult:\n{raw_result[:2000]}"
+            return llm.complete(system="压缩助手", user=prompt)
         """
         # MVP: 直接 fallback，不消耗 LLM token
-        # 进阶实现（TODO）：
-        #   llm = get_llm(tier="light")
-        #   prompt = f"将以下 tool result 压缩到 2-3 句摘要（关键指标数值+行数）:\nQuery: {query}\n\nResult:\n{raw_result[:2000]}"
-        #   return llm.complete(system="压缩助手", user=prompt)
         return ContextCompressor.compress_tool_result(raw_result)
 
     @staticmethod

@@ -31,7 +31,7 @@ def retry_once(store: Any, max_chunks: Optional[int] = None) -> dict[str, int]:
     """
     try:
         stats = store.retry_embed(kb_id=None, limit=max_chunks)
-    except Exception as exc:  # noqa: BLEW — 调度器绝不因单次失败崩溃
+    except Exception as exc:
         logger.warning("embed retry tick failed: %s", exc)
         return {"retried": 0, "fixed": 0, "still_failed": 0, "abandoned_now": 0}
 

@@ -355,7 +355,7 @@ def admin_list_embed_failed(
 # 版本号是字符串标签（"v1"/"bge-v1.5"），rotate 只改进程内存态；进程重启恢复
 # settings 默认。新 add 自动挂新标签，旧 chunk 通过 re-embed/migrate 接口升级。
 
-from ...core.tools.knowledge_tool import set_emv_override, _resolve_emv  # noqa: E402 — 二次 import 紧跟首次使用
+from ...core.tools.knowledge_tool import set_emv_override, _resolve_emv
 
 
 @router.get("/admin/embed-version")

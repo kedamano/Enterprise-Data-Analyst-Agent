@@ -311,4 +311,4 @@ ANALYST_GOLDEN: tuple[GoldenCase, ...] = (
 )
 
 # 合并：原 5 条基线 + E6/01 分析师能力 10 条 + E7 新增 5 条
-GOLDEN: tuple[GoldenCase, ...] = _BASE_GOLDEN + ANALYST_GOLDEN  # noqa: F811
+GOLDEN: tuple[GoldenCase, ...] = _BASE_GOLDEN + ANALYST_GOLDEN

@@ -115,7 +115,7 @@ def record(kind: str, entry: dict, *, path: Path | str | None = None) -> None:
             _append_jsonl(kind, entry, path)
             return
         _insert(kind, entry)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("审计写入失败（kind=%s，已忽略但不静默）", kind, exc_info=True)
 
 

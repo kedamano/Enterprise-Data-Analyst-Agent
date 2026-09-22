@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["export"])
 
@@ -279,6 +282,9 @@ def _build_items(state, session_id: str, principal, want_masked: bool
             items["WATERMARK.txt"] = _wm.watermark_lines(
                 token, user_id=user_id, session_id=session_id,
                 exported_at=exported_at).encode("utf-8")
+    else:
+        # D49 审计：「为什么没加水印」必须有据可查 — 是故意（未配 secret）还是遗漏。
+        logger.info("导出未附加 DLP 水印：DLP_WATERMARK_SECRET 未配置（session=%s）", session_id)
     return items, skipped, token
 
 

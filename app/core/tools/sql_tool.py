@@ -193,7 +193,7 @@ def _build_engine(url: str, timeout_s: int):
         engine = create_engine(url, pool_pre_ping=True)
 
         @event.listens_for(engine, "connect")
-        def _install_progress_handler(dbapi_conn, _record):  # noqa: ANN001
+        def _install_progress_handler(dbapi_conn, _record):
             deadline = time.monotonic() + timeout
 
             def _check() -> None:

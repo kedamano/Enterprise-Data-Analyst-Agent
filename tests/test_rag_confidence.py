@@ -309,7 +309,7 @@ def test_low_confidence_note_reaches_the_analyst_context(seeded_store, monkeypat
 
     seen: dict[str, str] = {}
 
-    def fake_llm(stage, user, json_mode=True):     # noqa: ANN001
+    def fake_llm(stage, user, json_mode=True):
         seen["message"] = user
         return _json.dumps({"findings": [{"finding": "x", "confidence": 0.5}]},
                            ensure_ascii=False)

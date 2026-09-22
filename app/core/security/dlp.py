@@ -104,7 +104,7 @@ def resolve_level(principal: Any, column: str) -> str:
 
         # ⑤ 回退全局（角色未登记 / 策略为空 / 值非法）
         return _global_level()
-    except Exception as exc:  # noqa: BLE001 - 隐私控制不允许 fail-open
+    except Exception as exc:
         logger.warning("DLP 级别解析异常，回退全局 mask_level：%s", exc)
         return _global_level()
 

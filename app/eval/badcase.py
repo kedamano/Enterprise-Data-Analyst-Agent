@@ -152,15 +152,15 @@ def promote_draft(case: BadCase) -> str:
     reasons = "\n".join(f"#   - {r}" for r in (case.reasons or ["（无失败原因记录）"]))
     return (
         "# ——— badcase 固化草稿（请人工审阅后再粘贴进 ANALYST_GOLDEN）———\n"
-        "# TODO: 选择断言。失败原因里既有「措辞没命中」（脆弱、应改断言）\n"
+        "# NOTE: 选择断言。失败原因里既有「措辞没命中」（脆弱、应改断言）\n"
         "#       也有「确实没做到」（该保留并作为回归）。别照抄 must_find。\n"
+        "#       建议优先结构化字段：min_findings / min_numeric_claims /\n"
+        "#       expect_quality_codes / must_not_have_quality_codes\n"
         f"# 真实失败 {case.runs} 次（首见 {case.first_seen}，最近 {case.last_seen}）\n"
         f"{reasons}\n"
         "GoldenCase(\n"
         f'    id="{case.case_id}",\n'
         f'    query="{case.query}",\n'
-        "    # TODO: 断言（建议优先结构化字段：min_findings / min_numeric_claims /\n"
-        "    #       expect_quality_codes / must_not_have_quality_codes）\n"
         "    requires_real=True,\n"
         "),\n"
     )

@@ -4,6 +4,8 @@ Spec: docs/specs/E4/04-quality-gate.md
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.config import get_settings
@@ -281,12 +283,11 @@ def test_apply_gate_returns_disclosure_text():
     assert notes and "日期稀疏" in notes[0]
 
 
+from app.core.agents.data_analyst.state import AgentState
+
 # --------------------------------------------------------------------------- #
 # 6. 节点级集成：门禁真的改了决策 / 披露
 # --------------------------------------------------------------------------- #
-import json  # noqa: E402
-
-from app.core.agents.data_analyst.state import AgentState  # noqa: E402
 
 _PASS_JSON = json.dumps({
     "decision": "PASS", "confidence": 0.9, "summary": "证据充分",

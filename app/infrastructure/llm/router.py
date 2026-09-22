@@ -70,7 +70,7 @@ def _call_with_deadline(fn: Callable[[], Any], deadline_s: float) -> Any:
     def _run() -> None:
         try:
             holder["v"] = fn()
-        except BaseException as exc:  # noqa: BLE001 - 原样带回主线程再抛
+        except BaseException as exc:  # noqa: BLE001 — intentional:re-raise-in-caller
             holder["e"] = exc
 
     t = threading.Thread(target=_run, daemon=True)
@@ -343,7 +343,7 @@ class BaseLLM:
                 return self._do_complete(
                     hardened_system, result.text, stage, json_mode, temperature,
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — intentional:fail-open-guard
             logger.warning("PromptGuard 异常，fail-open 放行: %s", exc)
         set_guard_ctx(result)
         return self._do_complete(system, user, stage, json_mode, temperature)
@@ -787,7 +787,7 @@ class MockLLM(BaseLLM):
         try:
             ctx = _json.loads(user) if isinstance(user, str) else {}
             text = str(ctx.get("report") or "")
-        except Exception:  # noqa: BLE001
+        except json.JSONDecodeError:
             text = str(user or "")
         issues: list[dict] = []
         has_include = _re.search(r"(含|包含|包括|仅含|只含)\s*(退款|退货)", text)

@@ -47,7 +47,7 @@ def _verify(token: str) -> tuple[bool, dict | None, str]:
         return False, None, "token 为空或格式错误"
     try:
         data = verify_watermark(token, secret)
-    except Exception as exc:  # noqa: BLE001 — 校验逻辑不得裸抛给调用方
+    except Exception as exc:
         return False, None, f"校验异常: {exc}"
     if data is None:
         return False, None, "签名无效或 token 已被篡改"

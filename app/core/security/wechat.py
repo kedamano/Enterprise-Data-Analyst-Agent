@@ -296,7 +296,7 @@ class WeChatLogin:
         except WeChatError as exc:
             self._fail(state, exc.message)
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self._fail(state, f"登录失败：{exc}")
             raise WeChatError(f"微信登录失败：{exc}", 500, "wechat_failed") from exc
 

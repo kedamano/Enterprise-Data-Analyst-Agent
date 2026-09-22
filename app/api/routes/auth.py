@@ -283,7 +283,7 @@ def remove_avatar(user: dict = Depends(require_user)):
     store = users_core.get_store()
     prev = (store.get(user["id"]) or {}).get("avatar", "")
     updated = store.update_profile(user["id"], avatar="")
-    store._remove_avatar_file(prev)  # noqa: SLF001 —— 同模块内的清理动作
+    store._remove_avatar_file(prev)
     return _public(updated)
 
 
@@ -363,7 +363,7 @@ def wechat_qrcode():
     """新建一次扫码会话。未配置凭据时 `configured=false`，`qr_url` 为空。"""
     try:
         return WeChatQrResponse(**wechat_core.get_login().start())
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("生成微信二维码失败")
         raise HTTPException(status_code=500, detail=f"生成二维码失败：{exc}") from exc
 
@@ -403,7 +403,7 @@ def wechat_callback(code: str = Query(""), state: str = Query("")):
     except wechat_core.WeChatError as exc:
         return HTMLResponse(wechat_core.callback_html(False, exc.message),
                             status_code=200)  # 状态码给 200，让人看到可读页面
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("微信回调处理失败")
         return HTMLResponse(wechat_core.callback_html(False, f"登录失败：{exc}"))
     name = result["user"].get("display_name") or result["user"].get("username")

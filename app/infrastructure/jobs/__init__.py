@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 try:
-    from .arq_backend import arq_available, render_template as _arq_render_template  # noqa: F401
+    from .arq_backend import arq_available, render_template as _arq_render_template
     __all__.extend(["arq_available"])
 except ImportError:  # arq 未装
     def arq_available() -> bool:

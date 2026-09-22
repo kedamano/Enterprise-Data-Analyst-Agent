@@ -93,7 +93,7 @@ def test_q_of_binds_to_connection_dialect():
     assert sqlite_q("t") == '"t"'
 
     class _FakeEngine:
-        class dialect:  # noqa: N801
+        class dialect:
             name = "mysql"
 
     class _FakeConnEngine:

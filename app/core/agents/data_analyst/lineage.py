@@ -153,7 +153,7 @@ def metric_lineage(analysis: Any, results: list[Any]) -> list[dict]:
                           "traced": True, "confidence": "parsed_from_sql",
                           "note": "表/列由 SQL 文本解析，非权威元数据"})
             out.append(entry)
-        except Exception:  # noqa: BLE001 - 单个指标解析失败不影响其余
+        except Exception:
             out.append({"metric": _metric_field(metric, "name"), "definition": "",
                         "sql_id": None, "sql": None, "tables": [], "columns": [],
                         "traced": False, "confidence": "unresolved",

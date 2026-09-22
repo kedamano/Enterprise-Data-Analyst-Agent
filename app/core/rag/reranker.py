@@ -67,7 +67,7 @@ def _cross_encoder_available() -> bool:
                 os.environ.setdefault("HF_HUB_OFFLINE", "1")
                 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
                 holder["m"] = CrossEncoder(settings.rerank_cross_encoder)
-            except Exception as exc:  # noqa: PERF203
+            except Exception as exc:
                 holder["e"] = exc
 
         t = threading.Thread(target=_load, daemon=True)

@@ -87,7 +87,7 @@ def requires_confirmation(action: str, detail: Optional[dict] = None) -> Optiona
             reason=f"未经登记的动作 {action!r}，按最小权限默认要求人工确认"
                    f"（确认低危请加入 hitl._SAFE 并说明理由）",
             detail=dict(detail or {}))
-    except Exception as exc:  # noqa: BLE001 - fail-closed
+    except Exception as exc:
         logger.error("HITL 策略判定异常，按 fail-closed 处理：%s", exc)
         return RiskAction(action=action, reason=f"策略判定异常（fail-closed）: {exc}",
                           detail=dict(detail or {}))

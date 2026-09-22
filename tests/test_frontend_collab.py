@@ -163,7 +163,7 @@ def test_e2e_test_timeout_exceeds_every_explicit_expect_timeout():
 #    这类"字段发了但没人看"比崩溃更隐蔽：界面一切正常，信息静默丢失。
 # --------------------------------------------------------------------------- #
 
-_API_SRC = lambda: _read("src/lib/api.ts")  # noqa: E731
+_API_SRC = lambda: _read("src/lib/api.ts")
 
 
 def test_event_type_declares_iteration_and_quality_fields():

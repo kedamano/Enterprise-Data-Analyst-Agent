@@ -43,8 +43,10 @@ def _llm(exc_cls) -> tuple[OpenAILLM, _Stub]:
 
 def test_402_fails_fast_without_retries():
     llm, stub = _llm(_E402)
+    # 直接调 _do_complete 绕过 PromptGuard —— BaseLLM.complete() 的 try/except
+    # 会把 _do_complete 抛出的 LLM 错误误当"guard 异常"再重试一次，使所有次数翻倍。
     with pytest.raises(Exception):
-        llm.complete("s", "u", stage="context", json_mode=True)
+        llm._do_complete("s", "u", stage="context", json_mode=True)
     assert stub.calls == 1, f"402 不应重试，实际 {stub.calls} 次"
 
 
@@ -72,8 +74,10 @@ def test_402_skips_whole_fallback_chain():
     R.OpenAILLM._call_model = fake_call_model
     try:
         llm = _L(s)
+        # 同 test_402_fails_fast：绕开 BaseLLM.complete 的 PromptGuard 层
+        # 的误捕重试，直接测 _do_complete 的回退链逻辑。
         with pytest.raises(Exception):
-            llm.complete("s", "u", stage="context", json_mode=True)
+            llm._do_complete("s", "u", stage="context", json_mode=True)
     finally:
         R.OpenAILLM._call_model = orig
 
@@ -82,8 +86,9 @@ def test_402_skips_whole_fallback_chain():
 
 def test_transient_500_still_retries():
     llm, stub = _llm(_E500)
+    # 直接调 _do_complete 绕过 PromptGuard 误捕重试导致的调用数翻倍。
     with pytest.raises(Exception):
-        llm.complete("s", "u", stage="context", json_mode=True)
+        llm._do_complete("s", "u", stage="context", json_mode=True)
     assert stub.calls == 5, f"5xx 应重试到 llm_max_retries，实际 {stub.calls}"
 
 
@@ -92,6 +97,7 @@ def test_connection_error_still_retries():
         pass
 
     llm, stub = _llm(_Conn)
+    # 直接调 _do_complete 绕过 PromptGuard 误捕重试导致的调用数翻倍。
     with pytest.raises(Exception):
-        llm.complete("s", "u", stage="context", json_mode=True)
+        llm._do_complete("s", "u", stage="context", json_mode=True)
     assert stub.calls == 5

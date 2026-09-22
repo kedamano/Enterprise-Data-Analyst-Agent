@@ -340,7 +340,7 @@ def caliber_check(analysis: Any, context: Any = None, *, iteration: Any = None,
                                 f"（{'、'.join(spec.filters)}）极性相反"),
                         metric=spec.metric))
                     break
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("caliber_deviation 检查跳过（注册表不可达）", exc_info=True)
 
     # E4/03 LLM 语义判读：默认关（caliber_llm_enabled=False）；打开后由 LLM 给报告里的指标
@@ -348,7 +348,7 @@ def caliber_check(analysis: Any, context: Any = None, *, iteration: Any = None,
     # 与.registry try/except 同纪律：LLM 缺/故障 → 跳过，绝不抛。
     try:
         issues.extend(_semantic_check(analysis, context, report))
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("_semantic_check 跳过（LLM 不可达或关闭）", exc_info=True)
 
     return CaliberCheck(comparable=not issues, checked_metrics=metrics, issues=issues)
@@ -393,7 +393,7 @@ def _semantic_check(analysis: Any, context: Any, report: str = "") -> list[Calib
         raw = get_llm().complete(
             system=sys_prompt, user=user_prompt, stage="caliber",
             json_mode=True, temperature=0.0)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("_semantic_check：LLM 调用失败，跳过（默认无问题）", exc_info=True)
         return []
 
@@ -401,13 +401,13 @@ def _semantic_check(analysis: Any, context: Any, report: str = "") -> list[Calib
     payload: Any = None
     try:
         payload = json.loads(raw) if isinstance(raw, str) else raw
-    except Exception:  # noqa: BLE001
+    except Exception:
         # 模型可能在 JSON 外包了 ```json ... ```，尝试剥离
         m = re.search(r"\{.*\}", raw or "", re.DOTALL) if isinstance(raw, str) else None
         if m:
             try:
                 payload = json.loads(m.group(0))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 payload = None
     issues: list[CaliberIssue] = []
     if not isinstance(payload, dict):

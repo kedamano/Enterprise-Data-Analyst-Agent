@@ -557,7 +557,7 @@ def evaluate(mode: str = "mock", trace_dir=None, *,
         # 整跑退出码 1，**已跑完的 6 条基线全部丢失、不产出任何报告**。
         try:
             outcomes.append(evaluate_case(case, mode, sid, trace_dir))
-        except Exception as exc:  # noqa: BLE001 — 隔离层必须宽
+        except Exception as exc:
             out = CaseOutcome(case_id=case.id, status="ERROR",
                               error=f"{type(exc).__name__}: {exc}")
             out.failed_assertions.append(f"用例执行抛异常（已被隔离，不影响其它用例）: {exc}")

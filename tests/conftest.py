@@ -48,8 +48,8 @@ for _var in ("REDIS_URL", "POSTGRES_DSN", "MILVUS_HOST"):
 #
 # 这里把两者指向真实库的**临时副本**：写入被隔离，而既有已种子内容（企业知识库
 # 137 分块）仍然可见——测试若依赖它不会因此假红。
-import shutil as _shutil  # noqa: E402
-import tempfile as _tempfile  # noqa: E402
+import shutil as _shutil
+import tempfile as _tempfile
 
 _KB_ISOLATION_DIR = Path(_tempfile.mkdtemp(prefix="da_kb_isolation_"))
 for _db_name, _env_var in (("knowledge.db", "KNOWLEDGE_DB_PATH"),
@@ -60,10 +60,10 @@ for _db_name, _env_var in (("knowledge.db", "KNOWLEDGE_DB_PATH"),
         _shutil.copy2(_src, _dst)   # 拷贝而非移动：真实库只读不动
     os.environ[_env_var] = str(_dst)
 
-import pytest  # noqa: E402
+import pytest
 
-from app.config import get_settings  # noqa: E402
-from app.infrastructure.llm.router import (  # noqa: E402
+from app.config import get_settings
+from app.infrastructure.llm.router import (
     OpenAILLM,
     get_llm,
     reset_llm,
@@ -72,11 +72,20 @@ from app.infrastructure.llm.router import (  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _reset_state():
-    """Fresh LLM/settings cache + D59 EMV override + D61 default rewriter + response/semantic cache before every test."""
-    from app.core.tools.knowledge_tool import set_emv_override
+    """Fresh LLM/settings/cache/env/singletons — every test starts clean.
 
-    # D61：把默认 QueryRewriter 单例 + 模块级 metrics 一起归零——避免上一次测试的
-    # settings patch + 计数器残留导致后续测试读到陈旧状态 / 跨测试 metrics 污染。
+    覆盖的泄漏通道：
+    - env var (AUTH_ENABLED / DATA_DB_URL / RESPONSE_CACHE_ENABLED / SHORT_TERM_TTL_S / ...)
+    - settings lru_cache
+    - LLM router 单例 (_llm)
+    - response_cache / semantic_cache（跨测试持久化命中）
+    - 模块级单例：QueryRewriter / reranker._ce_model / users_core._store
+    - knowledge_tool EMV override
+    """
+    from app.core.tools.knowledge_tool import set_emv_override
+    import os as _os
+
+    # D61：把默认 QueryRewriter 单例归零。
     try:
         from app.core.rag.rewrite import reset_default_rewriter
         reset_default_rewriter()
@@ -84,14 +93,11 @@ def _reset_state():
         pass
 
     reset_llm()
-    # 顺序不能反：set_emv_override 内部 _resolve_emv() 会调 get_settings()，
-    # 若放在 cache_clear() 之后，会把「测试 monkeypatch 之前」的旧 env
-    # 回填进 lru_cache，导致后续测试读到陈旧配置（2026-09-15 实测踩坑）。
+    # 顺序不能反：set_emv_override 内部 _resolve_emv() 会调 get_settings()。
     set_emv_override(None)
     get_settings.cache_clear()
-    # E3 跨测试缓存隔离：response_cache._MEM 与 semantic_cache (SQLite) 都是跨测试持久化，
-    # 命中缓存增量结果会导致后续 run_analysis 路径「该全链时被压成增量 / 该增量时返回旧全链」。
-    # P1：把这个清理放到全局 conftest，所有测试默认隔离；单测若需保留缓存语义，可显式 override。
+
+    # 跨测试缓存隔离：response_cache._MEM 与 semantic_cache (SQLite)。
     try:
         from app.core.agents.data_analyst.response_cache import clear as _clear_resp
         _clear_resp()
@@ -103,9 +109,42 @@ def _reset_state():
         _reset_connection()
     except Exception:
         pass
+
+    # 模块级单例归零（reranker CE model / token_budget / user store / knowledge_tool store）。
+    try:
+        from app.core.rag import rerank as _rr
+        setattr(_rr, "_ce_model", None)
+        setattr(_rr, "_ce_error", None)
+    except Exception:
+        pass
+    try:
+        from app.core.security import users_core as _uc
+        setattr(_uc, "_store", None)
+    except Exception:
+        pass
+    try:
+        from app.core.memory import token_budget as _tb
+        if hasattr(_tb, "_budgets"):
+            getattr(_tb, "_budgets").clear()
+    except Exception:
+        pass
+
+    # 记录 teardown 需要 restore 的 env vars（在 setup 时当前值未知，统一在 teardown 清理）。
+    _leaked_env_keys = (
+        "AUTH_ENABLED", "DATA_DB_URL", "RESPONSE_CACHE_ENABLED",
+        "SHORT_TERM_TTL_S", "LONG_TERM_PATH", "CHECKPOINT_DIR",
+    )
+
     yield
+
+    # ---- Teardown：逆向恢复 ----
     set_emv_override(None)
     reset_llm()
+    get_settings.cache_clear()
+
+    for _k in _leaked_env_keys:
+        _os.environ.pop(_k, None)
+
     try:
         from app.core.agents.data_analyst.response_cache import clear as _clear_resp
         _clear_resp()
@@ -115,6 +154,25 @@ def _reset_state():
         from app.core.agents.data_analyst.semantic_cache import clear_semantic, _reset_connection
         clear_semantic(None)
         _reset_connection()
+    except Exception:
+        pass
+    try:
+        from app.core.rag import rerank as _rr
+        setattr(_rr, "_ce_model", None)
+        setattr(_rr, "_ce_error", None)
+    except Exception:
+        pass
+    try:
+        from app.core.security import users_core as _uc
+        setattr(_uc, "_store", None)
+    except Exception:
+        pass
+    try:
+        from app.core.memory import token_budget as _tb
+        if hasattr(_tb, "_budgets"):
+            getattr(_tb, "_budgets").clear()
+    except Exception:
+        pass
     except Exception:
         pass
 

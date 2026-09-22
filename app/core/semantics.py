@@ -18,10 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from ..config import get_settings
-
-# 敏感列模式：**唯一来源在 security.masking**（E4/02 与 SEMANTIC/01 共用一份，
-# 避免两处规则漂移）。见 docs/specs/E4/02-masking.md §7。
-from .security.masking import SENSITIVE_COLUMN_RE as _PII_RE  # noqa: E402
+from .security.masking import SENSITIVE_COLUMN_RE as _PII_RE
 
 # 维表的标签列候选
 _LABEL_RE = re.compile(r"(_name$|^name$|_title$|^title$|_label$|^label$|名称|名$)", re.IGNORECASE)

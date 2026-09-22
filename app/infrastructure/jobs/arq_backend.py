@@ -88,7 +88,7 @@ async def _arq_run_job(job_dict: dict, sem: asyncio.Semaphore) -> dict:
                 None, lambda: _run_now_inner(job_dict)
             )
             status = "OK" if ok else "FAILED"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status = "FAILED"
             report = repr(exc)
             logger.exception("ARQ job %s failed", job_dict["id"])
@@ -99,7 +99,7 @@ async def _arq_run_job(job_dict: dict, sem: asyncio.Semaphore) -> dict:
         try:
             from .jobs import _record_run
             _record_run(job_dict["id"], started, finished, status, report)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("record_run failed: %s", exc)
 
         # webhook（fire-and-forget）
@@ -139,7 +139,7 @@ async def _arq_tick(ctx: dict) -> None:
             (now.isoformat(),),
         ).fetchall()
         conn.close()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("ARQ tick read failed: %s", exc)
         return
 

@@ -85,7 +85,7 @@ def fetch_website(url: str, timeout: float = TIMEOUT_S) -> dict[str, Any]:
             import urllib.request
 
             req = urllib.request.Request(url, headers={"User-Agent": _UA})
-            with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 raw = r.read()
             html = raw.decode("utf-8", errors="replace")
             err = ""

@@ -111,7 +111,7 @@ def _get_embed_model():
                     **({"local_files_only": True} if offline else {}),
                 )
                 return
-            except Exception as exc:  # noqa: PERF203
+            except Exception as exc:
                 last = exc
                 if offline:
                     continue

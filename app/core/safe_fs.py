@@ -42,7 +42,7 @@ def purge_file(path: str | Path) -> bool:
         if p.exists() or p.is_symlink():
             p.unlink()
         return True
-    except BaseException as exc:  # noqa: BLE001 —— 见模块 docstring：WorkBuddy safe-delete shim 会 raise SystemExit(1)
+    except BaseException as exc:
         # SystemExit 必须吞：删除是清理动作，让它们穿透等于"删个临时文件杀服务"。
         # 但 KeyboardInterrupt 必须穿透 —— 让 Ctrl-C 能立刻杀死长驻运维进程。
         if isinstance(exc, KeyboardInterrupt):
@@ -55,7 +55,7 @@ def purge_file(path: str | Path) -> bool:
         with open(p, "wb"):
             pass
         return False
-    except BaseException as exc:  # noqa: BLE001
+    except BaseException as exc:
         if isinstance(exc, KeyboardInterrupt):
             raise
         return False
@@ -80,7 +80,7 @@ def purge_tree(path: str | Path) -> bool:
             if item.is_dir() and not item.is_symlink():
                 try:
                     item.rmdir()
-                except BaseException as exc:  # noqa: BLE001
+                except BaseException as exc:
                     if isinstance(exc, KeyboardInterrupt):
                         raise
                     pass
@@ -89,11 +89,11 @@ def purge_tree(path: str | Path) -> bool:
         try:
             root.rmdir()
             return True
-        except BaseException as exc:  # noqa: BLE001
+        except BaseException as exc:
             if isinstance(exc, KeyboardInterrupt):
                 raise
             return False
-    except BaseException as exc:  # noqa: BLE001
+    except BaseException as exc:
         if isinstance(exc, KeyboardInterrupt):
             raise
         logger.debug("purge_tree: 目录清理未完成 %s (%s)", path, type(exc).__name__)

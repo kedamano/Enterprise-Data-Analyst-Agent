@@ -64,7 +64,7 @@ def _probe_endpoint(host: str, port: int = 443, timeout: float = 5.0):
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True, ""
-    except Exception as e:  # noqa: BLE001
+    except OSError as e:
         return False, f"{e.__class__.__name__}: {e}"
 
 

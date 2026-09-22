@@ -160,7 +160,7 @@ def export_otel() -> bool:
         snap = metrics.snapshot()
         exporter = OTLPMetricExporter()
         reader = PeriodicExportingMetricReader(exporter)
-        _ = MeterProvider(metric_readers=[reader])  # noqa: F841
+        _ = MeterProvider(metric_readers=[reader])
         # 实际推送由 reader 周期触发；此处仅验证 exporter 可用并立即 flush 一次。
         exporter.export([])  # type: ignore[arg-type]
         return True

@@ -429,8 +429,8 @@ def test_lockout_does_not_extend_itself_indefinitely(env):
     from app.core.security import users as users_core
 
     # 断言的就是这个内部口径，故直接调它（锁是模块级的，见 users.py 的 `with _lock, ...`）
-    with users_core._lock, store._connect() as c:  # noqa: SLF001
-        recent = store._recent_failures(c, "alice", 300)  # noqa: SLF001
+    with users_core._lock, store._connect() as c:
+        recent = store._recent_failures(c, "alice", 300)
         locked_rows = c.execute(
             "SELECT COUNT(*) FROM login_events WHERE username='alice' "
             "AND reason='locked'",

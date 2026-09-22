@@ -35,7 +35,7 @@ def _import_mcp_server():
     try:
         from ...core.integrations import mcp_server
         return mcp_server
-    except ImportError as exc:  # noqa: BLE001
+    except ImportError as exc:
         raise HTTPException(status_code=503, detail=(
             f"MCP 接入层依赖缺失（{exc.name}）。请 `pip install .[mcp]` "
             f"（见 pyproject.toml 的 optional-dependencies.mcp）")) from exc

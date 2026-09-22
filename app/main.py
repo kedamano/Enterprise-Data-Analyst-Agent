@@ -128,7 +128,7 @@ app.add_middleware(
 )
 
 # AUTH/01：鉴权中间件（默认关；开启后除探活/文档外全部要 X-API-Key）
-from .api.middleware import auth_middleware  # noqa: E402
+from .api.middleware import auth_middleware
 
 app.middleware("http")(auth_middleware)
 

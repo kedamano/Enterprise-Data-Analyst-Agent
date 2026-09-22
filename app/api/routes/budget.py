@@ -30,7 +30,7 @@ def budget_usage(
     tenant_id = getattr(principal, "tenant", "") or ""
     try:
         return manager.get_usage_summary(user_id, tenant_id)
-    except Exception as exc:  # noqa: BLE001 — never let budget endpoint 500 the UI
+    except Exception as exc:
         return {
             "session_ratio": 0.0,
             "user_daily_ratio": 0.0,

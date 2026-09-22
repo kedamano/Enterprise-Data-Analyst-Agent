@@ -131,7 +131,7 @@ def verify_password(password: str, stored: str) -> bool:
             n=int(n), r=int(r), p=int(p), dklen=len(expected),
         )
         return hmac.compare_digest(dk, expected)
-    except BaseException:  # noqa: BLE001 —— 校验路径不许因脏数据抛
+    except BaseException:
         return False
 
 

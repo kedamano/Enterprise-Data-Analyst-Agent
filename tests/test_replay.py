@@ -8,7 +8,7 @@ import tempfile
 
 import pytest
 
-import app.infrastructure.jobs.jobs  # noqa: F401  (ensure app import路径干净)
+import app.infrastructure.jobs.jobs
 from app.core.agents.data_analyst.graph import (
     _apply_tool_overrides,
     _clear_tool_overrides,

@@ -25,8 +25,8 @@ from __future__ import annotations
 
 # --- observability ----------------------------------------------------------- #
 # 让 orchestration 层给一次 run 打上 trace_id —— 没必要直接依赖 tracing 模块。
-from app.infrastructure.observability.tracing import trace_run  # noqa: F401
+from app.infrastructure.observability.tracing import trace_run
 
 # --- LLM 降级可见 ----------------------------------------------------------- #
 # 让 orchestration 层读到本轮 fallback 事件，对外透出 degraded=True。
-from app.infrastructure.llm.router import fallback_events  # noqa: F401
+from app.infrastructure.llm.router import fallback_events

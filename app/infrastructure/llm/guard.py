@@ -191,7 +191,7 @@ class PromptGuard:
                 risk_score=min(risk, 1.0), action_taken=action,
             )
 
-        except Exception as exc:  # noqa: BLE001 — guard must never break main flow
+        except Exception as exc:
             logger.warning("PromptGuard 内部异常，fail-open 放行原文: %s", exc)
             return SanitizeResult(
                 text=user_query, warnings=[f"guard 内部异常（已放行）: {exc}"],

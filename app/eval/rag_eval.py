@@ -25,7 +25,7 @@ from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.core.text import tokenize  # noqa: E402
+from app.core.text import tokenize
 
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?%?")
 # 常见虚词，参与覆盖率会虚高
