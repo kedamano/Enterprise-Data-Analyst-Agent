@@ -335,17 +335,22 @@ class BaseLLM:
 
         settings = get_settings()
         result = None
+        hardened_system = system  # fallback if harden fails
+        # try 只包 PromptGuard 的 prepare 段；`_do_complete` 在 try 外，
+        # 其异常向上传播（由 tenacity/circuit_breaker 按错误码决定重试还是 fail-fast）。
+        # 此前 try 包住 _do_complete 会误把网络/402/500 当 guard 异常吞掉并重试一次，
+        # 导致 LLM 调用次数翻倍（ref: tests/test_retry_policy.py root-cause）。
         try:
             if getattr(settings, "prompt_guard_enabled", True) and user:
                 result = PromptGuard.sanitize_user_input(user, stage or "")
                 hardened_system = PromptGuard.harden_system_prompt(system, result)
-                set_guard_ctx(result)
-                return self._do_complete(
-                    hardened_system, result.text, stage, json_mode, temperature,
-                )
         except Exception as exc:  # noqa: BLE001 — intentional:fail-open-guard
             logger.warning("PromptGuard 异常，fail-open 放行: %s", exc)
         set_guard_ctx(result)
+        if result is not None:
+            return self._do_complete(
+                hardened_system, result.text, stage, json_mode, temperature,
+            )
         return self._do_complete(system, user, stage, json_mode, temperature)
 
     def _do_complete(

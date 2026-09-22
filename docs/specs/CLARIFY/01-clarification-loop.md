@@ -71,3 +71,10 @@
 | pending 注入 | 续跑时 context payload 含 `pending_clarification` |
 | 轮次上限 | 连续 3 轮仍要求澄清 → 第 3 轮按已有信息推进（不无限反问） |
 | 前端契约 | `isTerminal` 含 CLARIFY；`stageLabel` 有 CLARIFY（源码级断言，仿 `tests/test_ui.py`）+ `npm run build` 通过 |
+
+> **NOTE:** 当前实现已对齐本节契约——
+> - `AgentStatus` 枚举：`app/core/agents/data_analyst/state.py` 第 22 行，`"CLARIFY"` 已在 `Literal` 中；
+> - `isTerminal` 判定：`web/src/lib/api.ts` 第 157-165 行，返回值逻辑含 `status === "CLARIFY"`（边界防护已覆盖，避免 SSE 结束后界面永久转圈）；
+> - `stageLabel` 映射：`web/src/lib/api.ts` 第 137-155 行，含 `"CLARIFY": "需要澄清"`；
+> - 后端 `_status_message`：`app/api/routes/chat.py` 第 370-384 行，含 `"CLARIFY": "需要澄清"`；
+> - 前端组件：`web/src/components/ClarifyCard.tsx` 已存在，渲染 `clarification.questions/assumptions/objective` + 输入框 + 提交回调。

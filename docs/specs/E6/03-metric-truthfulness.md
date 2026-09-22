@@ -89,6 +89,12 @@ ToolResult(step_id=step.id, tool=step.tool, status="FAILED",
 并：`.env` 里那两行 `COST_*_PER_MTOK=0` **注释掉**（恢复成"未配"的诚实状态），
 `.env.example` 已写明用法，补一句"填真实单价后成本才有意义"。
 
+> **NOTE:** 当前实现已对齐——
+> - `.env`（第 52-53 行）与 `.env.example`（第 49-50 行）中 `COST_INPUT_PER_MTOK` / `COST_OUTPUT_PER_MTOK` 已被注释掉，成本行恢复为"未计（未配单价）"的诚实状态；
+> - 渲染逻辑在 `app/eval/runner.py` 第 672-679 行：`None` → `未计（未配单价）`、`0.0` → `0.0（单价为 0 = 已知免费）`、正值直接出数；
+> - `compute_cost_usd` 语义已区分：单价 `None` → 返回 `None`、显式 `0` → 返回 `0.0`，契约不可回退；
+> - `.env.prod.example` 中留有 `COST_INPUT_PER_MTOK=0.27` / `COST_OUTPUT_PER_MTOK=1.10`（生产计费示例，非硬编码）。
+
 **不猜单价**：`deepseek-v4-flash-w8a8` 在 matrix 网关上的单价**只有使用者知道**，
 代码里硬编码一个数是**编数据**。
 
