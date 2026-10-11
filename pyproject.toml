@@ -21,6 +21,8 @@ dependencies = [
     "matplotlib>=3.8",
     "openai>=1.30",
     "langgraph>=0.2",
+    "cachetools>=5.3",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +40,8 @@ mysql = ["pymysql>=1.1"]
 # AUTH/03：OIDC + 自签证书
 oidc = ["authlib>=1.3", "httpx>=0.27", "PyJWT>=2.8", "cryptography>=44"]
 certs = ["trustme>=0.9", "cryptography>=44"]
+# OTLP trace export（opt-in：配置 OTEL_EXPORTER_OTLP_ENDPOINT 即启用）
+otel = ["opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
 
 [tool.setuptools]
 packages = ["app"]

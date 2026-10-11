@@ -70,6 +70,8 @@ def apply_row_filters(sql: str, principal: Optional[Principal]) -> tuple[str, li
 
     实现选择：**追加 WHERE 谓词**（而不是把表包成子查询）——后者会破坏别名语义
     （`FROM fact_sales f` 包一层后 `f.col` 就失效了）。
+
+    SEC/04：改进注入位置检测，避免在子查询/CTE 场景下注入到错误位置。
     """
     if principal is None or not principal.row_filters:
         return sql, []
@@ -86,7 +88,89 @@ def apply_row_filters(sql: str, principal: Optional[Principal]) -> tuple[str, li
 
     body = (sql or "").rstrip().rstrip(";")
     predicate = " AND ".join(conds)
-    # 谓词必须插在 WHERE 位置、**不能**拼到 GROUP BY / ORDER BY / LIMIT 之后
+
+    # SEC/04: 更安全的 WHERE 注入位置检测
+    # 1. 找到最外层 SELECT 的位置
+    # 2. 在该 SELECT 对应的 FROM 子句之后、GROUP BY/ORDER BY/LIMIT 之前注入 WHERE
+    # 3. 如果已有 WHERE，则在最后一个 WHERE 之后追加 AND
+
+    # 找到最外层 SELECT 的位置（跳过子查询和 CTE）
+    select_pos = _find_outermost_select(body)
+    if select_pos == -1:
+        # 无法解析，回退到原有逻辑
+        return _apply_row_filters_fallback(body, predicate), applied
+
+    # 从最外层 SELECT 开始，找到对应的 FROM 子句
+    from_pos = _find_from_after_select(body, select_pos)
+    if from_pos == -1:
+        return _apply_row_filters_fallback(body, predicate), applied
+
+    # 找到 WHERE 插入点（FROM 之后，GROUP BY/ORDER BY/LIMIT 之前）
+    insert_pos = _find_where_insert_position(body, from_pos)
+    if insert_pos == -1:
+        return _apply_row_filters_fallback(body, predicate), applied
+
+    # 检查是否已有 WHERE
+    where_match = re.search(r"\bwhere\b", body[from_pos:insert_pos], re.IGNORECASE)
+    if where_match:
+        # 已有 WHERE，在 WHERE 子句末尾追加 AND
+        where_end = from_pos + where_match.end()
+        # 找到 WHERE 子句的结束位置（GROUP BY/ORDER BY/LIMIT 之前）
+        where_clause_end = _find_where_clause_end(body, where_end)
+        new_sql = body[:where_clause_end] + f" AND {predicate}" + body[where_clause_end:]
+    else:
+        # 没有 WHERE，在 INSERT 位置插入 WHERE
+        new_sql = body[:insert_pos] + f" WHERE {predicate}" + body[insert_pos:]
+
+    return new_sql, applied
+
+
+def _find_outermost_select(sql: str) -> int:
+    """找到最外层 SELECT 的位置，跳过子查询和 CTE。"""
+    depth = 0
+    i = 0
+    while i < len(sql):
+        if sql[i] == '(':
+            depth += 1
+        elif sql[i] == ')':
+            depth -= 1
+        elif depth == 0:
+            # 检查是否是 SELECT 关键字
+            match = re.match(r"\bselect\b", sql[i:], re.IGNORECASE)
+            if match:
+                return i
+        i += 1
+    return -1
+
+
+def _find_from_after_select(sql: str, select_pos: int) -> int:
+    """找到 SELECT 之后的 FROM 子句位置。"""
+    match = re.search(r"\bfrom\b", sql[select_pos:], re.IGNORECASE)
+    if match:
+        return select_pos + match.start()
+    return -1
+
+
+def _find_where_insert_position(sql: str, from_pos: int) -> int:
+    """找到 WHERE 插入位置（FROM 之后，GROUP BY/ORDER BY/LIMIT 之前）。"""
+    tail_re = re.compile(r"\b(group\s+by|order\s+by|limit|having)\b", re.IGNORECASE)
+    m = tail_re.search(sql[from_pos:])
+    if m:
+        return from_pos + m.start()
+    return len(sql)
+
+
+def _find_where_clause_end(sql: str, where_start: int) -> int:
+    """找到 WHERE 子句的结束位置（GROUP BY/ORDER BY/LIMIT 之前）。"""
+    tail_re = re.compile(r"\b(group\s+by|order\s+by|limit|having)\b", re.IGNORECASE)
+    m = tail_re.search(sql[where_start:])
+    if m:
+        return where_start + m.start()
+    return len(sql)
+
+
+def _apply_row_filters_fallback(body: str, predicate: str) -> str:
+    """回退到原有的字符串拼接方式。"""
     tail_re = re.compile(r"\b(group\s+by|order\s+by|limit|having)\b", re.IGNORECASE)
     m = tail_re.search(body)
     if m:
@@ -98,7 +182,7 @@ def apply_row_filters(sql: str, principal: Optional[Principal]) -> tuple[str, li
         new_sql = f"{head} AND {predicate}"
     else:
         new_sql = f"{head} WHERE {predicate}"
-    return (f"{new_sql} {tail}" if tail else new_sql), applied
+    return f"{new_sql} {tail}" if tail else new_sql
 
 
 def drop_denied_columns(output: dict, principal: Optional[Principal]) -> tuple[dict, list[str]]:

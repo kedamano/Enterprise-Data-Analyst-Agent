@@ -1146,3 +1146,105 @@ export interface FeedbackStats {
 export async function fetchFeedbackStats(signal?: AbortSignal): Promise<FeedbackStats> {
   return requestJson<FeedbackStats>("/api/v1/feedback/stats", { signal });
 }
+
+// ---------------------------------------------------------------- LLM Providers
+
+export interface Provider {
+  id: number;
+  name: string;
+  base_url: string;
+  api_key: string;
+  is_active: boolean;
+  available_models: string[];
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ActiveProviderInfo {
+  provider: Provider | null;
+  live: {
+    base_url: string;
+    api_key_masked: string;
+    model: string;
+    is_mock: boolean;
+  };
+}
+
+function providerHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return { "Content-Type": "application/json", ...authHeaders(), ...extra };
+}
+
+export async function fetchProviders(): Promise<{ providers: Provider[] }> {
+  return requestJson<{ providers: Provider[] }>("/api/v1/providers");
+}
+
+export async function fetchActiveProvider(): Promise<ActiveProviderInfo> {
+  return requestJson<ActiveProviderInfo>("/api/v1/providers/active");
+}
+
+export async function createProvider(form: {
+  name: string;
+  base_url: string;
+  api_key: string;
+}): Promise<Provider> {
+  return requestJson<Provider>("/api/v1/providers", {
+    method: "POST",
+    headers: providerHeaders(),
+    body: JSON.stringify(form),
+  });
+}
+
+export async function updateProvider(
+  id: number,
+  form: Partial<{ name: string; base_url: string; api_key: string }>,
+): Promise<Provider> {
+  return requestJson<Provider>(`/api/v1/providers/${id}`, {
+    method: "PUT",
+    headers: providerHeaders(),
+    body: JSON.stringify(form),
+  });
+}
+
+export async function deleteProvider(id: number): Promise<{ status: string }> {
+  return requestJson<{ status: string }>(`/api/v1/providers/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}
+
+export async function probeProvider(id: Promise<number> | number): Promise<{
+  id: number;
+  ok: boolean;
+  models: string[];
+  count: number;
+}> {
+  const pid = typeof id === "number" ? id : id;
+  return requestJson(`/api/v1/providers/${pid}/probe`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+}
+
+export async function testProvider(
+  id: number,
+  model?: string,
+): Promise<{ id: number; ok: boolean; detail: string; model_tested: string }> {
+  return requestJson(`/api/v1/providers/${id}/test`, {
+    method: "POST",
+    headers: providerHeaders(),
+    body: JSON.stringify(model ? { model } : {}),
+  });
+}
+
+export async function activateProvider(id: number, model?: string): Promise<{
+  status: string;
+  id: number;
+  name: string;
+  model: string;
+}> {
+  return requestJson(`/api/v1/providers/${id}/activate`, {
+    method: "POST",
+    headers: providerHeaders(),
+    body: JSON.stringify(model ? { model } : {}),
+  });
+}

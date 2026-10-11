@@ -50,7 +50,12 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
         db_url, _dialect = resolve_source(requested)
     except KeyError as exc:
         return {"ok": False, "error": str(exc).strip(chr(39)), "tables": []}
-    engine = create_engine(db_url, pool_pre_ping=True)
+    _is_sqlite = db_url.startswith("sqlite")
+    engine = create_engine(
+        db_url,
+        pool_pre_ping=True,
+        **({} if _is_sqlite else {"pool_size": 10, "max_overflow": 20, "pool_recycle": 1800}),
+    )
     insp = inspect(engine)
     table_names = insp.get_table_names()
 
@@ -89,7 +94,11 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
         for name in others:
             try:
                 ourl, _od = resolve_source(name)
-                oengine = create_engine(ourl, pool_pre_ping=True)
+                oengine = create_engine(
+                    ourl,
+                    pool_pre_ping=True,
+                    **({} if ourl.startswith("sqlite") else {"pool_size": 10, "max_overflow": 20, "pool_recycle": 1800}),
+                )
                 oinsp = inspect(oengine)
                 for t in oinsp.get_table_names():
                     blob = f"{t} " + " ".join(c["name"] for c in oinsp.get_columns(t))

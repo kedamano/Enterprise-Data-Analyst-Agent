@@ -64,14 +64,21 @@ def _probe(url: str) -> None:
         p = url.split("///", 1)[-1]
         if not p or not Path(p).exists():
             raise RuntimeError(f"数据库文件不存在：{p or url}")
-        engine = create_engine(url, connect_args={"timeout": _PROBE_TIMEOUT_S})
+        engine = create_engine(url, connect_args={"timeout": _PROBE_TIMEOUT_S}, pool_pre_ping=True)
     else:
         connect_args = (
             {"options": f"-c statement_timeout={int(_PROBE_TIMEOUT_S * 1000)}"}
             if url.startswith("postgres")
             else {}
         )
-        engine = create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+        engine = create_engine(
+            url,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            pool_recycle=1800,
+            connect_args=connect_args,
+        )
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))

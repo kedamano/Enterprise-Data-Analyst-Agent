@@ -14,6 +14,7 @@ visualised / deployed on a LangGraph server (requires ``langgraph``).
 """
 from __future__ import annotations
 
+import contextvars
 import logging
 import uuid
 from typing import AsyncGenerator, Iterator, Callable
@@ -40,7 +41,15 @@ logger = logging.getLogger("da.graph")
 
 # Replay / test hook: stack of replaced tool implementations so nested overrides
 # restore correctly. Each entry is {tool_name: replacement_fn}.
-_TOOL_OVERRIDE_STACK: list[dict[str, Callable]] = []
+# SEC/03: 改用 ContextVar 实现请求级隔离，防止并发请求互相污染。
+_TOOL_OVERRIDE_STACK: contextvars.ContextVar[list[dict[str, Callable]]] = contextvars.ContextVar(
+    "da_tool_override_stack", default=[]
+)
+
+
+def _get_tool_override_stack() -> list[dict[str, Callable]]:
+    """获取当前请求的覆盖栈。"""
+    return _TOOL_OVERRIDE_STACK.get()
 
 
 def _apply_tool_overrides(overrides: dict[str, Callable]) -> None:
@@ -50,7 +59,8 @@ def _apply_tool_overrides(overrides: dict[str, Callable]) -> None:
     恢复，内层退出只恢复内层覆盖的工具。
     """
     from ....core.tools import REGISTRY
-    _TOOL_OVERRIDE_STACK.append(dict(overrides))
+    stack = _get_tool_override_stack()
+    stack.append(dict(overrides))
     for name, fn in overrides.items():
         REGISTRY[name] = fn
 
@@ -58,8 +68,9 @@ def _apply_tool_overrides(overrides: dict[str, Callable]) -> None:
 def _clear_tool_overrides() -> None:
     """``_apply_tool_overrides`` 的对称操作：撤销最近一次覆盖。"""
     from ....core.tools import REGISTRY
-    if _TOOL_OVERRIDE_STACK:
-        restored = _TOOL_OVERRIDE_STACK.pop()
+    stack = _get_tool_override_stack()
+    if stack:
+        restored = stack.pop()
         for name in restored:
             REGISTRY.pop(name, None)
 

@@ -16,6 +16,7 @@ stays available instead of hard-failing a request.
 """
 from __future__ import annotations
 
+import collections
 import json
 import logging
 import random
@@ -262,7 +263,8 @@ class LLMError(RuntimeError):
 # 避免 D18 那种"配置 true、实际全程 mock 兜底，对外一切正常"。
 # --------------------------------------------------------------------------- #
 _MAX_ERROR_LEN = 300  # 402 body 很长，不能整段回给前端
-_fallback_events: list[dict[str, Any]] = []
+_MAX_FALLBACK_EVENTS = 100  # ARCH/08: 有界队列，防止内存泄漏
+_fallback_events: collections.deque[dict[str, Any]] = collections.deque(maxlen=_MAX_FALLBACK_EVENTS)
 _llm_state: dict[str, Any] = {"last_degraded": False}
 
 
@@ -935,3 +937,46 @@ def reset_llm() -> None:
     global _llm
     _llm = None
     reset_fallback_events()
+
+
+def apply_provider(
+    base_url: str,
+    api_key: str,
+    model: str | None = None,
+) -> str:
+    """Switch the active LLM provider at runtime (called by provider management API).
+
+    Updates the cached settings, resets the LLM singleton so the next call picks
+    up the new config. Returns the effective model name.
+    """
+    global _llm
+    s = get_settings()
+    s.llm_base_url = base_url
+    s.llm_api_key = api_key
+    if model:
+        s.llm_model = model
+    # Toggle off mock — we now have a real key
+    s.mock_llm = False
+    _llm = None  # force next get_llm() to build a fresh client
+    logger.info(
+        "Switched LLM provider -> base_url=%s model=%s",
+        base_url, s.llm_model,
+    )
+    return s.llm_model
+
+
+def get_active_config() -> dict[str, Any]:
+    """Return the currently-active LLM config (for display in UI)."""
+    s = get_settings()
+    return {
+        "base_url": s.llm_base_url,
+        "api_key_masked": _mask_key(s.llm_api_key),
+        "model": s.llm_model,
+        "is_mock": s.mock_llm or not s.llm_api_key,
+    }
+
+
+def _mask_key(key: str) -> str:
+    if len(key) <= 4:
+        return "*" * len(key)
+    return "*" * (len(key) - 4) + key[-4:]

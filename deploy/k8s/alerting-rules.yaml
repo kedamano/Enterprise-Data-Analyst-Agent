@@ -1,0 +1,205 @@
+# PrometheusRule CRD — 由 Prometheus Operator 自动加载到 Alertmanager
+# 使用前需部署 prometheus-operator / kube-prometheus-stack
+# 安装后 kubectl apply -f deploy/k8s/alerting-rules.yaml
+#
+# 团队可在此追加 PagerDuty/飞书/企微 接收器配置：
+#   kubectl edit secret alertmanager-main -n monitoring
+#   在 global.resolve_timeout / route.receiver 里指定对应集成
+#
+# 接收器示例（需在 Alertmanager config 里配合）：
+#   飞书:   webhook_configs: [{url: 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx'}]
+#   企微:   webhook_configs: [{url: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx'}]
+#   PagerDuty: pagerduty_configs: [{service_key: '<integration-key>'}]
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: edaa-alerts
+  namespace: edaa
+  labels:
+    app: edaa
+    prometheus: k8s  # 匹配 Prometheus 的 ruleSelector
+spec:
+  groups:
+    - name: edaa.slo
+      rules:
+        # ──────────────────────────────────────────────
+        # 1) P95 时延劣化：近 5 分钟 P95 > 8s
+        # ──────────────────────────────────────────────
+        - alert: HighRequestLatencyP95
+          expr: |
+            histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 8
+          for: 5m
+          labels:
+            severity: warning
+            team: edaa
+          annotations:
+            summary: "EDAA P95 时延超 8s（持续 5m）"
+            description: "当前 P95 = {{ $value | printf \"%.2f\" }}s，可能上游 LLM 排队或工具阻塞。"
+            runbook_url: "https://wiki.internal/edaa/runbooks/high-latency"
+
+        # ──────────────────────────────────────────────
+        # 2) 工具失败率过高：近 5 分钟失败率 > 10%
+        # ──────────────────────────────────────────────
+        - alert: HighToolFailureRate
+          expr: |
+            rate(tool_calls_failed_total[5m]) / rate(tool_calls_total[5m]) > 0.10
+          for: 5m
+          labels:
+            severity: critical
+            team: edaa
+          annotations:
+            summary: "EDAA 工具失败率 > 10%"
+            description: "失败率 = {{ $value | printf \"%.1f%%\" }}。检查 SQL 超时、权限、schema 兼容性。"
+            runbook_url: "https://wiki.internal/edaa/runbooks/tool-failure"
+
+        # ──────────────────────────────────────────────
+        # 3) 鉴权配置故障：AUTH_ENABLED=true 但未配 AUTH_KEYS → 503
+        # ──────────────────────────────────────────────
+        - alert: AuthMisconfigured
+          expr: |
+            increase(event_http_503_total[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            team: edaa
+          annotations:
+            summary: "鉴权 503：生产环境 AUTH_ENABLED=true 但未配置 AUTH_KEYS"
+            description: "事件次数 = {{ $value }}。立即检查 ConfigMap / Secret 中的 AUTH_KEYS。"
+
+        # ──────────────────────────────────────────────
+        # 4) 限流命中：429 突增（可能遭遇滥用或配额过小）
+        # ──────────────────────────────────────────────
+        - alert: RateLimitedSpikes
+          expr: |
+            increase(event_http_429_total[5m]) > 20
+          for: 2m
+          labels:
+            severity: warning
+            team: edaa
+          annotations:
+            summary: "EDAA 限流 429 突增"
+            description: "近 5m 429 次数 = {{ $value }}。排查：配额不足 / 用户刷接口 / 配额配置错误。"
+
+        # ──────────────────────────────────────────────
+        # 5) LLM 成本失控：近 1h 成本速率 > $5/h
+        #    前提：需在 config 中配置 LLM_COST_*_PER_MTOK
+        # ──────────────────────────────────────────────
+        - alert: LLMCostRunaway
+          expr: |
+            rate(llm_cost_usd_total[1h]) > 5
+          for: 10m
+          labels:
+            severity: warning
+            team: edaa
+          annotations:
+            summary: "EDAA LLM 估算成本 > $5/h"
+            description: "近 1h 成本速率 = ${{ $value | printf \".2f\" }}/h。评估是否需要扩配额或优化 prompt。"
+
+        # ──────────────────────────────────────────────
+        # 6) LLM 降级率过高：回落 Mock 的比例 > 1%
+        # ──────────────────────────────────────────────
+        - alert: HighLLMDegradationRate
+          expr: |
+            rate(llm_fallbacks_total[5m]) / rate(llm_calls_total[5m]) > 0.01
+          for: 5m
+          labels:
+            severity: critical
+            team: edaa
+          annotations:
+            summary: "EDAA LLM 降级率 > 1%（真实模型未在服务）"
+            description: "降级率 = {{ $value | printf \"%.1f%%\" }}。检查上游配额、余额、API 状态。"
+            runbook_url: "https://wiki.internal/edaa/runbooks/llm-degradation"
+
+        # ──────────────────────────────────────────────
+        # 7) 数值可疑度（疑似幻觉率）：> 20% 数值结论无 SQL 出处
+        # ──────────────────────────────────────────────
+        - alert: HighHallucinationRatio
+          expr: |
+            trace_hallucination_ratio > 0.20
+          for: 10m
+          labels:
+            severity: critical
+            team: edaa
+          annotations:
+            summary: "EDAA 疑似幻觉率 > 20%（数值结论无对应 SQL 步骤）"
+            description: "瞬时值 = {{ $value | printf \"%.1f%%\" }}。核查 trace 链路；必要时人工审阅输出。"
+            runbook_url: "https://wiki.internal/edaa/runbooks/hallucination"
+
+        # ──────────────────────────────────────────────
+        # 8) 服务可用性：近 5 分钟 5xx 率 > 1%
+        # ──────────────────────────────────────────────
+        - alert: LowAvailability
+          expr: |
+            rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01
+          for: 3m
+          labels:
+            severity: critical
+            team: edaa
+          annotations:
+            summary: "EDAA 服务可用性 < 99%（5xx 率 > 1%）"
+            description: "5xx 率 = {{ $value | printf \"%.1f%%\" }}。检查 Pod 重启 / OOM / 上游连接。"
+
+        # ──────────────────────────────────────────────
+        # 9) 缓存命中率下降（需配置后启用；缓存刚启动时数据不足则静默）
+        # ──────────────────────────────────────────────
+        - alert: LowCacheHitRatio
+          expr: |
+            cache_hits_total / (cache_hits_total + cache_misses_total) < 0.30
+          for: 15m
+          labels:
+            severity: warning
+            team: edaa
+          annotations:
+            summary: "EDAA 缓存命中率 < 30%"
+            description: "命中率 = {{ $value | printf \"%.1f%%\" }}，API 重复查询多但缓存未命中，排查参数化 query 是否绕过了语义缓存。"
+
+        # ──────────────────────────────────────────────
+        # 10) DB 连接池等待队列异常
+        # ──────────────────────────────────────────────
+        - alert: DBPoolWaiters
+          expr: |
+            db_pool_waiters > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: edaa
+          annotations:
+            summary: "EDAA DB 连接池等待 > 5"
+            description: "当前等待连接 = {{ $value }}。检查慢查询 / 连接泄漏 / 需要提升 pool_size。"
+
+---
+# Alertmanager 接收器配置（示例；实际需放入对应 Secret 或 Alertmanager CR）
+# kubectl apply -f - <<EOF
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: alertmanager-main
+#   namespace: monitoring
+# type: Opaque
+# stringData:
+#   alertmanager.yaml: |
+#     global:
+#       resolve_timeout: 5m
+#     route:
+#       receiver: 'feishu-default'
+#       routes:
+#         - match:
+#             severity: critical
+#           receiver: 'pagerduty-critical'
+#           continue: true
+#         - match:
+#             team: edaa
+#           receiver: 'feishu-default'
+#     receivers:
+#       - name: 'feishu-default'
+#         webhook_configs:
+#           - url: 'https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_FEISHU_TOKEN'
+#             send_resolved: true
+#       - name: 'pagerduty-critical'
+#         pagerduty_configs:
+#           - service_key: 'YOUR_PAGERDUTY_INTEGRATION_KEY'
+#       - name: 'wecom-default'
+#         webhook_configs:
+#           - url: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_WECOM_KEY'
+# EOF

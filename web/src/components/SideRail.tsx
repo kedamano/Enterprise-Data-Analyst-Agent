@@ -32,7 +32,8 @@ export type RailView =
   | "skills"
   | "mcp"
   | "settings"
-  | "analytics";
+  | "analytics"
+  | "providers";
 
 /** 应用 Logo：品牌图标（web/public/logo.png），同时用于浏览器 favicon。 */
 function Logo() {
@@ -261,6 +262,17 @@ export function SideRail({
             title="MCP 服务器"
             accent="indigo"
             active={view === "mcp"}
+          >
+            <ServerCog className="h-5 w-5" />
+          </RailLink>
+          <RailLink
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate("providers");
+            }}
+            title="模型供应商"
+            accent="amber"
+            active={view === "providers"}
           >
             <ServerCog className="h-5 w-5" />
           </RailLink>

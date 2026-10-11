@@ -30,6 +30,7 @@ import { SkillsView } from "@/components/SkillsView";
 import { McpView } from "@/components/McpView";
 import { SettingsView } from "@/components/SettingsView";
 import { AnalyticsView } from "@/components/AnalyticsView";
+import { ProvidersView } from "@/components/ProvidersView";
 import { BudgetBar } from "@/components/BudgetBar";
 import { refreshAuth } from "@/lib/user";
 import type { RailView } from "@/components/SideRail";
@@ -46,7 +47,7 @@ function readViewFromHash(): RailView {
   if (!v) return "chat";
   const name = v.startsWith("view=") ? v.slice(5) : "";
   const allowed: RailView[] = [
-    "chat", "knowledge", "files", "datasources", "skills", "mcp", "settings", "analytics",
+    "chat", "knowledge", "files", "datasources", "skills", "mcp", "settings", "analytics", "providers",
   ];
   return allowed.includes(name as RailView) ? (name as RailView) : "chat";
 }
@@ -532,6 +533,7 @@ export default function App() {
                 {view === "datasources" && <DataSourcesView />}
                 {view === "skills" && <SkillsView />}
                 {view === "mcp" && <McpView />}
+                {view === "providers" && <ProvidersView />}
                 {view === "settings" && (
                   <SettingsView onClearAll={clearAllConversations} />
                 )}

@@ -33,6 +33,7 @@ from .api.routes import (
     knowledge,
     mcp,
     mcp_servers,
+    providers,
     security,
     skills,
     ui,
@@ -44,7 +45,7 @@ from .infrastructure.auth.routes import router as oidc_router
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
-setup_logging(settings.log_level)
+setup_logging(settings.log_level, settings.log_format)
 pathlib.Path("data").mkdir(exist_ok=True)
 
 # #3 可观测性：进程内指标（Prometheus 文本格式）→ /metrics 端点 + 计时中间件
@@ -106,10 +107,15 @@ async def _lifespan(_app: FastAPI):
             logger.warning("Job scheduler init skipped: %s", exc)
     yield
 
-    # teardown：flush LangFuse 遥测 → 停调度
+    # teardown：flush LangFuse 遥测 → OTel exporter flush → 停调度
     try:
         from .infrastructure.observability.langfuse import flush as _lf_flush
         _lf_flush()
+    except Exception:
+        pass
+    try:
+        from .infrastructure.observability.otel_trace import shutdown as _otel_shutdown
+        _otel_shutdown()
     except Exception:
         pass
     try:
@@ -120,11 +126,13 @@ async def _lifespan(_app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=_lifespan)
+# CORS：默认生产环境收紧（从 env 读取 origins 列表）；dev 默认 `*` 保开发体验
+_cors_origins = settings.cors_origins if settings.cors_origins else (["*"] if settings.environment in ("development", "dev", "local", "test") else [])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Idempotency-Key"],
 )
 
 # AUTH/01：鉴权中间件（默认关；开启后除探活/文档外全部要 X-API-Key）
@@ -196,7 +204,8 @@ app.include_router(budget.router, prefix=settings.api_prefix)
 app.include_router(analytics.router, prefix=settings.api_prefix)
 app.include_router(feedback.router, prefix=settings.api_prefix)
 if settings.workflow_jobs_enabled:
-    app.include_router(jobs.router, prefix=settings.api_prefix)
+    app.include_router(jobs.router, prefix=f"{settings.api_prefix}/jobs")
+app.include_router(providers.router, prefix=settings.api_prefix)
 # AUTH/03：OIDC 路由（env-gated；未配置时 /oidc/config 仍 200，/oidc/login 与 /oidc/callback 返回 501）
 app.include_router(oidc_router, prefix=settings.api_prefix)
 app.include_router(ui.router)

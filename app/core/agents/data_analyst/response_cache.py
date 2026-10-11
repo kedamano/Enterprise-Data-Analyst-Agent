@@ -19,10 +19,13 @@ import logging
 import time
 from typing import Any, Optional
 
+from cachetools import TTLCache
+
 logger = logging.getLogger("da.cache")
 
 # 进程内兜底（Redis 未配时用它；与 short_term 的降级策略一致）
-_MEM: dict[str, dict[str, Any]] = {}
+# TTLCache: maxsize 有界 + ttl 自动淘汰 → 长稳运行不 OOM
+_MEM: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=2048, ttl=3600)
 
 
 def normalize_query(query: str) -> str:
@@ -54,14 +57,17 @@ def get_cached(session_id: str, query: str, mode: str = "") -> Optional[dict]:
             if raw:
                 payload = json.loads(raw)
                 if time.time() - float(payload.get("_ts", 0)) < _ttl():
+                    _record_cache_hit("response")
                     return payload.get("state")
         except Exception:
             pass  # 缓存故障静默降级（绝不打断主流程）
     hit = _MEM.get(key)
     if hit and time.time() - float(hit.get("_ts", 0)) < _ttl():
+        _record_cache_hit("response")
         return hit.get("state")
     if hit:
         _MEM.pop(key, None)
+    _record_cache_miss("response")
     return None
 
 
@@ -106,9 +112,29 @@ def clear(session_id: Optional[str] = None) -> None:
     if session_id is None:
         _MEM.clear()
         return
-    prefix = cache_key(session_id, "", "")
-    for k in [k for k in _MEM if k.startswith(prefix[:12])]:
+    prefix = cache_id_prefix(session_id)
+    for k in [k for k in _MEM if k.startswith(prefix)]:
         _MEM.pop(k, None)
+
+
+def _record_cache_hit(cache_type: str) -> None:
+    try:
+        from ....infrastructure.observability.metrics import record_cache_hit
+        record_cache_hit(cache_type)
+    except Exception:
+        pass
+
+def _record_cache_miss(cache_type: str) -> None:
+    try:
+        from ....infrastructure.observability.metrics import record_cache_miss
+        record_cache_miss(cache_type)
+    except Exception:
+        pass
+
+def cache_id_prefix(session_id: str) -> str:
+    """返回某 session_id 所有缓存 key 共享的 hash 前缀（前 12 位 hex）。"""
+    raw = json.dumps([session_id or "", "", ""], ensure_ascii=False)
+    return "resp:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
 
 
 def enabled() -> bool:

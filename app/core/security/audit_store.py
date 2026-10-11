@@ -84,7 +84,13 @@ def _engine():
     url = _db_url()
     if not url:
         raise RuntimeError("审计库未配置（AUDIT_DB_URL / POSTGRES_DSN 均为空）")
-    return create_engine(url, pool_pre_ping=True)
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=1800,
+    )
 
 
 def _ensure_table(engine) -> None:

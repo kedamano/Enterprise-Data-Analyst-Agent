@@ -29,6 +29,16 @@ logger = logging.getLogger("da.tools.knowledge")
 _DB_PATH = Path(os.environ.get("KNOWLEDGE_DB_PATH") or (Path("data") / "knowledge.db"))
 _lock = threading.Lock()
 
+# ARCH/07: 迁移状态缓存（按 DB 路径缓存，避免重复执行 ALTER TABLE）
+_MIGRATION_CACHE: dict[str, bool] = {}
+_MIGRATION_CACHE_LOCK = threading.Lock()
+
+
+def _clear_migration_cache() -> None:
+    """清空迁移缓存（测试用）。"""
+    with _MIGRATION_CACHE_LOCK:
+        _MIGRATION_CACHE.clear()
+
 # SQLite 与 Milvus 两个后端共用 add/search 鸭子类型接口
 knowledge_store_type = Any
 
@@ -279,43 +289,52 @@ class KnowledgeStore:
     def __init__(self, db_path: Path | None = None) -> None:
         self.db = str(db_path or _DB_PATH)
         Path(self.db).parent.mkdir(parents=True, exist_ok=True)
-        with _lock, sqlite3.connect(self.db) as c:
-            c.execute(
-                """CREATE TABLE IF NOT EXISTS chunks (
-                    id INTEGER PRIMARY KEY, source TEXT, text TEXT,
-                    tokens TEXT, vec TEXT)"""
-            )
-            # Lazy migrations — every ADD is idempotent (only adds if missing)
-            cols = {r[1] for r in c.execute("PRAGMA table_info(chunks)").fetchall()}
-            if "tenant" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN tenant TEXT")
-            if "version" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
-            if "status" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN status TEXT NOT NULL DEFAULT 'ok'")
-            if "status_reason" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN status_reason TEXT")
-            if "deprecated" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN deprecated INTEGER NOT NULL DEFAULT 0")
-            if "content_hash" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN content_hash TEXT")
-            if "failed_count" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN failed_count INTEGER NOT NULL DEFAULT 0")
-            if "retried_at" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN retried_at INTEGER")
-            # 多知识库（KB）：分块归属某个知识库；NULL = 历史遗留分块，由
-            # KnowledgeCatalog.ensure_seed() 在首次使用时接管到默认库。
-            # 建索引是因为「按库检索 / 按库统计」是知识库详情页的主路径。
-            if "kb_id" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN kb_id TEXT")
-            c.execute("CREATE INDEX IF NOT EXISTS chunks_kb ON chunks(kb_id)")
-            # D59 嵌入版本迁移：写入时的嵌入模型版本；独立于 content version。
-            # WHERE embed_model_version=current OR IS NULL 隔离检索，stale chunk 不贡献 RRF。
-            if "embed_model_version" not in cols:
-                c.execute("ALTER TABLE chunks ADD COLUMN embed_model_version TEXT")
-            c.execute(
-                "CREATE INDEX IF NOT EXISTS chunks_emv "
-                "ON chunks(embed_model_version, kb_id)")
+
+        # ARCH/07: 迁移缓存——相同 DB 路径只执行一次迁移
+        with _MIGRATION_CACHE_LOCK:
+            already_migrated = _MIGRATION_CACHE.get(self.db, False)
+
+        if not already_migrated:
+            with _lock, sqlite3.connect(self.db) as c:
+                c.execute(
+                    """CREATE TABLE IF NOT EXISTS chunks (
+                        id INTEGER PRIMARY KEY, source TEXT, text TEXT,
+                        tokens TEXT, vec TEXT)"""
+                )
+                # Lazy migrations — every ADD is idempotent (only adds if missing)
+                cols = {r[1] for r in c.execute("PRAGMA table_info(chunks)").fetchall()}
+                if "tenant" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN tenant TEXT")
+                if "version" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+                if "status" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN status TEXT NOT NULL DEFAULT 'ok'")
+                if "status_reason" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN status_reason TEXT")
+                if "deprecated" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN deprecated INTEGER NOT NULL DEFAULT 0")
+                if "content_hash" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN content_hash TEXT")
+                if "failed_count" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN failed_count INTEGER NOT NULL DEFAULT 0")
+                if "retried_at" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN retried_at INTEGER")
+                # 多知识库（KB）：分块归属某个知识库；NULL = 历史遗留分块，由
+                # KnowledgeCatalog.ensure_seed() 在首次使用时接管到默认库。
+                # 建索引是因为「按库检索 / 按库统计」是知识库详情页的主路径。
+                if "kb_id" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN kb_id TEXT")
+                c.execute("CREATE INDEX IF NOT EXISTS chunks_kb ON chunks(kb_id)")
+                # D59 嵌入版本迁移：写入时的嵌入模型版本；独立于 content version。
+                # WHERE embed_model_version=current OR IS NULL 隔离检索，stale chunk 不贡献 RRF。
+                if "embed_model_version" not in cols:
+                    c.execute("ALTER TABLE chunks ADD COLUMN embed_model_version TEXT")
+                c.execute(
+                    "CREATE INDEX IF NOT EXISTS chunks_emv "
+                    "ON chunks(embed_model_version, kb_id)")
+
+            with _MIGRATION_CACHE_LOCK:
+                _MIGRATION_CACHE[self.db] = True
 
     @staticmethod
     def _resolve_tenant(tenant: str | None) -> str:

@@ -48,7 +48,13 @@ def _pg_engine():
         return None
     try:
         from sqlalchemy import create_engine, text
-        engine = create_engine(settings.postgres_dsn, pool_pre_ping=True)
+        engine = create_engine(
+            settings.postgres_dsn,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            pool_recycle=1800,
+        )
         with engine.begin() as conn:
             conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS da_long_term ("

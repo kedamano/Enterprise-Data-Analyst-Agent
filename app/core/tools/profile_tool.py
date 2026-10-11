@@ -251,7 +251,7 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
             if any(t.get("table") == table for t in uploaded):
                 sp = sidecar_path(sid)
                 if sp.exists():
-                    engine = create_engine(f"sqlite:///{sp}?timeout=10")
+                    engine = create_engine(f"sqlite:///{sp}?timeout=10", pool_pre_ping=True)
         except Exception:
             engine = None
     if engine is None:
@@ -261,7 +261,12 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
             db_url, _dialect = resolve_source(params.get("source"))
         except KeyError as exc:
             return {"ok": False, "error": str(exc).strip("'")}
-        engine = create_engine(db_url, pool_pre_ping=True)
+        _is_sqlite = db_url.startswith("sqlite")
+        engine = create_engine(
+            db_url,
+            pool_pre_ping=True,
+            **({} if _is_sqlite else {"pool_size": 10, "max_overflow": 20, "pool_recycle": 1800}),
+        )
 
     # 方言确定后才谈得上“正确的标识符引号”（MySQL 反引号 / 其余双引号）。
     # 直接问 engine 自己最可靠：不依赖 DATA_DB_DIALECT 有没有被正确配置。

@@ -28,6 +28,9 @@ logger = logging.getLogger("da.semantic_cache")
 # 嵌入维度默认 64（可通过 config 覆盖）
 _DEFAULT_DIM = 64
 
+# 语义缓存行数硬上限（防止 SQLite 无限增长）。超出时删除最旧记录。
+_MAX_ROWS = 50000
+
 # 参数化命中风险：query 中含数字/期间 → 同模板仅参数不同时 cosine 仍会很高，
 # 命中则把 A 的结论给 B（例如"2024年总营收"命中"2025年总营收"）。
 # 这类 query 跳过语义缓存，只走精确匹配 response_cache。
@@ -181,6 +184,7 @@ def get_semantic(session_id: str, query: str) -> Optional[object]:
                 state.metadata["similarity"] = 1.0
                 state.metadata["matched_query"] = q_text
                 state.metadata["matched_session"] = session_id
+                _record_cache_hit("semantic")
                 return state
             except Exception:
                 continue
@@ -217,8 +221,10 @@ def get_semantic(session_id: str, query: str) -> Optional[object]:
             best_state.metadata["similarity"] = round(best_sim, 4)
             best_state.metadata["matched_query"] = best_query
             best_state.metadata["matched_session"] = session_id
+            _record_cache_hit("semantic")
             return best_state
 
+        _record_cache_miss("semantic")
         return None
     except Exception as exc:
         logger.warning("语义缓存查询失败（静默降级）：%s", exc)
@@ -257,6 +263,12 @@ def put_semantic(session_id: str, query: str, state: object) -> None:
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (session_id, query, emb_json, state_json, __import__("time").time(), q_hash),
             )
+            # 行数硬上限：超出时删最旧记录（O(1) 触发频率低，因日常远不到 50000 行）
+            conn.execute(
+                "DELETE FROM semantic_cache WHERE id NOT IN "
+                "(SELECT id FROM semantic_cache ORDER BY created_at DESC LIMIT ?)",
+                (_MAX_ROWS,),
+            )
             conn.commit()
     except Exception as exc:
         logger.warning("语义缓存写入失败（静默降级）：%s", exc)
@@ -283,6 +295,21 @@ def _reset_connection() -> None:
         except Exception:
             pass
         _conn._c = None
+
+
+def _record_cache_hit(cache_type: str) -> None:
+    try:
+        from ....infrastructure.observability.metrics import record_cache_hit
+        record_cache_hit(cache_type)
+    except Exception:
+        pass
+
+def _record_cache_miss(cache_type: str) -> None:
+    try:
+        from ....infrastructure.observability.metrics import record_cache_miss
+        record_cache_miss(cache_type)
+    except Exception:
+        pass
 
 
 def semantic_enabled() -> bool:

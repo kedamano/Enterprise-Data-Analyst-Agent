@@ -23,6 +23,8 @@ scipy>=1.11        # E5/01：统计检验（t 检验/卡方/比例检验）由�
 openai>=1.30
 # Optional: LangGraph graph definition (graph.build_graph)
 langgraph>=0.2
+cachetools>=5.3
+alembic>=1.13
 
 # Knowledge base / RAG (optional – graceful fallback if absent)
 pymilvus>=2.4

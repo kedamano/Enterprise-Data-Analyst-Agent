@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import threading
 import time
+from collections import OrderedDict
 from typing import Any
 
 from sqlalchemy import event
@@ -134,7 +136,7 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
         db_url, _dialect = resolve_source(params.get("source"))
     except KeyError as exc:
         return {"ok": False, "error": str(exc).strip("'"), "rows": []}
-    engine = _build_engine(db_url, timeout_s)
+    engine = _get_engine(db_url, timeout_s)
 
     # ATTACH/01：若该 session 有用户上传的附件表，把边车库挂到连接的 ``upload`` 库。
     # 注意：ATTACH 是 DDL 类语句，会触发只读守卫，所以**不能**拼进用户的 SQL；
@@ -180,17 +182,51 @@ def run(params: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "error": msg, "rows": []}
 
 
+# ARCH/06: Engine 缓存（按 DSN + timeout 缓存，LRU 淘汰，线程安全）
+_ENGINE_CACHE: OrderedDict[str, Any] = OrderedDict()
+_ENGINE_CACHE_LOCK = threading.Lock()
+_ENGINE_CACHE_MAX = 8
+
+
+def _get_engine(url: str, timeout_s: int):
+    """获取缓存的 engine，如果不存在则创建。
+
+    创建后上报连接池初始状态到 /metrics。
+    """
+    key = f"{url}|{timeout_s}"
+    with _ENGINE_CACHE_LOCK:
+        if key in _ENGINE_CACHE:
+            _ENGINE_CACHE.move_to_end(key)
+            return _ENGINE_CACHE[key]
+    engine = _build_engine(url, timeout_s)
+    _report_pool_stats(engine, url)
+    with _ENGINE_CACHE_LOCK:
+        _ENGINE_CACHE[key] = engine
+        if len(_ENGINE_CACHE) > _ENGINE_CACHE_MAX:
+            _ENGINE_CACHE.popitem(last=False)
+    return engine
+
+
+def _clear_engine_cache() -> None:
+    """清空 engine 缓存（测试用）。"""
+    with _ENGINE_CACHE_LOCK:
+        _ENGINE_CACHE.clear()
+
+
 def _build_engine(url: str, timeout_s: int):
     """Create the engine with a *statement-level* timeout enforced.
 
     * SQLite: a progress handler aborts the query once the deadline passes
-      (SQLite has no native query timeout).
+    (SQLite has no native query timeout).
     * PostgreSQL: ``statement_timeout`` via connection options.
     """
     timeout = max(1, min(int(timeout_s), _MAX_TIMEOUT_S))
     from sqlalchemy import create_engine
+    _pool_kwargs: dict[str, Any] = {"pool_pre_ping": True}
+    if not url.startswith("sqlite"):
+        _pool_kwargs.update(pool_size=10, max_overflow=20, pool_recycle=1800)
     if url.startswith("sqlite"):
-        engine = create_engine(url, pool_pre_ping=True)
+        engine = create_engine(url, **_pool_kwargs)
 
         @event.listens_for(engine, "connect")
         def _install_progress_handler(dbapi_conn, _record):
@@ -206,4 +242,17 @@ def _build_engine(url: str, timeout_s: int):
     # PostgreSQL / 其他方言
     connect_args = {"options": f"-c statement_timeout={timeout * 1000}"} \
         if url.startswith("postgres") else {}
-    return create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+    return create_engine(url, connect_args=connect_args, **_pool_kwargs)
+
+
+def _report_pool_stats(engine: Any, url: str) -> None:
+    """上报 SQLAlchemy 连接池状态到 /metrics。"""
+    try:
+        pool = engine.pool
+        size = float(pool.size()) if hasattr(pool, "size") else 0.0
+        active = float(pool.checkedout()) if hasattr(pool, "checkedout") else 0.0
+        waiters = float(pool.overflow()) if hasattr(pool, "overflow") else 0.0
+        from ...infrastructure.observability.metrics import report_db_pool
+        report_db_pool(size, active, waiters)
+    except Exception:
+        pass

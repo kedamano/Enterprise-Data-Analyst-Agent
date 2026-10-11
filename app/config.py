@@ -56,7 +56,9 @@ class Settings(BaseSettings):
     app_name: str = "Enterprise Data Analyst Agent"
     environment: str = "development"
     log_level: str = "INFO"
+    log_format: str = "text"  # "text" | "json"（结构化 JSON 输出，便于 Loki/ELK 消费）
     api_prefix: str = "/api/v1"
+    cors_origins: list[str] = []
 
     @field_validator(
         "llm_routes", "llm_fallback_models", "llm_provider_only", "llm_provider_ignore",
@@ -302,6 +304,8 @@ class Settings(BaseSettings):
     # --- AUTH/01 用户级鉴权与数据权限 ---
     # **默认关**：既有本地开发与全部用例行为不变；生产务必打开并配 AUTH_KEYS。
     auth_enabled: bool = False
+    # 生产环境是否强制要求鉴权（默认 True）。生产 + auth_enabled=False + 本项=True → 拒绝启动。
+    auth_required_in_production: bool = True
     # JSON 数组：[{key, user_id, tenant, roles?, allowed_tables?, denied_columns?,
     #             row_filters?, quota_per_min?}]，见 docs/specs/AUTH/01 §5
     auth_keys: str = ""

@@ -6,6 +6,7 @@ anomalous values" in legitimate queries — over-blocking costs more than
 missed detections.
 
 Two-layer defense applied before every LLM call:
+  0. Unicode NFKC 归一化（消除同形字 / 零宽字符绕过）
   1. Structural sanitization (strip known injection tags / collapse repeats)
   2. Pattern-based injection detection (regex from llm-guard / Rebuff)
 
@@ -17,6 +18,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Literal, Optional
 
@@ -84,6 +86,15 @@ class PromptGuard:
         r"(?:reveal|show|dump|print|output)\s+(?:your|the)\s+(?:full\s+)?(?:system\s+)?prompt",
         r"(?:forget|discard|drop)\s+(?:everything|all|your)",
         r"(?:developer|admin|root)\s+mode",
+        # 中文 prompt injection 模式（覆盖常见中文注入话术）
+        r"忽略.{0,8}(之前|上面|所有|前面|原有).{0,8}(指令|指示|命令|规则)",
+        r"(?:你)?现在?(?:是|扮演|充当|作为).{0,6}(?:无限制|自由|新|任何|别人|另一个)",
+        r"(?:不要|别).{0,6}(?:遵守|理会|管|遵循).{0,6}(?:指令|规则|限制)",
+        r"(?:请)?(?:重复|说出|输出|显示).{0,8}(?:上面|之前|系统)(?:的)?(?:指令|提示|规则|prompt)",
+        r"(?:你)?的(?:新|真正|隐藏|核心)?.{0,6}(?:角色|任务|目的|指令|规则)",
+        r"(?:解除|去掉|绕过|无视).{0,6}(?:限制|规则|过滤|约束|安全)",
+        r"(?:我(?:是|为)|以).{0,4}(?:管理员|admin|开发者|root)(?:身份|.{0,4}模式)",
+        r"[PрР][rрР][oоO0][mмM][pрP][tтT]\s*[iиI1][nиN][jиJ][eеE3][cсC][tтT]",  # 同形字 prompt injection
     ]
 
     # Patterns that look dangerous but are legitimate data-engineering jargon.
@@ -121,7 +132,10 @@ class PromptGuard:
         try:
             text = user_query
 
-            # Layer 1: strip injection tags
+            # Layer 0: NFKC Unicode 归一化 — 消除同形字（ Cyrillic а vs Latin a）、
+            # 零宽字符（U+200B/U+200C/U+200D/U+FEFF）等绕过手段。
+            text = unicodedata.normalize("NFKC", text)
+            text = re.sub(r"[​-‍﻿]", "", text)  # strip zero-width chars that NFKC keeps
             text = cls._strip_injection_tags(text)
 
             # Layer 2: collapse repetitive sequences (>200 chars repeated >3x)

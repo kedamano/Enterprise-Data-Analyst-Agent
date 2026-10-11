@@ -16,12 +16,14 @@ Spec: docs/specs/AUTH/01-user-auth-and-data-permissions.md
 from __future__ import annotations
 
 import contextvars
+import hmac
 import json
 import logging
 import re
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
@@ -91,6 +93,12 @@ def validate_filter_fragment(cond: str) -> Optional[str]:
 
 def parse_keys(raw: str) -> list[tuple[str, Principal]]:
     """把 `AUTH_KEYS` 解析成 [(key, principal)]。坏配置 → 抛（启动即暴露）。"""
+    return _parse_keys_cached(raw or "")
+
+
+@lru_cache(maxsize=16)
+def _parse_keys_cached(raw: str) -> list[tuple[str, Principal]]:
+    """`parse_keys` 的缓存版本。相同 `auth_keys` 字符串不重复解析。"""
     text = (raw or "").strip()
     if not text:
         return []
@@ -114,6 +122,26 @@ def enabled() -> bool:
     return bool(getattr(get_settings(), "auth_enabled", False))
 
 
+def check_startup_security() -> None:
+    """启动时安全检查：生产环境未开鉴权则拒绝启动。
+
+    Spec: docs/specs/SEC/02-production-auth-enforcement.md
+
+    判定规则：
+    - production/prod 环境 + auth_enabled=False + auth_required_in_production=True → 抛 RuntimeError
+    - 其他环境 → 允许启动（保持开发友好）
+    """
+    settings = get_settings()
+    env = (settings.environment or "").lower()
+    is_production = env in ("production", "prod")
+    if is_production and not settings.auth_enabled and settings.auth_required_in_production:
+        raise RuntimeError(
+            f"生产环境必须启用鉴权：environment={settings.environment} 且 auth_enabled=False。"
+            "请设置 AUTH_ENABLED=true 并配置 AUTH_KEYS，"
+            "或设置 AUTH_REQUIRED_IN_PRODUCTION=false 以跳过此检查。"
+        )
+
+
 def effective_permissions(principal: "Principal") -> set[str]:
     """该 principal 经 RBAC 展开后的**权限字符串集合**（用于工具级门禁）。
 
@@ -129,11 +157,14 @@ def anonymous_principal() -> Principal:
 
 
 def resolve_key(api_key: Optional[str]) -> Optional[Principal]:
-    """key → Principal；未知 key 返回 None（**不回显差异**，防枚举）。"""
+    """key → Principal；未知 key 返回 None（**不回显差异**，防枚举）。
+
+    使用 ``hmac.compare_digest`` 进行恒定时间比较，防止时序攻击。
+    """
     if not api_key:
         return None
     for key, principal in parse_keys(getattr(get_settings(), "auth_keys", "") or ""):
-        if api_key == key:
+        if hmac.compare_digest(api_key, key):
             return principal
     return None
 

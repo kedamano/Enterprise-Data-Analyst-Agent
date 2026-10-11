@@ -40,11 +40,50 @@ _RECENT: deque = deque(maxlen=400)  # newest appended at the end
 _current_tracer: contextvars.ContextVar = contextvars.ContextVar("da_tracer", default=None)
 
 
-def setup_logging(level: str = "INFO") -> None:
+def setup_logging(level: str = "INFO", fmt: str = "text") -> None:
+    """Configure loguru with structured output.
+
+    * ``fmt="json"`` → 每行一条 JSON（含 time/level/module/message/trace_id），
+      便于 Loki/ELK 消费；写 data/logs/ 目录 + rotation 100MB / retention 7d。
+    * ``fmt="text"`` → 人类可读，colorized stdout（开发默认）。
+    """
+    import os
+
     try:
         from loguru import logger as lg
+
         lg.remove()
-        lg.add(lambda msg: print(msg, end=""), level=level, colorize=True)
+        _json = fmt == "json"
+        if _json:
+            pathlib.Path("data/logs").mkdir(parents=True, exist_ok=True)
+            lg.add(
+                "data/logs/edaa.log",
+                level=level,
+                rotation="100 MB",
+                retention="7 days",
+                encoding="utf-8",
+                enqueue=True,
+                serialize=True,
+            )
+            # 同时输出纯文本到 stdout（容器环境下 stdout 被采集）
+            lg.add(
+                lambda msg: print(msg, end=""),
+                level=level,
+                colorize=False,
+                format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+                "<level>{level:<7}</level> | "
+                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+                "<level>{message}</level>"
+                "{extra}",
+            )
+        else:
+            lg.add(
+                lambda msg: print(msg, end=""),
+                level=level,
+                colorize=True,
+            )
+        if _json:
+            lg.info("日志已切换为结构化 JSON 格式 → data/logs/edaa.log (rotation=100MB, retention=7d)")
     except Exception:
         logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO))
 
@@ -128,6 +167,22 @@ class Tracer:
                     k: v for k, v in getattr(span, "metadata", {}).items()
                     if isinstance(v, (str, int, float, bool)) and k != "error"
                 },
+            )
+        except Exception:
+            pass
+        # OTel trace export（opt-in：配置 OTEL_EXPORTER_OTLP_ENDPOINT 时推送到 Collector）
+        try:
+            from .otel_trace import emit_span as _otel_emit
+            _otel_emit(
+                stage=span.stage,
+                trace_id=span.trace_id,
+                span_id=span.span_id,
+                status=span.status,
+                duration_ms=span.duration_ms or 0.0,
+                error=span.error,
+                started_at=span._started_ns / 1e9 if span._started_ns else None,
+                prompt_tokens=span.prompt_tokens,
+                completion_tokens=span.completion_tokens,
             )
         except Exception:
             pass

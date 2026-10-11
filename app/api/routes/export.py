@@ -377,4 +377,13 @@ def analyze_export(session_id: str,
     if token:
         headers["X-Dlp-Watermark"] = token
 
-    return Response(_zip_bytes(items), media_type="application/zip", headers=headers)
+    zip_bytes = _zip_bytes(items)
+    _bytes = len(zip_bytes)
+    res = Response(zip_bytes, media_type="application/zip", headers=headers)
+    # 上报导出耗时与大小
+    try:
+        from ...infrastructure.observability.metrics import observe_export
+        observe_export(_t.time() - _t0, _bytes, _ok)
+    except Exception:
+        pass
+    return res

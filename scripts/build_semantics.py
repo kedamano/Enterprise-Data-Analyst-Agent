@@ -22,8 +22,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.config import get_settings  # noqa: E402
-from app.core.semantics import collect_semantics, describe_semantics  # noqa: E402
+from app.config import get_settings
+from app.core.semantics import collect_semantics, describe_semantics
 
 
 def build_text() -> tuple[str, str]:
@@ -48,7 +48,7 @@ def main() -> int:
 
     print(text)
     print()
-    if args.dry_run:
+    if args.dry-run:
         print(f"[dry-run] source={source}")
         return 0
 

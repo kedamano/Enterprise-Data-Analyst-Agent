@@ -106,7 +106,12 @@ def _collect_uncached(session_id: str = "") -> Semantics:
             raise RuntimeError(err)
         from sqlalchemy import create_engine, inspect, text
 
-        engine = create_engine(settings.data_db_url, pool_pre_ping=True)
+        _is_sqlite = settings.data_db_url.startswith("sqlite")
+        engine = create_engine(
+            settings.data_db_url,
+            pool_pre_ping=True,
+            **({} if _is_sqlite else {"pool_size": 10, "max_overflow": 20, "pool_recycle": 1800}),
+        )
         insp = inspect(engine)
         tables: list[dict] = []
         for t in insp.get_table_names():

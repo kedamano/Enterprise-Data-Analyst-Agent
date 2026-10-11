@@ -136,7 +136,57 @@ def record_llm_call(prompt_tokens: int, completion_tokens: int, cost_usd: Option
 
 def record_event(name: str) -> None:
     """降级 / 限流 / 鉴权拒绝等运维事件计数。"""
-    metrics.inc(f"events_total{{name=\"{_escape_label(name)}\"}}" if False else f"event_{name}_total")
+    metrics.inc(f"event_{name}_total")
+
+
+# --------------------------------------------------------------------------- #
+# 缓存命中 / 会话 / DB 连接池指标
+# --------------------------------------------------------------------------- #
+def record_cache_hit(cache_type: str) -> None:
+    """缓存命中（cache_type: 'response' 或 'semantic'）。"""
+    metrics.inc("cache_hits_total", 1.0)
+    metrics.inc(f'cache_hits_total{{type="{_escape_label(cache_type)}"}}', 1.0)
+
+
+def record_cache_miss(cache_type: str) -> None:
+    """缓存未命中。"""
+    metrics.inc("cache_misses_total", 1.0)
+    metrics.inc(f'cache_misses_total{{type="{_escape_label(cache_type)}"}}', 1.0)
+
+
+def set_active_sessions(count: int) -> None:
+    """设置当前活跃 session 数（gauge）。"""
+    metrics.set_gauge("active_sessions", float(max(0, count)))
+
+
+def inc_active_sessions() -> None:
+    """新建 session 时 +1。"""
+    with metrics._lock:
+        current = metrics._gauges.get("active_sessions", 0.0)
+        metrics._gauges["active_sessions"] = current + 1.0
+
+
+def dec_active_sessions() -> None:
+    """session 结束时 -1。"""
+    with metrics._lock:
+        current = metrics._gauges.get("active_sessions", 0.0)
+        metrics._gauges["active_sessions"] = max(0.0, current - 1.0)
+
+
+def report_db_pool(pool_size: float, active_connections: float, waiters: float = 0.0) -> None:
+    """上报 SQLAlchemy 连接池状态（每 N 秒或每次连接建立后调用一次）。"""
+    metrics.set_gauge("db_pool_size", pool_size)
+    metrics.set_gauge("db_pool_connections", active_connections)
+    metrics.set_gauge("db_pool_waiters", waiters)
+
+
+def observe_export(duration_s: float, bytes_count: int, ok: bool) -> None:
+    """导出操作耗时与结果。"""
+    metrics.observe("export_duration_seconds", duration_s)
+    metrics.inc("exports_total", 1.0)
+    metrics.inc("export_bytes_total", float(bytes_count))
+    if not ok:
+        metrics.inc("exports_failed_total")
 
 
 # --------------------------------------------------------------------------- #
