@@ -320,86 +320,8 @@ def test_evaluate_excludes_degraded_from_metrics(monkeypatch):
     from app.eval import runner
     from app.eval.golden import GoldenCase
 
-    monkeypatch.setattr(runner, "GOLDEN", (
-        GoldenCase(id="good", query="a"),
-        GoldenCase(id="deg", query="b"),
-    ))
-
-    def fake_isolated(case, mode, sid, trace_dir):
-        out = runner.CaseOutcome(case_id=case.id, status="FINISH")
-        out.assertions_ok = True
-        if case.id == "deg":
-            out.status = "DEGRADED"
-            out.degraded = True
-            out.degraded_stages = ["planner"]
-            out.assertions_ok = False
-        return out
-
-    monkeypatch.setattr(runner, "evaluate_case", fake_isolated)
-    report = runner.evaluate("real", only_real=False)
-    m = report["metrics"]
-
-    assert m["degraded_excluded"] == 1, "降级数必须显式出现在指标里"
-    assert m["scored_cases"] == 1, "降级用例不得计入计分口径"
-    assert m["pass_rate"] == 1.0, "剔除降级后，只有真实用例参与通过率"
-
-    md = runner.render_markdown(report)
-    assert "降级剔除" in md and "deg" in md, "报告必须点名哪些用例被剔除"
-    assert "⚠️" in md
-
-
-# --------------------------------------------------------------------------- #
-# 5. 评测诚信：降级（拿 mock 冒充真模型）**必须被识别并剔除**
-# --------------------------------------------------------------------------- #
-def _fake_state(degraded: bool, status: str = "FINISH"):
-    from app.core.agents.data_analyst.state import AgentState
-
-    st = AgentState(session_id="deg_sess", user_query="各区域营收")
-    st.status = status
-    st.report = "一份看起来正常的报告"
-    st.metadata["llm_fallbacks"] = (
-        [{"stage": "planner"}, {"stage": "reporter"}] if degraded else [])
-    st.metadata["degraded"] = degraded
-    return st
-
-
-def _run_case(monkeypatch, mode: str, degraded: bool):
-    from app.core.agents.data_analyst import graph
-    from app.eval import runner
-    from app.eval.golden import GoldenCase
-
-    monkeypatch.setattr(graph, "run_analysis", lambda sid, q: _fake_state(degraded))
-    # judge 用离线 rubric，避免测试打网络
-    monkeypatch.setenv("MOCK_LLM", "true")
-    case = GoldenCase(id="deg_case", query="各区域营收")
-    return runner.evaluate_case(case, mode, "deg_sess", None)
-
-
-def test_real_mode_marks_degraded_case_and_excludes_from_baseline(monkeypatch):
-    """事故现场：额度耗尽 → 429 → 静默降级 mock → 旧 runner **照常计分**。"""
-    out = _run_case(monkeypatch, "real", degraded=True)
-    assert out.degraded is True
-    assert out.status == "DEGRADED", "降级必须改状态，不能混进真实结果"
-    assert out.assertions_ok is False
-    assert any("降级" in a for a in out.failed_assertions)
-    assert set(out.degraded_stages) == {"planner", "reporter"}, out.degraded_stages
-
-
-def test_real_mode_clean_run_is_not_marked_degraded(monkeypatch):
-    out = _run_case(monkeypatch, "real", degraded=False)
-    assert out.degraded is False
-    assert out.status == "FINISH", "没有降级时行为不变"
-
-
-def test_mock_mode_is_not_marked_degraded(monkeypatch):
-    """mock 模式本来就该用模板，不适用"降级"概念。"""
-    out = _run_case(monkeypatch, "mock", degraded=True)
-    assert out.status == "FINISH"
-
-
-def test_evaluate_excludes_degraded_from_metrics(monkeypatch):
-    from app.eval import runner
-    from app.eval.golden import GoldenCase
+    # monkeypatch 替换了 evaluate_case（不触网），让 evaluate("real") 的 mode gate 放行
+    monkeypatch.setenv("LLM_API_KEY", "sk-fake-for-eval-mode-gate")
 
     monkeypatch.setattr(runner, "GOLDEN", (
         GoldenCase(id="good", query="a"),
@@ -427,3 +349,4 @@ def test_evaluate_excludes_degraded_from_metrics(monkeypatch):
     md = runner.render_markdown(report)
     assert "降级剔除" in md and "deg" in md, "报告必须点名哪些用例被剔除"
     assert "⚠️" in md
+
